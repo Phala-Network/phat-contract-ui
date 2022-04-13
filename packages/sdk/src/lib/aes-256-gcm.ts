@@ -1,4 +1,4 @@
-import {createCipheriv, createDecipheriv} from 'crypto-browserify'
+import {createCipheriv, createDecipheriv} from 'browser-crypto'
 import {hexToU8a, hexAddPrefix, hexStripPrefix} from '@polkadot/util'
 
 const ALGO = 'aes-256-gcm'

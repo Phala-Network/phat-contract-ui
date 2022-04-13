@@ -1,3 +1,3 @@
-declare module 'crypto-browserify' {
+declare module 'browser-crypto' {
   export * from 'crypto'
 }
