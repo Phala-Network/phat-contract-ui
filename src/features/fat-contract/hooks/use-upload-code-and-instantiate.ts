@@ -7,6 +7,7 @@ import type { SubmittableExtrinsic } from '@polkadot/api-base/types/submittable'
 import type { Event as PolkadotEvent, EventRecord } from '@polkadot/types/interfaces/system'
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
 import { web3FromSource } from '@polkadot/extension-dapp'
+import { useToast } from '@chakra-ui/react'
 import * as R from 'ramda'
 
 import { rpcApiInstanceAtom, useConnectApi } from '@/atoms/foundation'
@@ -57,6 +58,7 @@ export default function useUploadCodeAndInstantiate() {
   const api = useAtomValue(rpcApiInstanceAtom)
   const dispatch = useUpdateAtom(dispatchEventAtom)
   const reset = useResetAtom(eventsAtom)
+  const toast = useToast()
 
   useConnectApi()
 
@@ -79,6 +81,11 @@ export default function useUploadCodeAndInstantiate() {
     )
     // @ts-ignore
     dispatch(r2.events)
-
-  }, [api, dispatch, reset])
+    toast({
+      title: 'Instantiate Requested.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    })
+  }, [api, dispatch, reset, toast])
 }
