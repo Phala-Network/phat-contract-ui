@@ -2,22 +2,9 @@ import { useEffect } from 'react'
 import { atom, useAtom } from 'jotai'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
-import { web3Accounts, web3Enable } from '@polkadot/extension-dapp'
-import { keyring } from '@polkadot/ui-keyring'
 import { ApiPromise, WsProvider } from '@polkadot/api'
-import { ContractPromise } from '@polkadot/api-contract'
 import { khalaDev } from '@phala/typedefs'
 import { types as phalaSDKTypes } from '@phala/sdk'
-
-export const injectedExtensionsFoundAtom = atom(async () => {
-  try {
-    const injected = await web3Enable('contracts-ui')
-    return injected.length > 0
-  } catch (error) {
-    return false
-  }
-})
 
 export const rpcEndpointAtom = atom('')
 
