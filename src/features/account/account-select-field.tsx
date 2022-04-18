@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import tw from 'twin.macro'
 import { HiChevronDown as ChevronDownIcon, HiOutlineCheck as CheckIcon } from 'react-icons/hi'
-import { useAtom } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
 import {
   Alert,
@@ -20,15 +20,31 @@ import {
   FormHelperText,
 } from '@chakra-ui/react'
 
+import { rpcApiInstanceAtom } from '@/atoms/foundation'
 import { accountsAtom, extensionEnabledAtom, lastSelectedAccountAtom } from './atoms'
+
+export const balanceAtom = atom(async (get) => {
+  const api = get(rpcApiInstanceAtom)
+  const selected = get(lastSelectedAccountAtom)
+  if (!api || !selected) {
+    return 0
+  }
+  // console.log(api.query.system)
+  console.log(selected)
+  const account = await api.query.system.account(selected.address)
+  // @ts-ignore
+  const value = parseInt((BigInt(account.data.free.toString()) / BigInt(100000000)).toString(), 10) / 10000
+  return value
+})
 
 function AccountSelectFieldBase() {
   const enabled = useAtomValue(extensionEnabledAtom)
   const accounts = useAtomValue(accountsAtom)
   const [selected, setSelected] = useAtom(lastSelectedAccountAtom)
+  const balance = useAtomValue(balanceAtom)
   let placeholder = 'Please Select Account First'
   if (selected && selected.meta && selected.meta.name) {
-    placeholder = selected.meta.name
+    placeholder = `${selected.meta.name} (${balance} UNIT)`
   } else if (accounts.length === 0) {
     placeholder = 'Please Add Account First'
   }
