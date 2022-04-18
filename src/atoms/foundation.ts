@@ -102,7 +102,7 @@ export const useConnectApi = () => {
             }
             return prev
           })
-        }, 3000)
+        }, 10000)
 
         await api.isReady
         setApiInstance(api)

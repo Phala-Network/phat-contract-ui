@@ -10,6 +10,8 @@ import {
   FormErrorMessage,
   InputRightElement,
   VStack,
+  useToast,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import { useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
@@ -21,21 +23,47 @@ import useUploadCodeAndInstantiate from './hooks/use-upload-code-and-instantiate
 import AccountSelectField from '@/features/account/account-select-field'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
+import EventList from './event-list'
 
 const SubmitButton = () => {
   const account = useAtomValue(lastSelectedAccountAtom)
   const candidate = useAtomValue(candidateAtom)
   const clusterId = useAtomValue(clusterIdAtom)
   const status = useAtomValue(rpcApiStatusAtom)
+  const [isLoading, setIsLoading] = useState(false)
+  const toast = useToast()
   const uploadCodeAndInstantiate = useUploadCodeAndInstantiate()
   
   const handleSubmit = async () => {
+    console.log('handleSubmit', account, candidate)
+    if (!account) {
+      toast({
+        title: 'Please select an account first.',
+        // description: "We've created your account for you.",
+        status: 'error',
+        duration: 9000,
+        isClosable: true,
+      })
+      return
+    }
+    if (!candidate) {
+      toast({
+        title: 'Please choose a contract file first.',
+        // description: "We've created your account for you.",
+        status: 'error',
+        duration: 9000,
+        isClosable: true,
+      })
+      return
+    }
     if (account && candidate) {
+      setIsLoading(true)
       await uploadCodeAndInstantiate(account, candidate, clusterId)
+      setIsLoading(false)
     }
   }
   return (
-    <Button onClick={handleSubmit} disabled={status !== 'connected'}>Submit</Button>
+    <Button onClick={handleSubmit} disabled={status !== 'connected'} isLoading={isLoading}>Submit</Button>
   )
 }
 
@@ -77,13 +105,14 @@ const RpcEndpointField = () => {
               setError('')
             }}
           />
-          <InputRightElement w="5rem" mr="1">
+          <InputRightElement w="5.6rem" mr="1">
             <Button
               tw="bg-black text-gray-300 border border-solid border-[#f3f3f3] hover:bg-[#f3f3f3] hover:text-black"
               h="1.75rem"
               mr="0.3rem"
               size="sm"
               isLoading={status === 'connecting'}
+              isDisabled={status === 'connected' && input === endpoint}
               onClick={() => {
                 if (input.indexOf('wss://') !== 0) {
                   setValidateError('Invalid RPC Endpoint URL')
@@ -93,7 +122,7 @@ const RpcEndpointField = () => {
                 }
               }}
             >
-              connect
+              {status === 'connected' && input === endpoint ? 'connected' : 'connect'}
             </Button>
           </InputRightElement>
         </InputGroup>
@@ -108,25 +137,30 @@ const RpcEndpointField = () => {
 const FatContractUploadForm = () => {
   return (
     <>
-      <VStack
-        mx={8}
-        my={4}
-        pb={8}
-        spacing={4}
-        align="left"
-        tw="bg-[#f3f3f3] text-[#555]"
-      >
-        <RpcEndpointField />
-        <AccountSelectField />
-        <ContractFileUpload />
-        <InitSelectorField />
-        <ClusterIdField />
-      </VStack>
-      <div tw="px-8 w-full flex justify-end">
-        <Suspense fallback={<Button><Spinner /></Button>}>
-          <SubmitButton />
-        </Suspense>
-      </div>
+      <SimpleGrid columns={{sm: 1, md: 2}} maxW="7xl" mx="auto">
+        <div>
+          <VStack
+            mx={8}
+            my={4}
+            pb={8}
+            spacing={4}
+            align="left"
+            tw="bg-[#f3f3f3] text-[#555]"
+          >
+            <RpcEndpointField />
+            <AccountSelectField />
+            <ContractFileUpload />
+            <InitSelectorField />
+            <ClusterIdField />
+          </VStack>
+          <div tw="px-8 w-full flex justify-end">
+            <Suspense fallback={<Button><Spinner /></Button>}>
+              <SubmitButton />
+            </Suspense>
+          </div>
+        </div>
+        <EventList />
+      </SimpleGrid>
     </>
   )
 }
