@@ -14,14 +14,14 @@ export const rpcApiInstanceAtom = atom<ApiPromise | null>(null)
 
 export const createApiInstance = (endpointUrl: string): [WsProvider, ApiPromise] => {
   console.log('create RPC connection to ', endpointUrl)
-  const wsProvider = new WsProvider(endpointUrl);
+  const wsProvider = new WsProvider(endpointUrl)
   const api = new ApiPromise({
     provider: wsProvider,
     types: {
       ...khalaDev,
       ...phalaSDKTypes,
     },
-  });
+  })
   return [wsProvider, api]
 }
 
@@ -46,6 +46,18 @@ export const useConnectApi = () => {
 
       const fn = async () => {
         const [ws, api] = createApiInstance(endpointUrl)
+
+        ws.on('error', (error) => {
+          const isFirefox = window.navigator.userAgent.indexOf('Firefox') !== -1
+          setApiInstance(null)
+          setEndpointUrl('')
+          console.log(new Date(), 'setStatus -> error')
+          if (isFirefox) {
+            setError('RPC Endpoint is unreachable. If you are using Firefox, please switch to Chrome and try again.')
+          } else {
+            setError('RPC Endpoint is unreachable.')
+          }
+        })
 
         api.on('connected', async () => {
           await api.isReady
@@ -79,7 +91,6 @@ export const useConnectApi = () => {
 
         setTimeout(() => {
           setStatus(prev => {
-            console.log(new Date(), 'timeout, let\'s check', prev)
             if (prev !== 'connected') {
               setApiInstance(null)
               setEndpointUrl('')
