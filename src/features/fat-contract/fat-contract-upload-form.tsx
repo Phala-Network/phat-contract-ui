@@ -63,7 +63,7 @@ const SubmitButton = () => {
     }
   }
   return (
-    <Button onClick={handleSubmit} disabled={status !== 'connected'} isLoading={isLoading}>Submit</Button>
+    <Button size="lg" onClick={handleSubmit} disabled={status !== 'connected'} isLoading={isLoading}>Submit</Button>
   )
 }
 
@@ -137,15 +137,14 @@ const RpcEndpointField = () => {
 const FatContractUploadForm = () => {
   return (
     <>
-      <SimpleGrid columns={{sm: 1, md: 2}} maxW="7xl" mx="auto">
+      <SimpleGrid columns={{sm: 1, md: 2}} spacing={0} mt="2" maxW="7xl" mx="auto">
         <div>
           <VStack
-            mx={8}
             my={4}
             pb={8}
             spacing={4}
             align="left"
-            tw="bg-[#f3f3f3] text-[#555]"
+            tw="bg-[#f3f3f3] text-[#555] mx-8 md:mr-2"
           >
             <RpcEndpointField />
             <AccountSelectField />
@@ -153,7 +152,7 @@ const FatContractUploadForm = () => {
             <InitSelectorField />
             <ClusterIdField />
           </VStack>
-          <div tw="px-8 w-full flex justify-end">
+          <div tw="px-8 md:pr-2 mb-4 w-full flex justify-end">
             <Suspense fallback={<Button><Spinner /></Button>}>
               <SubmitButton />
             </Suspense>
