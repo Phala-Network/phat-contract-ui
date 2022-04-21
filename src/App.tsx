@@ -9,7 +9,7 @@ import { rpcEndpointAtom, useConnectApi } from './atoms/foundation'
 import type { FoundationProviderProps } from '@/foundation/Provider'
 import FoundationProvider from '@/foundation/Provider'
 import AccountMenu from '@/features/account/account-menu'
-import FatContractUploadForm from '@/features/fat-contract/fat-contract-upload-form'
+import FatContractUploadForm from '@/features/instantiate/fat-contract-upload-form'
 import EventDisplay from '@/features/system-events/event-display'
 
 const endpoint = 'wss://poc5.phala.network/ws';
