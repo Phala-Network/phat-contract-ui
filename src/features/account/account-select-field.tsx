@@ -20,22 +20,7 @@ import {
   FormHelperText,
 } from '@chakra-ui/react'
 
-import { rpcApiInstanceAtom } from '@/atoms/foundation'
-import { accountsAtom, extensionEnabledAtom, lastSelectedAccountAtom } from './atoms'
-
-export const balanceAtom = atom(async (get) => {
-  const api = get(rpcApiInstanceAtom)
-  const selected = get(lastSelectedAccountAtom)
-  if (!api || !selected) {
-    return 0
-  }
-  // console.log(api.query.system)
-  console.log(selected)
-  const account = await api.query.system.account(selected.address)
-  // @ts-ignore
-  const value = parseInt((BigInt(account.data.free.toString()) / BigInt(100000000)).toString(), 10) / 10000
-  return value
-})
+import { accountsAtom, extensionEnabledAtom, lastSelectedAccountAtom, balanceAtom } from './atoms'
 
 function AccountSelectFieldBase() {
   const enabled = useAtomValue(extensionEnabledAtom)

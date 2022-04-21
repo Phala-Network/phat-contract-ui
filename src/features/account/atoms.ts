@@ -4,6 +4,8 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
 import { web3Enable, web3Accounts } from '@polkadot/extension-dapp'
 import { keyring } from '@polkadot/ui-keyring'
 
+import { rpcApiInstanceAtom } from '@/atoms/foundation'
+
 export const extensionEnabledAtom = atom(false)
 
 extensionEnabledAtom.onMount = (set) => {
@@ -49,3 +51,17 @@ export const lastSelectedAccountAtom = atom(
     }
   }
 )
+
+export const balanceAtom = atom(async (get) => {
+  const api = get(rpcApiInstanceAtom)
+  const selected = get(lastSelectedAccountAtom)
+  if (!api || !selected) {
+    return 0
+  }
+  // console.log(api.query.system)
+  // console.log(selected)
+  const account = await api.query.system.account(selected.address)
+  // @ts-ignore
+  const value = parseInt((BigInt(account.data.free.toString()) / BigInt(100000000)).toString(), 10) / 10000
+  return value
+})
