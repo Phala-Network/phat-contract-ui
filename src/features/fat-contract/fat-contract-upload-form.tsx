@@ -136,31 +136,27 @@ const RpcEndpointField = () => {
 
 const FatContractUploadForm = () => {
   return (
-    <>
-      <SimpleGrid columns={{sm: 1, md: 2}} spacing={0} mt="2" maxW="7xl" mx="auto">
-        <div>
-          <VStack
-            my={4}
-            pb={8}
-            spacing={4}
-            align="left"
-            tw="bg-[#f3f3f3] text-[#555] mx-8 md:mr-2"
-          >
-            <RpcEndpointField />
-            <AccountSelectField />
-            <ContractFileUpload />
-            <InitSelectorField />
-            <ClusterIdField />
-          </VStack>
-          <div tw="px-8 md:pr-2 mb-4 w-full flex justify-end">
-            <Suspense fallback={<Button><Spinner /></Button>}>
-              <SubmitButton />
-            </Suspense>
-          </div>
-        </div>
-        <EventList />
-      </SimpleGrid>
-    </>
+    <div>
+      <VStack
+        my={4}
+        pb={8}
+        spacing={4}
+        align="left"
+        tw="bg-[#f3f3f3] text-[#555] mx-8 md:mr-2"
+      >
+        <RpcEndpointField />
+        <AccountSelectField />
+        <ContractFileUpload />
+        <InitSelectorField />
+        <ClusterIdField />
+        {/* <EventList /> */}
+      </VStack>
+      <div tw="px-8 md:pr-2 mb-4 w-full flex justify-end">
+        <Suspense fallback={<Button><Spinner /></Button>}>
+          <SubmitButton />
+        </Suspense>
+      </div>
+    </div>
   )
 }
 
