@@ -35,7 +35,6 @@ const SubmitButton = () => {
   const uploadCodeAndInstantiate = useUploadCodeAndInstantiate()
   
   const handleSubmit = async () => {
-    console.log('handleSubmit', account, candidate)
     if (!account) {
       toast({
         title: 'Please select an account first.',

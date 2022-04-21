@@ -11,6 +11,7 @@ import { useToast } from '@chakra-ui/react'
 import * as R from 'ramda'
 
 import { rpcApiInstanceAtom, useConnectApi } from '@/atoms/foundation'
+import { contractsAtom } from '@/features/fat-contract/atoms'
 
 export const eventsAtom = atomWithReset<PolkadotEvent[]>([])
 
@@ -59,6 +60,7 @@ export default function useUploadCodeAndInstantiate() {
   const dispatch = useUpdateAtom(dispatchEventAtom)
   const reset = useResetAtom(eventsAtom)
   const toast = useToast()
+  const saveContract = useUpdateAtom(contractsAtom)
 
   useConnectApi()
 
@@ -81,11 +83,18 @@ export default function useUploadCodeAndInstantiate() {
     )
     // @ts-ignore
     dispatch(r2.events)
+    // @ts-ignore
+    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), r2.events)
+    if (instantiateEvent && instantiateEvent.event.data.length > 2) {
+      const contractId = instantiateEvent.event.data[0]
+      const metadata = R.dissocPath(['source', 'wasm'], contract)
+      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId} }))
+    }
     toast({
       title: 'Instantiate Requested.',
       status: 'success',
       duration: 3000,
       isClosable: true,
     })
-  }, [api, dispatch, reset, toast])
+  }, [api, dispatch, reset, toast, saveContract])
 }

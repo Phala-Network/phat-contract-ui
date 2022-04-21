@@ -16,7 +16,7 @@ import { stringify, stringToU8a } from '@polkadot/util'
 import { keyring } from '@polkadot/ui-keyring'
 import { xxhashAsHex } from '@polkadot/util-crypto'
 import { khalaDev } from '@phala/typedefs'
-import { types as phalaSDKTypes } from '@phala/sdk'
+import { types as phalaSDKTypes } from '../sdk'
 
 export const rpcEndpointAtom = atom('')
 

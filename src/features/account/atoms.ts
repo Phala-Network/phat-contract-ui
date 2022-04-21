@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
-import { web3Enable, web3Accounts } from '@polkadot/extension-dapp'
+import { web3Enable, web3Accounts, web3FromSource } from '@polkadot/extension-dapp'
 import { keyring } from '@polkadot/ui-keyring'
 
 import { rpcApiInstanceAtom } from '@/atoms/foundation'
@@ -28,7 +28,11 @@ export const accountsAtom = atom(async (get) => {
     try {
       const allAccounts = await web3Accounts();
       // @FIXME
-      keyring.loadAll({ isDevelopment: true }, allAccounts);
+      try {
+        keyring.loadAll({ isDevelopment: true }, allAccounts);
+      } catch (err) {
+        // complain on hot-reload
+      }
       return allAccounts
     } catch (err) {
       console.log('[accountsAtom] load keyring failed with: ', err)
@@ -64,4 +68,13 @@ export const balanceAtom = atom(async (get) => {
   // @ts-ignore
   const value = parseInt((BigInt(account.data.free.toString()) / BigInt(100000000)).toString(), 10) / 10000
   return value
+})
+
+export const signerAtom = atom(async (get) => {
+  const account = get(lastSelectedAccountAtom)
+  if (!account) {
+    return null
+  }
+  const { signer } = await web3FromSource(account.meta.source)
+  return signer
 })

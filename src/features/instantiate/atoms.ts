@@ -37,7 +37,6 @@ export const contractFinalInitSelectorAtom = atom(get => {
 
 export const contractCandidateAtom = atom('', (_, set, file: File) => {
   const reader = new FileReader()
-  console.log('set contractCandidateAtom', file)
   set(contractParserErrorAtom, '')
   reader.addEventListener('load', () => {
     try {
@@ -46,7 +45,6 @@ export const contractCandidateAtom = atom('', (_, set, file: File) => {
         set(contractParserErrorAtom, "Your contract file is invalid.")
         return
       }
-      console.log('parsed:', contract)
       set(candidateFileInfoAtom, { name: file.name, size: file.size })
       set(candidateAtom, contract)
     } catch (e) {
