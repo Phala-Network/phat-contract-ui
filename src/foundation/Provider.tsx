@@ -2,10 +2,19 @@ import type { ComponentPropsWithoutRef, FC, ReactNode } from 'react'
 import tw from 'twin.macro'
 import { Provider as JotaiProvider } from 'jotai'
 import { ChakraProvider, extendTheme } from '@chakra-ui/react'
+import {
+  Link,
+  MakeGenerics,
+  Outlet,
+  ReactLocation,
+  Router,
+  useMatch,
+} from "@tanstack/react-location"
 
 export type FoundationProviderProps =
-  { children: ReactNode }
-  & ComponentPropsWithoutRef<typeof JotaiProvider>;
+  { children: ReactNode}
+  & ComponentPropsWithoutRef<typeof JotaiProvider>
+  & Omit<ComponentPropsWithoutRef<typeof Router>, "location">;
 
 const theme = extendTheme({
   config: {
@@ -41,18 +50,25 @@ const theme = extendTheme({
   },
 })
 
-console.log(theme)
+const location = new ReactLocation()
 
 const FoundationProvider: FC<FoundationProviderProps> = ({
   children,
   // For Jotai Provider
   initialValues,
-  scope
+  scope,
+  // For React-Location
+  routes,
 }) => {
   return (
     <JotaiProvider initialValues={initialValues} scope={scope}>
       <ChakraProvider theme={theme}>
-        {children}
+        <Router
+          routes={routes}
+          location={location}
+        >
+          {children}
+        </Router>
       </ChakraProvider>
     </JotaiProvider>
   )
