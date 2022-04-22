@@ -1,9 +1,7 @@
 import tw from 'twin.macro'
 import { Suspense } from 'react'
 import { SimpleGrid, Avatar, Button, ButtonGroup } from '@chakra-ui/react'
-import {
-  Outlet,
-} from "@tanstack/react-location"
+import { Outlet, Link } from "@tanstack/react-location"
 import { useAtomValue } from 'jotai/utils'
 
 import { signCertificate, CertificateData } from './sdk'
@@ -20,6 +18,7 @@ import { lastSelectedAccountAtom, signerAtom } from '@/features/account/atoms'
 import ContractAddPage from '@/pages/contract-add-page'
 import ContractListPage from '@/pages/contract-list-page'
 import ContractInfoPage from '@/pages/contract-info-page'
+import ComponentListPage from '@/pages/component-list-page'
 
 const endpoint = 'wss://poc5.phala.network/ws';
 // const endpoint = 'wss://rococo-canvas-rpc.polkadot.io';
@@ -40,7 +39,6 @@ const ConnectionIndicator = () => {
   <FatContractUploadForm />
   <EventDisplay />
 </SimpleGrid>
-*/
 
 const ContractInteractive = () => {
   const contract = useAtomValue(derviedContractAtom)
@@ -97,12 +95,6 @@ const ContractInteractive = () => {
         <Button disabled={!account} onClick={onCommand}>
           Flip
         </Button>
-        {/* <Button disabled={!certificateData} onClick={onQuery}>
-          Get
-        </Button>
-        <Button disabled={!account} onClick={onCommand}>
-          Flip
-        </Button> */}
       </ButtonGroup>
     </div>
   )
@@ -112,11 +104,12 @@ const Home = () => {
   return (
     <div>
       <Suspense fallback={<div>Loading...</div>}>
-        {/* <ContractInteractive /> */}
+        <ContractInteractive />
       </Suspense>
     </div>
   )
 }
+*/
 
 function App() {
   return (
@@ -126,12 +119,13 @@ function App() {
         { path: "/", element: <ContractListPage /> },
         { path: "/contracts/add", element: <ContractAddPage /> },
         { path: "/contracts/view/:contractId", element: <ContractInfoPage /> },
+        { path: "/components", element: <ComponentListPage /> },
       ]}
     >
       <div tw="min-h-full">
         <div tw="bg-phalaDark-600 pb-32">
           <div tw="flex flex-row justify-between items-center pt-4 mx-8 pb-4 border-b border-gray-700">
-            <div tw="text-xl text-black font-bold leading-none">PHALA Contracts UI</div>
+            <Link tw="text-xl text-black font-bold leading-none" to="/">PHALA Contracts UI</Link>
             <Suspense fallback={<div />}>
               <div>
                 <AccountMenu />

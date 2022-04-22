@@ -1,7 +1,8 @@
 import type { ComponentPropsWithoutRef, FC, ReactNode } from 'react'
+import type { ComponentStyleConfig } from '@chakra-ui/theme'
 import tw from 'twin.macro'
 import { Provider as JotaiProvider } from 'jotai'
-import { ChakraProvider, extendTheme } from '@chakra-ui/react'
+import { ChakraProvider, extendTheme, withDefaultColorScheme } from '@chakra-ui/react'
 import {
   Link,
   MakeGenerics,
@@ -11,14 +12,28 @@ import {
   useMatch,
 } from "@tanstack/react-location"
 
+import '@fontsource/raleway/400.css'
+import '@fontsource/open-sans/700.css'
+
 export type FoundationProviderProps =
   { children: ReactNode}
   & ComponentPropsWithoutRef<typeof JotaiProvider>
   & Omit<ComponentPropsWithoutRef<typeof Router>, "location">;
 
+const Input: ComponentStyleConfig = {
+  // baseStyle: tw`text-sm font-mono bg-gray-200 outline-none`,
+  baseStyle: {
+    backgroundColor: 'gray.200',
+  }
+}
+
 const theme = extendTheme({
   config: {
     initialColorMode: 'dark',
+  },
+  fonts: {
+    heading: 'Open Sans, sans-serif',
+    body: 'Raleway, sans-serif',
   },
   colors: {
     phalaDark: {
@@ -48,6 +63,79 @@ const theme = extendTheme({
       '900': '#537100'
     }
   },
+  components: {
+    Input: {
+      variants: {
+        phala: {
+          field: {
+            fontSize: 'sm',
+            backgroundColor: 'gray.200',
+            color: 'black',
+            border: '1px solid',
+            borderColor: 'gray.300',
+            borderRadius: 'sm',
+            _focus: {
+              borderColor: 'phalaDark.600',
+            }
+          }
+        }
+      },
+      defaultProps: {
+        variant: 'phala',
+      },
+    },
+    Radio: {
+      variants: {
+        phala: {
+          label: {
+            color: 'black',
+          },
+        },
+      },
+      defaultProps: {
+        colorScheme: "phalaDark",
+        variant: 'phala',
+      },
+    },
+    Form: {
+      baseStyle: {
+        container: {
+          backgroundColor: '#f3f3f3',
+        },
+      },
+    },
+    FormLabel: {
+      baseStyle: {
+        fontSize: 'lg',
+        fontWeight: '600',
+        backgroundColor: 'black',
+        color: 'phala.500',
+        padding: '1rem',
+        width: '100%',
+      }
+    },
+    Switch: {
+      baseStyle: {
+        track: {
+          bg: 'gray.200',
+          border: '1px solid',
+          borderColor: 'gray.300',
+          _focus: {
+            borderColor: 'gray.300',
+            boxShadow: '0',
+          }
+        },
+        thumb: {
+          border: '1px solid',
+          borderColor: 'gray.300',
+        },
+      },
+      defaultProps: {
+        colorScheme: 'phalaDark',
+        size: 'lg',
+      },
+    },
+  }
 })
 
 const location = new ReactLocation()

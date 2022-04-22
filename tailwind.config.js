@@ -1,6 +1,20 @@
 module.exports = {
   theme: {
     extend: {
+      fontFamily: {
+        serif: ['Raleway', 'ui-serif', 'sans-serif'],
+        mono: [
+          '"Berkeley Mono"',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          '"Liberation Mono"',
+          '"Courier New"',
+          'monospace',
+        ],
+      },
       colors: {
         phalaDark: {
           DEFAULT: '#9DC431',
