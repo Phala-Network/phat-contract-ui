@@ -4,6 +4,7 @@ import { Heading, Box, Button, Input, Switch, FormControl, FormLabel } from '@ch
 
 import { BoolInput } from '@/features/ui/inputs/bool'
 import { TextInput } from '@/features/ui/inputs/text'
+import { Select } from '@/features/ui/inputs/select'
 
 
 const SimpleArgs = [
@@ -40,6 +41,18 @@ const ComponentListPage = () => {
           <FormLabel>Switch</FormLabel>
           <div tw="px-4 pt-2 pb-4">
             <Switch />
+          </div>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Select</FormLabel>
+          <div tw="px-4 pt-2 pb-4">
+            <Select
+              options={[
+                { label: 'Option 1', value: '1' },
+                { label: 'Option 2', value: '2' },
+                { label: 'Option 3', value: '3' },
+              ]}
+            />
           </div>
         </FormControl>
       </Box>
