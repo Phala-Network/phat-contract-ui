@@ -12,8 +12,8 @@ import {
   useMatch,
 } from "@tanstack/react-location"
 
-import '@fontsource/raleway/400.css'
-import '@fontsource/open-sans/700.css'
+import '@fontsource/poppins/latin.css'
+import '@fontsource/orbitron/latin.css'
 
 export type FoundationProviderProps =
   { children: ReactNode}
@@ -32,8 +32,8 @@ const theme = extendTheme({
     initialColorMode: 'dark',
   },
   fonts: {
-    heading: 'Open Sans, sans-serif',
-    body: 'Raleway, sans-serif',
+    heading: 'Orbitron, sans-serif',
+    body: 'Poppins, sans-serif',
   },
   colors: {
     phalaDark: {
