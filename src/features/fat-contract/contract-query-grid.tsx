@@ -25,7 +25,7 @@ const ContractQueryGrid = () => {
   return (
     <SimpleGrid columns={3} spacing={10}>
       {messages.map((message, i) => (
-        <Box borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800">
+        <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800">
           <div tw="flex flex-row items-center">
             <Heading as="h4" size="lg" tw="mr-4">{message.label}</Heading>
             {message.mutates ? (

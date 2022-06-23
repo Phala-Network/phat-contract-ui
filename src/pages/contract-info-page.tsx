@@ -13,7 +13,7 @@ import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-import { currentContractIdAtom, currentContractAtom } from '@/features/fat-contract/atoms'
+import { currentContractIdAtom, currentContractAtom, derviedContractAtom } from '@/features/fat-contract/atoms'
 import ContractInfo from '@/features/fat-contract/contract-info'
 import ContractQueryGrid from '@/features/fat-contract/contract-query-grid'
 
@@ -27,6 +27,16 @@ const CurrentContractName = () => {
     <BreadcrumbItem>
       <BreadcrumbLink>{contract.metadata.contract.name}</BreadcrumbLink>
     </BreadcrumbItem>
+  )
+}
+
+
+const DevAbi = () => {
+  const contract = useAtomValue(derviedContractAtom)
+  console.log(contract?.abi.metadata.registry)
+  console.log(contract?.abi.constructors[0].args)
+  return (
+    <div>Abi</div>
   )
 }
 
@@ -49,6 +59,9 @@ const ContractInfoPage = () => {
         <ContractInfo />
       </Suspense>
       <ContractQueryGrid />
+      {/* <Suspense fallback={<div />}>
+        <DevAbi />
+      </Suspense> */}
     </div>
   )
 }

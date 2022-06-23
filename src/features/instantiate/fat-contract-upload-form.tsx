@@ -148,7 +148,7 @@ const FatContractUploadForm = () => {
         <ContractFileUpload />
         <InitSelectorField />
         <ClusterIdField />
-        {/* <EventList /> */}
+        <EventList />
       </VStack>
       <div tw="px-8 md:pr-2 mb-4 w-full flex justify-end">
         <Suspense fallback={<Button><Spinner /></Button>}>
