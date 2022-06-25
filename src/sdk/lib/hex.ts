@@ -27,10 +27,10 @@ function randomBytes (size: number) {
       for (var generated = 0; generated < size; generated += MAX_BYTES) {
         // buffer.slice automatically checks if the end is past the end of
         // the buffer so we don't have to here
-        crypto.getRandomValues(bytes.slice(generated, generated + MAX_BYTES))
+        crypto.getRandomValues(bytes.slice(generated, generated + MAX_BYTES) as unknown as ArrayBufferView)
       }
     } else {
-      crypto.getRandomValues(bytes)
+      crypto.getRandomValues(bytes as unknown as ArrayBufferView)
     }
   }
 

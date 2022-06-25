@@ -14,7 +14,6 @@ import {
   sr25519Agree,
 } from '@polkadot/wasm-crypto'
 import type {ContractCallRequest, AccountId} from '@polkadot/types/interfaces'
-import type {ISubmittableResult} from '@polkadot/types/types'
 import {from} from 'rxjs'
 import {encrypt, decrypt} from './lib/aes-256-gcm'
 import {randomHex} from './lib/hex'
@@ -41,7 +40,7 @@ type CreateEncryptedData = (
 export type Command = (params: {
   contractId: string
   payload: string
-}) => SubmittableExtrinsic<'promise', ISubmittableResult>
+}) => SubmittableExtrinsic<'promise'>
 
 export interface PhalaInstance {
   query: Query

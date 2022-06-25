@@ -18,7 +18,7 @@ const toU8a = (param: Param): Uint8Array => {
 
 export const encrypt = (data: string, key: Param, iv: Param): string => {
   data = hexStripPrefix(data)
-  const cipher = createCipheriv(ALGO, toU8a(key), Buffer.from(toU8a(iv)))
+  const cipher = createCipheriv(ALGO, toU8a(key), Buffer.from(toU8a(iv)) as unknown as string)
   const enc = cipher.update(data, 'hex', 'hex')
   cipher.final()
   return `${enc}${cipher.getAuthTag().toString('hex')}`
@@ -26,7 +26,7 @@ export const encrypt = (data: string, key: Param, iv: Param): string => {
 
 export const decrypt = (enc: string, key: Param, iv: Param): string => {
   enc = hexStripPrefix(enc)
-  const decipher = createDecipheriv(ALGO, toU8a(key), Buffer.from(toU8a(iv)))
+  const decipher = createDecipheriv(ALGO, toU8a(key), Buffer.from(toU8a(iv)) as unknown as string)
   const authTag = hexToU8a(hexAddPrefix(enc.slice(-AUTH_TAG_LENGTH)))
   decipher.setAuthTag(authTag)
   const data = decipher.update(enc.slice(0, -AUTH_TAG_LENGTH), 'hex', 'hex')
