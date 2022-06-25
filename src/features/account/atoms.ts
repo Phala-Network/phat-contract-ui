@@ -11,7 +11,7 @@ export const extensionEnabledAtom = atom(false)
 extensionEnabledAtom.onMount = (set) => {
   (async () => {
     try {
-      const injected = await web3Enable('contracts-ui')
+      const injected = await web3Enable('Phala Contracts UI')
       console.log('injected', injected)
       if (injected.length > 0) {
         set(true)
@@ -43,6 +43,8 @@ export const accountsAtom = atom(async (get) => {
 
 export const lastSelectedAccountAddressAtom = atomWithStorage('lastSelectedAccount', '')
 
+export const lastSelectedAccountDisplayNameAtom = atomWithStorage('lastSelectedAccountDisplayName', '')
+
 export const lastSelectedAccountAtom = atom(
   get => {
     const accounts = get(accountsAtom)
@@ -52,6 +54,7 @@ export const lastSelectedAccountAtom = atom(
   (_, set, value?: InjectedAccountWithMeta) => {
     if (value) {
       set(lastSelectedAccountAddressAtom, value.address)
+      set(lastSelectedAccountDisplayNameAtom, value.meta.name || '')
     }
   }
 )
@@ -78,3 +81,5 @@ export const signerAtom = atom(async (get) => {
   const { signer } = await web3FromSource(account.meta.source)
   return signer
 })
+
+export const connectionDetailModalVisibleAtom = atom(false)

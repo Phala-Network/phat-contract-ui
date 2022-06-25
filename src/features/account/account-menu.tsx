@@ -28,7 +28,14 @@ const AccountMenu = () => {
   const [selected, setSelected] = useAtom(lastSelectedAccountAtom)
   const balance = useAtomValue(balanceAtom)
   if (!selected) {
-    return null
+    return (
+    <div tw="flex justify-center items-center">
+      <Avatar size="sm" src="https://app.phala.network/images/Phala.svg" />
+      <div tw="ml-2 flex flex-col">
+        <div tw="font-bold text-base">Sign In</div>
+      </div>
+    </div>
+    )
   }
   return (
     <div tw="flex justify-center items-center">
