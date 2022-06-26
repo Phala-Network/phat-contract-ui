@@ -13,11 +13,11 @@ const EventList = () => {
     return null
   }
   return (
-    <div tw="flex-grow my-4 mx-8 md:ml-2 bg-black p-4 max-w-4xl">
+    <div tw="bg-black">
       <div tw="mb-1 pb-3 border-b border-solid border-gray-400 flex flex-row justify-end">
         <Button size="sm" colorScheme="phala" onClick={() => reset()}>clean</Button>
       </div>
-      <div tw="overflow-scroll max-h-[560px]">
+      <div tw="overflow-y-scroll max-h-[30vh]">
         {events.map((event, index) => (
           <Box key={index} borderWidth='1px' borderRadius='lg' overflow='hidden' p="2" my="2">
             <div tw="mb-2">

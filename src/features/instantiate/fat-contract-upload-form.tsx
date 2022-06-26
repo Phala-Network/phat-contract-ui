@@ -143,12 +143,12 @@ const FatContractUploadForm = () => {
         align="left"
         tw="bg-[#f3f3f3] text-[#555] mx-8 md:mr-2"
       >
-        <RpcEndpointField />
-        <AccountSelectField />
+        {/* <RpcEndpointField />
+        <AccountSelectField /> */}
         <ContractFileUpload />
         <InitSelectorField />
         <ClusterIdField />
-        <EventList />
+        {/* <EventList /> */}
       </VStack>
       <div tw="px-8 md:pr-2 mb-4 w-full flex justify-end">
         <Suspense fallback={<Button><Spinner /></Button>}>

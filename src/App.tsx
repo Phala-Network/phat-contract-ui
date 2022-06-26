@@ -2,6 +2,7 @@ import tw from 'twin.macro'
 import { Suspense } from 'react'
 import { SimpleGrid, Avatar, Button, ButtonGroup } from '@chakra-ui/react'
 import { Outlet, Link } from "@tanstack/react-location"
+import { atom, useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
 
 import { signCertificate, CertificateData } from './sdk'
@@ -13,6 +14,7 @@ import AccountBadge from '@/features/account/Badge'
 import AccountMenu from '@/features/account/account-menu'
 import FatContractUploadForm from '@/features/instantiate/fat-contract-upload-form'
 import EventDisplay from '@/features/system-events/event-display'
+import EventList from '@/features/instantiate/event-list'
 import { derviedContractAtom, contractsAtom } from '@/features/fat-contract/atoms'
 import { lastSelectedAccountAtom, signerAtom } from '@/features/account/atoms'
 
@@ -129,6 +131,37 @@ const AppHeader = () => {
   )
 }
 
+const toggleEventListAtom = atom<boolean>(false)
+
+const AppBottomBar = () => {
+  const [showEventList, setShowEventList] = useAtom(toggleEventListAtom)
+  return (
+    <footer
+      css={[
+        tw`flex-shrink bg-black cursor-pointer transition-all max-w-full px-4`,
+        showEventList ? tw`h-[44vh] pb-2` : tw`h-auto`,
+      ]}
+      onClick={() => setShowEventList(i => !i)}
+    >
+      <div
+        css={[
+          tw`mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2 text-sm`,
+        ]}
+        >
+        Events
+      </div>
+      <div
+        css={[
+          tw`flex flex-row bg-black`,
+          showEventList ? tw`block` : tw`hidden`,
+        ]}
+      >
+        <EventList />
+      </div>
+    </footer>
+  )
+}
+
 function App() {
   return (
     <FoundationProvider
@@ -140,9 +173,19 @@ function App() {
         { path: "/components", element: <ComponentListPage /> },
       ]}
     >
-      <AppHeader />
-      <div tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-8">
-        <Outlet />
+      <div css={[tw`flex flex-col max-h-full h-full overflow-y-hidden`, 'justify-content: safe center;']}>
+        <AppHeader />
+        <div css={tw`
+          py-8
+          flex-grow
+          flex-col items-start justify-start
+          overflow-y-scroll
+        `}>
+          <div tw='mx-auto w-full max-w-7xl'>
+            <Outlet />
+          </div>
+        </div>
+        <AppBottomBar />
       </div>
     </FoundationProvider>
   )
