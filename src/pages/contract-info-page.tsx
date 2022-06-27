@@ -58,7 +58,9 @@ const ContractInfoPage = () => {
       <Suspense fallback={<div />}>
         <ContractInfo />
       </Suspense>
-      <ContractQueryGrid />
+      <Suspense fallback={<div />}>
+        <ContractQueryGrid />
+      </Suspense>
       {/* <Suspense fallback={<div />}>
         <DevAbi />
       </Suspense> */}

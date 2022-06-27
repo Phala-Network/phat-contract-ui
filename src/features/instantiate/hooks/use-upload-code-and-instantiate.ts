@@ -20,11 +20,11 @@ const dispatchEventAtom = atom(null, (get, set, events: EventRecord[]) => {
   set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev])
 })
 
-const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, signer: InjectedSigner) => {
+export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, signer: InjectedSigner) => {
   return new Promise(async (resolve, reject) => {
     // Ready -> Broadcast -> InBlock -> Finalized
     const unsub = await target.signAndSend(
-      address, { signer },  (result) => {
+      address, { signer }, (result) => {
         const humanized = result.toHuman()          
         if (result.status.isInBlock) {
           let error;
