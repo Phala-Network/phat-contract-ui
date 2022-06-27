@@ -14,8 +14,16 @@ type ContractMetaConstructor = {
   selector: string;
 }
 
+type ContractCallArgument = {
+  label: string;
+  type: {
+    displayName: string[];
+    type: number;
+  };
+}
+
 type ContractMetaMessage = {
-  args: unknown[];
+  args: ContractCallArgument[];
   docs: string[];
   label: string;
   mutates: boolean;
