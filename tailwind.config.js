@@ -2,10 +2,14 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        serif: ['poppins', 'ui-serif', 'sans-serif'],
+        serif: [
+          'poppins',
+          'ui-serif',
+          'sans-serif',
+        ],
         mono: [
-          // '"Berkeley Mono"',
-          'orbitron',
+          '"Berkeley Mono"',
+          // 'orbitron',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
@@ -15,6 +19,7 @@ module.exports = {
           '"Courier New"',
           'monospace',
         ],
+        pw: 'Orbitron',
       },
       colors: {
         phalaDark: {
