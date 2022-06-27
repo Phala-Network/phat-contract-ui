@@ -74,7 +74,7 @@ export default function useUploadCodeAndInstantiate() {
     // @ts-ignore
     dispatch(r1.events)
     const salt = '0x' + new Date().getTime()
-    const initSelector = contract.V3.spec.constructors.filter(c => c.label === 'default')[0].selector
+    const initSelector = contract.V3.spec.constructors.filter(c => c.label === 'default' || c.label === 'new')[0].selector
     const r2 = await signAndSend(
       api.tx.phalaFatContracts.instantiateContract(
         { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId

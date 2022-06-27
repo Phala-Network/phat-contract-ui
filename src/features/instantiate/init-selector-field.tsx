@@ -12,7 +12,11 @@ const InitSelectorField = () => {
   if (!finfo.size || !selectors.length) {
     return <></>
   }
-  const selected = selectors.filter(i => i.selected)[0].value
+  const selectedCandidates = selectors.filter(i => i.selected || i.label === 'new')
+  if (!selectedCandidates.length) {
+    return <></>
+  }
+  const selected = selectedCandidates[0].value
   return (
     <FormControl>
       <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">Init Selector</FormLabel>
