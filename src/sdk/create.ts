@@ -53,6 +53,43 @@ type CreateFn = (options: {
   contractId: string
 }) => Promise<ApiPromise>
 
+export const createPruntimeApi = async (baseURL: string) => {
+  const http = axios.create({
+    baseURL,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+    },
+    responseType: 'arraybuffer',
+  }).post
+
+  // Get public key from remote for encrypting
+  const {publicKey} = pruntimeRpc.PhactoryInfo.decode(
+    new Uint8Array((await http<ArrayBuffer>('/prpc/PhactoryAPI.GetInfo')).data)
+  )
+
+  if (!publicKey) throw new Error('No remote pubkey')
+
+  const pruntimeApi = pruntimeRpc.PhactoryAPI.create(
+    async (method, requestData, callback) => {
+      try {
+        const res = await http<ArrayBuffer>(
+          `/prpc/PhactoryAPI.${method.name}`,
+          new Uint8Array(requestData)
+        )
+        callback(null, new Uint8Array(res.data))
+      } catch (err: any) {
+        if (err?.response?.data instanceof ArrayBuffer) {
+          const message = new Uint8Array(err.response.data)
+          callback(new Error(prpc.PrpcError.decode(message).message))
+        } else {
+          throw err
+        }
+      }
+    }
+  )
+  return pruntimeApi
+}
+
 export const create: CreateFn = async ({api, baseURL, contractId}) => {
   await waitReady()
 
