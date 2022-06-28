@@ -63,7 +63,7 @@ type PhalaFatContractQueryResult = {
 export type LocalContractInfo = {
   contractId: string;
   metadata: ContractMetadata;
-  createdAt: number;
+  savedAt?: number;
 }
 
 export type RecentSystemEvent = {
@@ -258,6 +258,8 @@ export const availableContractsAtom = atom(async (get) => {
 
   return R.pipe(
     R.filter((i: Pairs<LocalContractInfo>) => R.includes(i[0], onChainKeys)),
+    R.sortBy((i) => R.propOr(0, 'savedAt', i[1])),
+    lst => R.reverse<Pairs<LocalContractInfo>>(lst),
   )(Object.entries(onLocal))
 })
 
@@ -572,7 +574,7 @@ export function useUploadCodeAndInstantiate() {
     if (instantiateEvent && instantiateEvent.event.data.length > 2) {
       const contractId = instantiateEvent.event.data[0]
       const metadata = R.dissocPath(['source', 'wasm'], contract)
-      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId} }))
+      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
     }
     toast({
       title: 'Instantiate Requested.',
