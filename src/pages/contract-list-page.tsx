@@ -1,11 +1,12 @@
-import { FC, Suspense } from 'react'
+import type { FC } from 'react'
 import type { LocalContractInfo } from '@/features/chain/atoms'
 
-import React from 'react'
+import React, { Suspense, useState } from 'react'
 import tw from 'twin.macro'
-import { useAtomValue } from 'jotai/utils'
-import { Box, Button, Stack, Skeleton } from '@chakra-ui/react'
+import { useAtomValue, useUpdateAtom } from 'jotai/utils'
+import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
 import { Link } from '@tanstack/react-location'
+import { AiOutlineReload } from 'react-icons/ai'
 
 import { hasConnectedAtom, availableContractsAtom } from '@/features/chain/atoms'
 
@@ -66,14 +67,36 @@ const ContractList = () => {
   )
 }
 
+const ReloadButton = () => {
+  const [loading, setLoading] = useState(false)
+  const dispatch = useUpdateAtom(availableContractsAtom)
+  return (
+    <Button
+      bg="black"
+      borderRadius={0}
+      isLoading={loading}
+      onClick={() => {
+        setLoading(true)
+        dispatch({type: 'refetch'})
+        setTimeout(() => setLoading(false), 500)
+      }}
+    >
+      <AiOutlineReload />
+    </Button>
+  )
+}
+
 const ContractListPage = () => {
   return (
     <div tw="grid grid-cols-12 w-full gap-0">
       {/* <div tw="col-span-3 order-2 px-2"></div> */}
       <div tw="col-span-12 order-1 px-2">
-        <Link to="/contracts/add">
-          <Button bg="black" borderRadius={0} as="span">Add New Contract</Button>
-        </Link>
+        <ButtonGroup>
+          <Link to="/contracts/add">
+            <Button bg="black" borderRadius={0} as="span">Add New Contract</Button>
+          </Link>
+          <ReloadButton />
+        </ButtonGroup>
         <Suspense fallback={<ContractListSkeleton />}>
           <ContractList />
         </Suspense>

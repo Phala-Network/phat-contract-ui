@@ -13,6 +13,7 @@ import type { AbiEvent } from '@polkadot/api-contract/types'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { atom, useAtom } from 'jotai'
 import { atomWithStorage, atomWithReset, useAtomValue, useUpdateAtom, useResetAtom } from 'jotai/utils'
+import { atomWithQuery } from 'jotai/query'
 import { Abi, ContractPromise } from '@polkadot/api-contract'
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { stringify, stringToU8a } from '@polkadot/util'
@@ -246,22 +247,27 @@ export const localContractsAtom = atomWithStorage<
   Record<string, LocalContractInfo>
 >('owned-contracts', {})
 
-// TODO Rewrite me with atomWithQuery?
-export const availableContractsAtom = atom(async (get) => {
-  const api = get(rpcApiInstanceAtom)
-  if (!api) {
-    return []
-  }
-  const onChain = await PhalaFatContractsQuery.contracts(api)
-  const onLocal = get(localContractsAtom)
-  const onChainKeys = Object.keys(onChain)
+export const availableContractsAtom = atomWithQuery(get => ({
+  queryKey: ['phalaFatContracts.contracts'],
+  queryFn: async () => {
+    const api = get(rpcApiInstanceAtom)
+    if (!api) {
+      return []
+    }
 
-  return R.pipe(
-    R.filter((i: Pairs<LocalContractInfo>) => R.includes(i[0], onChainKeys)),
-    R.sortBy((i) => R.propOr(0, 'savedAt', i[1])),
-    lst => R.reverse<Pairs<LocalContractInfo>>(lst),
-  )(Object.entries(onLocal))
-})
+    const onChain = await PhalaFatContractsQuery.contracts(api)
+    const onLocal = get(localContractsAtom)
+    const onChainKeys = Object.keys(onChain)
+  
+    return R.pipe(
+      R.filter((i: Pairs<LocalContractInfo>) => R.includes(i[0], onChainKeys)),
+      R.sortBy((i) => R.propOr(0, 'savedAt', i[1])),
+      lst => R.reverse<Pairs<LocalContractInfo>>(lst),
+    )(Object.entries(onLocal))
+  },
+  refetchInterval: 1000 * 60 * 15, // every 15 minutes
+  refetchIntervalInBackground: true,
+}))
 
 export const currentContractIdAtom = atom('')
 
