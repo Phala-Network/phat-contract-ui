@@ -232,14 +232,34 @@ export const rpcApiInstanceAtom = atom<ApiPromise | null>(null)
 
 export const rpcApiStatusAtom = atom<ApiConnectionStatus>('disconnected')
 
+export const hasConnectedAtom = atom<boolean>(get => get(rpcApiStatusAtom) === 'connected')
+
 export const systemEventsAtom = atom<{
   eventCount: number;
   events: KeyedEvent[];
 }>({ eventCount: 0, events: [] })
 
-export const contractsAtom = atomWithStorage<
+//
+// List of instantiated contracts from this browser, and they can access for all wallet accounts.
+//
+export const localContractsAtom = atomWithStorage<
   Record<string, LocalContractInfo>
 >('owned-contracts', {})
+
+// TODO Rewrite me with atomWithQuery?
+export const availableContractsAtom = atom(async (get) => {
+  const api = get(rpcApiInstanceAtom)
+  if (!api) {
+    return []
+  }
+  const onChain = await PhalaFatContractsQuery.contracts(api)
+  const onLocal = get(localContractsAtom)
+  const onChainKeys = Object.keys(onChain)
+
+  return R.pipe(
+    R.filter((i: Pairs<LocalContractInfo>) => R.includes(i[0], onChainKeys)),
+  )(Object.entries(onLocal))
+})
 
 export const currentContractIdAtom = atom('')
 
@@ -286,7 +306,7 @@ export const recentSystemEventsAtom = atom<RecentSystemEvent[]>(get => {
 
 export const currentContractAtom = atom(get => {
   const contractId = get(currentContractIdAtom)
-  const contracts = get(contractsAtom)
+  const contracts = get(localContractsAtom)
   return contracts[contractId]
 })
 
@@ -524,7 +544,7 @@ export function useUploadCodeAndInstantiate() {
   const dispatch = useUpdateAtom(dispatchEventAtom)
   const reset = useResetAtom(eventsAtom)
   const toast = useToast()
-  const saveContract = useUpdateAtom(contractsAtom)
+  const saveContract = useUpdateAtom(localContractsAtom)
 
   useConnectApi()
 
