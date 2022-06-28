@@ -1,31 +1,11 @@
-import { Suspense } from 'react'
 import tw from 'twin.macro'
-import { HiChevronDown as ChevronDownIcon, HiOutlineCheck as CheckIcon } from 'react-icons/hi'
-import { atom, useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
-import {
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  Avatar,
-  Button,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  MenuItemOption,
-  Spinner,
-  FormControl,
-  FormLabel,
-  FormHelperText,
-} from '@chakra-ui/react'
+import { Avatar } from '@chakra-ui/react'
 
-import { rpcApiInstanceAtom } from '@/atoms/foundation'
-import { accountsAtom, extensionEnabledAtom, lastSelectedAccountAtom, balanceAtom } from './atoms'
+import { lastSelectedAccountAtom, balanceAtom } from './atoms'
 
 const AccountMenu = () => {
-  const [selected, setSelected] = useAtom(lastSelectedAccountAtom)
+  const selected = useAtomValue(lastSelectedAccountAtom)
   const balance = useAtomValue(balanceAtom)
   if (!selected) {
     return (

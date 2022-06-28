@@ -1,25 +1,26 @@
 import React from 'react'
 import tw from 'twin.macro'
 import { useAtomValue, useResetAtom } from 'jotai/utils'
-import { Badge, Box, Button } from '@chakra-ui/react'
+import { Badge } from '@chakra-ui/react'
+import { TiInfoOutline } from 'react-icons/ti'
 import * as R from 'ramda'
 
-import { eventsAtom } from './hooks/use-upload-code-and-instantiate'
+import { eventsAtom } from '@/features/chain/atoms'
 
-const EventList = () => {
+const EventPanel = () => {
   const events = useAtomValue(eventsAtom)
   const reset = useResetAtom(eventsAtom)
-  if (!events.length) {
-    return null
-  }
   return (
-    <div tw="bg-black">
-      <div tw="mb-1 pb-3 border-b border-solid border-gray-400 flex flex-row justify-end">
-        <Button size="sm" colorScheme="phala" onClick={() => reset()}>clean</Button>
-      </div>
-      <div tw="overflow-y-scroll max-h-[30vh]">
+    <div tw="overflow-y-scroll h-[30vh] px-6">
+      <div tw="flex flex-col gap-4">
+        {!events.length && (
+          <div tw="text-gray-600 text-sm flex items-center">
+            <TiInfoOutline tw="mr-1 text-lg" />
+            Empty.
+          </div>
+        )}
         {events.map((event, index) => (
-          <Box key={index} borderWidth='1px' borderRadius='lg' overflow='hidden' p="2" my="2">
+          <article tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
             <div tw="mb-2">
               <Badge borderRadius='full' px='2' colorScheme='phala' mr="2">{event.section}</Badge>
               <Badge borderRadius='full' px='2' colorScheme='phalaDark'>{event.method}</Badge>
@@ -49,11 +50,11 @@ const EventList = () => {
                 ))}
               </div>
             ))}
-          </Box>
+          </article>
         ))}
       </div>
     </div>
   )
 }
 
-export default EventList
+export default EventPanel

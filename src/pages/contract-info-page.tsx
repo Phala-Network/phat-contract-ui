@@ -1,21 +1,18 @@
 import React, { Suspense, useEffect } from 'react'
 import tw from 'twin.macro'
 import {
-  Button,
-  Box,
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
-  BreadcrumbSeparator,
 } from "@chakra-ui/react"
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-import { currentContractIdAtom, currentContractAtom, derviedContractAtom } from '@/features/fat-contract/atoms'
+import { currentContractIdAtom, currentContractAtom } from '@/features/chain/atoms'
 import ContractInfo from '@/features/fat-contract/contract-info'
-import ContractQueryGrid from '@/features/fat-contract/contract-query-grid'
+import ContractMethodGrid from '@/features/fat-contract/contract-method-grid'
 
 
 const CurrentContractName = () => {
@@ -29,17 +26,6 @@ const CurrentContractName = () => {
     </BreadcrumbItem>
   )
 }
-
-
-const DevAbi = () => {
-  const contract = useAtomValue(derviedContractAtom)
-  console.log(contract?.abi.metadata.registry)
-  console.log(contract?.abi.constructors[0].args)
-  return (
-    <div>Abi</div>
-  )
-}
-
 
 const ContractInfoPage = () => {
   const { params: { contractId } } = useMatch()
@@ -59,11 +45,8 @@ const ContractInfoPage = () => {
         <ContractInfo />
       </Suspense>
       <Suspense fallback={<div />}>
-        <ContractQueryGrid />
+        <ContractMethodGrid />
       </Suspense>
-      {/* <Suspense fallback={<div />}>
-        <DevAbi />
-      </Suspense> */}
     </div>
   )
 }

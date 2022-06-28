@@ -4,7 +4,7 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
 import { web3Enable, web3Accounts, web3FromSource } from '@polkadot/extension-dapp'
 import { keyring } from '@polkadot/ui-keyring'
 
-import { rpcApiInstanceAtom } from '@/atoms/foundation'
+import { rpcApiInstanceAtom } from '@/features/chain/atoms'
 
 export const extensionEnabledAtom = atom(false)
 

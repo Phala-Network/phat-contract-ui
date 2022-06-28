@@ -1,18 +1,33 @@
 import React from 'react'
 import tw from 'twin.macro'
-import { Box, Heading } from '@chakra-ui/react'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  Box,
+  Heading,
+} from '@chakra-ui/react'
+import { Link } from '@tanstack/react-location'
+import { BiChevronRight } from 'react-icons/bi'
 
 import FatContractUploadForm from '@/features/instantiate/fat-contract-upload-form'
 
 
 const ContractAddPage = () => {
   return (
-    <Box tw="w-full max-w-screen-md mx-auto">
-      <Heading tw="mb-4">
-        Upload a contract
-      </Heading>
-      <FatContractUploadForm />
-    </Box>
+    <div>
+      <Breadcrumb separator={<BiChevronRight color="gray.500" />} tw="mb-4">
+        <BreadcrumbItem>
+          <BreadcrumbLink as={Link} href='/' to="/">Contracts</BreadcrumbLink>
+        </BreadcrumbItem>
+      </Breadcrumb>
+      <Box tw="w-full">
+        <Heading tw="mb-4">
+          Upload a contract
+        </Heading>
+        <FatContractUploadForm />
+      </Box>
+    </div>
   )
 }
 

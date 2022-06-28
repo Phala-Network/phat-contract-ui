@@ -1,16 +1,10 @@
 import type { ComponentPropsWithoutRef, FC, ReactNode } from 'react'
 import type { ComponentStyleConfig } from '@chakra-ui/theme'
-import tw from 'twin.macro'
 import { Provider as JotaiProvider } from 'jotai'
-import { ChakraProvider, extendTheme, withDefaultColorScheme } from '@chakra-ui/react'
-import {
-  Link,
-  MakeGenerics,
-  Outlet,
-  ReactLocation,
-  Router,
-  useMatch,
-} from "@tanstack/react-location"
+import { queryClientAtom } from 'jotai/query'
+import { ChakraProvider, extendTheme } from '@chakra-ui/react'
+import { QueryClient, QueryClientProvider } from 'react-query'
+import { ReactLocation, Router } from "@tanstack/react-location"
 
 import '@fontsource/poppins/latin.css'
 import '@fontsource/orbitron/latin.css'
@@ -140,6 +134,8 @@ const theme = extendTheme({
 
 const location = new ReactLocation()
 
+const queryClient = new QueryClient()
+
 const FoundationProvider: FC<FoundationProviderProps> = ({
   children,
   // For Jotai Provider
@@ -149,16 +145,24 @@ const FoundationProvider: FC<FoundationProviderProps> = ({
   routes,
 }) => {
   return (
-    <JotaiProvider initialValues={initialValues} scope={scope}>
-      <ChakraProvider theme={theme}>
-        <Router
-          routes={routes}
-          location={location}
-        >
-          {children}
-        </Router>
-      </ChakraProvider>
-    </JotaiProvider>
+    <QueryClientProvider client={queryClient}>
+      <JotaiProvider
+        initialValues={[
+          ...initialValues || [],
+          [queryClientAtom, queryClient],
+        ]}
+        scope={scope}
+      >
+        <ChakraProvider theme={theme}>
+          <Router
+            routes={routes}
+            location={location}
+          >
+            {children}
+          </Router>
+        </ChakraProvider>
+      </JotaiProvider>
+    </QueryClientProvider>
   )
 }
 

@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react'
+import { FC, ReactNode, useEffect } from 'react'
 
 import React, { useState } from 'react'
 import tw from 'twin.macro'
@@ -19,8 +19,8 @@ interface SelectOption {
 }
 
 type SelectProps<T> = {
-  value?: string | undefined;
-  onChange?: (value: string) => unknown;
+  value: string | undefined;
+  onChange: (value: string) => unknown;
   placeholder?: ReactNode;
   options: T & SelectOption[];
 }
@@ -32,7 +32,7 @@ export function Select<T>({
   placeholder,
   options,
 }: SelectProps<T>) {
-  const [selected, setSelected] = useState(options[0].value)
+  const selected = value || options[0].value
   const preview = selected ? options.filter(i => i.value === selected)?.[0]?.label : placeholder
   return (
     <Menu>
@@ -55,7 +55,7 @@ export function Select<T>({
           {options.map((option, idx) => (
             <MenuItem
               key={idx}
-              onClick={() => setSelected(option.value)}
+              onClick={() => onChange(option.value)}
               tw="text-gray-200"
             >
               <MenuItemOption
