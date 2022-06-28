@@ -13,8 +13,7 @@ import type { AbiEvent } from '@polkadot/api-contract/types'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { atom, useAtom } from 'jotai'
 import { atomWithStorage, atomWithReset, useAtomValue, useUpdateAtom, useResetAtom } from 'jotai/utils'
-import { ContractPromise } from '@polkadot/api-contract'
-import { Abi } from '@polkadot/api-contract'
+import { Abi, ContractPromise } from '@polkadot/api-contract'
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { stringify, stringToU8a } from '@polkadot/util'
 import { keyring } from '@polkadot/ui-keyring'
@@ -27,15 +26,78 @@ import * as R from 'ramda'
 
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
 
-import { create, types as phalaSDKTypes } from '../../sdk'
-import * as Phala from '../../sdk'
+import { create, createPruntimeApi, signCertificate, types as phalaSDKTypes } from '../../sdk'
+
+//
+// Types
+//
+type ApiConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+export interface IndexedEvent {
+  indexes: number[];
+  record: EventRecord;
+}
+
+export interface KeyedEvent extends IndexedEvent {
+  blockHash?: string;
+  blockNumber?: BlockNumber;
+  key: string;
+}
+
+interface PrevHashes {
+  block: string | null;
+  event: string | null;
+}
+
+type PhalaFatContractQueryResult = {
+  deployer: string;
+  codeIndex: {
+    WasmCode: string;
+  }
+  salt: string;
+  clusterId: string;
+  instantiateData: string;
+}
+
+export type LocalContractInfo = {
+  contractId: string;
+  metadata: ContractMetadata;
+  createdAt: number;
+}
+
+export type RecentSystemEvent = {
+  event: KeyedEvent;
+  details: {
+    abiEvent: {
+      values: {
+          isValid: boolean;
+          value: Codec;
+      }[];
+      args: Codec[];
+      event: AbiEvent;
+    } | null;
+    params: {
+      type: TypeDef;
+    }[];
+    values: {
+      isValid: boolean;
+      value: Codec;
+    }[];
+  }
+}
 
 
-export const rpcEndpointAtom = atom('')
+//
+// Constants
+//
 
-export const rpcEndpointErrorAtom = atom('')
+const MAX_EVENTS = 75;
 
-export const rpcApiInstanceAtom = atom<ApiPromise | null>(null)
+const pruntimeURL = 'https://poc5.phala.network/tee-api-1'
+
+//
+// Internal Functions
+//
 
 export const createApiInstance = (endpointUrl: string): [WsProvider, ApiPromise] => {
   console.log('create RPC connection to ', endpointUrl)
@@ -50,11 +112,252 @@ export const createApiInstance = (endpointUrl: string): [WsProvider, ApiPromise]
   return [wsProvider, api]
 }
 
-type ApiConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
+export function getAddressMeta (address: string, type: KeyringItemType | null = null): KeyringJson$Meta {
+  let meta: KeyringJson$Meta | undefined;
+
+  try {
+    const pair = keyring.getAddress(address, type);
+
+    meta = pair && pair.meta;
+  } catch (error) {
+    // we could pass invalid addresses, so it may throw
+  }
+
+  return meta || {};
+}
+
+export function getContractAbi (api: ApiPromise, address: string | null): Abi | null {
+  if (!address) {
+    return null;
+  }
+
+  let abi: Abi | undefined;
+  const meta = getAddressMeta(address, 'contract');
+
+  try {
+    const data = (meta.contract && JSON.parse(meta.contract.abi)) as string;
+
+    abi = new Abi(data, api.registry.getChainProperties());
+  } catch (error) {
+    console.error(error);
+  }
+
+  return abi || null;
+}
+
+async function sleep(t: number) {
+  await new Promise(resolve => {
+      setTimeout(resolve, t);
+  });
+}
+
+async function checkUntil<T>(async_fn: () => Promise<T>, timeout: number) {
+    const t0 = new Date().getTime();
+    while (true) {
+        if (await async_fn()) {
+            return;
+        }
+        const t = new Date().getTime();
+        if (t - t0 >= timeout) {
+            throw new Error('timeout');
+        }
+        await sleep(100);
+    }
+}
+
+async function blockBarrier(api: unknown, prpc: unknown, finalized=false, timeout=4*6000) {
+  const head = await (finalized
+      // @ts-ignore
+      ? api.rpc.chain.getFinalizedHead()
+      // @ts-ignore
+      : api.rpc.chain.getHeader()
+  );
+  let chainHeight = head.number.toNumber();
+  await checkUntil(
+      // @ts-ignore
+      async() => (await prpc.getInfo({})).blocknum > chainHeight,
+      timeout,
+  );
+}
+
+export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, signer: InjectedSigner) => {
+  return new Promise(async (resolve, reject) => {
+    // Ready -> Broadcast -> InBlock -> Finalized
+    const unsub = await target.signAndSend(
+      address, { signer }, (result) => {
+        const humanized = result.toHuman()          
+        if (result.status.isInBlock) {
+          let error;
+          for (const e of result.events) {
+            const { event: { data, method, section } } = e;
+            if (section === 'system' && method === 'ExtrinsicFailed') {
+              error = data[0];
+            }
+          }
+          // @ts-ignore
+          unsub();
+          if (error) {
+            reject(error);
+          } else {
+            resolve({
+              hash: result.status.asInBlock.toHuman(),
+              // @ts-ignore
+              events: result.toHuman().events,
+            });
+          }
+        } else if (result.status.isInvalid) {
+          // @ts-ignore
+          unsub();
+          reject('Invalid transaction');
+        }
+      }
+    )
+  })
+}
+
+//
+// Atoms
+//
+
+const pruntimeURLAtom = atom(pruntimeURL)
+
+export const rpcEndpointAtom = atom('')
+
+export const rpcEndpointErrorAtom = atom('')
+
+export const rpcApiInstanceAtom = atom<ApiPromise | null>(null)
 
 export const rpcApiStatusAtom = atom<ApiConnectionStatus>('disconnected')
 
-export const useConnectApi = () => {
+export const systemEventsAtom = atom<{
+  eventCount: number;
+  events: KeyedEvent[];
+}>({ eventCount: 0, events: [] })
+
+export const contractsAtom = atomWithStorage<
+  Record<string, LocalContractInfo>
+>('owned-contracts', {})
+
+export const currentContractIdAtom = atom('')
+
+export const recentSystemEventsAtom = atom<RecentSystemEvent[]>(get => {
+  const api = get(rpcApiInstanceAtom)
+  if (!api) {
+    return [] as RecentSystemEvent[]
+  }
+  const { events } = get(systemEventsAtom)
+  return events.map(event => {
+    const value = event.record.event
+    const params = value.typeDef.map((type) => ({ type }))
+    const values = value.data.map((value) => ({ isValid: true, value }))
+    if (value.section === 'contracts' && value.method === 'ContractExecution' && value.data.length === 2) {
+      // see if we have info for this contract
+      const [accountId, encoded] = value.data
+
+      try {
+        const abi = getContractAbi(api, accountId.toString())
+
+        if (abi) {
+          const decoded = abi.decodeEvent(encoded as Bytes)
+
+          const abiEvent = {
+            ...decoded,
+            values: decoded.args.map((value) => ({ isValid: true, value }))
+          }
+          return {
+            event,
+            details: { abiEvent, params, values }
+          } as unknown as RecentSystemEvent
+        }
+      } catch (error) {
+        // ABI mismatch?
+        console.error(error);
+      }
+    }
+    return {
+      event,
+      details: { abiEvent: null, params, values }
+    } as RecentSystemEvent
+  })
+})
+
+export const currentContractAtom = atom(get => {
+  const contractId = get(currentContractIdAtom)
+  const contracts = get(contractsAtom)
+  return contracts[contractId]
+})
+
+export const phalaFatContractQueryAtom = atom(async get => {
+  const api = get(rpcApiInstanceAtom)
+  const info = get(currentContractAtom)
+  if (!api || !info) {
+    return null
+  }
+  const result = await new Promise(resolve => {
+    api.query.phalaFatContracts.contracts(info.contractId, (result: { toHuman: () => unknown }) => resolve(result.toHuman()))
+  })
+  return result as PhalaFatContractQueryResult
+})
+
+export const contractInstanceAtom = atom<ContractPromise | null>(null)
+
+export const derviedContractAtom = atom(async (get) => {
+  const api = get(rpcApiInstanceAtom)
+  const pruntimeURL = get(pruntimeURLAtom)
+  const contract = get(currentContractAtom)
+  if (!api) {
+    return
+  }
+  const contractPromise = new ContractPromise(
+    await create({api, baseURL: pruntimeURL, contractId: contract.contractId}),
+    contract.metadata,
+    contract.contractId
+  )
+  return contractPromise
+})
+
+export const messagesAtom = atom(get => {
+  const contract = get(currentContractAtom)
+  if (!contract) {
+    return []
+  }
+  return contract.metadata.V3.spec.messages || []
+})
+
+export const currentContractInstanceAtom = atom(async (get) => {
+  const api = get(rpcApiInstanceAtom)
+  const contract = get(currentContractAtom)
+  if (!api || !contract) {
+    return null
+  }
+  const contractId = contract?.contractId
+  // https://poc5.phala.network/tee-api-1
+  // const prpc = Phala.createPruntimeApi(pruntimeURL);
+  // const worker = await getWorkerPubkey(api);
+  // const connectedWorker = hex((await prpc.getInfo({})).publicKey);
+  const newApi = await api.clone().isReady;
+  const contractPromise = new ContractPromise(
+    await create({api: newApi, baseURL: pruntimeURL, contractId}),
+    contract.metadata,
+    contractId
+  );
+  return contractPromise
+})
+
+export const eventsAtom = atomWithReset<PolkadotEvent[]>([])
+
+const dispatchEventAtom = atom(null, (get, set, events: EventRecord[]) => {
+  const prev = get(eventsAtom)
+  set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev])
+})
+
+export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
+
+//
+// Hooks
+//
+
+export function useConnectApi() {
   const [endpointUrl, setEndpointUrl] = useAtom(rpcEndpointAtom)
   const setStatus = useUpdateAtom(rpcApiStatusAtom)
   const setApiInstance = useUpdateAtom(rpcApiInstanceAtom)
@@ -140,128 +443,6 @@ export const useConnectApi = () => {
   }, [endpointUrl, setEndpointUrl, setStatus, setApiInstance, setError])
 }
 
-//
-//
-//
-
-const MAX_EVENTS = 75;
-
-export interface IndexedEvent {
-  indexes: number[];
-  record: EventRecord;
-}
-
-export interface KeyedEvent extends IndexedEvent {
-  blockHash?: string;
-  blockNumber?: BlockNumber;
-  key: string;
-}
-
-interface PrevHashes {
-  block: string | null;
-  event: string | null;
-}
-
-export const systemEventsAtom = atom<{
-  eventCount: number;
-  events: KeyedEvent[];
-}>({ eventCount: 0, events: [] })
-
-export function getAddressMeta (address: string, type: KeyringItemType | null = null): KeyringJson$Meta {
-  let meta: KeyringJson$Meta | undefined;
-
-  try {
-    const pair = keyring.getAddress(address, type);
-
-    meta = pair && pair.meta;
-  } catch (error) {
-    // we could pass invalid addresses, so it may throw
-  }
-
-  return meta || {};
-}
-
-export function getContractAbi (api: ApiPromise, address: string | null): Abi | null {
-  if (!address) {
-    return null;
-  }
-
-  let abi: Abi | undefined;
-  const meta = getAddressMeta(address, 'contract');
-
-  try {
-    const data = (meta.contract && JSON.parse(meta.contract.abi)) as string;
-
-    abi = new Abi(data, api.registry.getChainProperties());
-  } catch (error) {
-    console.error(error);
-  }
-
-  return abi || null;
-}
-
-export type RecentSystemEvent = {
-  event: KeyedEvent;
-  details: {
-    abiEvent: {
-      values: {
-          isValid: boolean;
-          value: Codec;
-      }[];
-      args: Codec[];
-      event: AbiEvent;
-    } | null;
-    params: {
-      type: TypeDef;
-    }[];
-    values: {
-      isValid: boolean;
-      value: Codec;
-    }[];
-  }
-}
-
-export const recentSystemEventsAtom = atom<RecentSystemEvent[]>(get => {
-  const api = get(rpcApiInstanceAtom)
-  if (!api) {
-    return [] as RecentSystemEvent[]
-  }
-  const { events } = get(systemEventsAtom)
-  return events.map(event => {
-    const value = event.record.event
-    const params = value.typeDef.map((type) => ({ type }))
-    const values = value.data.map((value) => ({ isValid: true, value }))
-    if (value.section === 'contracts' && value.method === 'ContractExecution' && value.data.length === 2) {
-      // see if we have info for this contract
-      const [accountId, encoded] = value.data
-
-      try {
-        const abi = getContractAbi(api, accountId.toString())
-
-        if (abi) {
-          const decoded = abi.decodeEvent(encoded as Bytes)
-
-          const abiEvent = {
-            ...decoded,
-            values: decoded.args.map((value) => ({ isValid: true, value }))
-          }
-          return {
-            event,
-            details: { abiEvent, params, values }
-          } as unknown as RecentSystemEvent
-        }
-      } catch (error) {
-        // ABI mismatch?
-        console.error(error);
-      }
-    }
-    return {
-      event,
-      details: { abiEvent: null, params, values }
-    } as RecentSystemEvent
-  })
-})
-
 export function useSystemEvents() {
   const setEvents = useUpdateAtom(systemEventsAtom)
   const api = useAtomValue(rpcApiInstanceAtom)
@@ -336,173 +517,6 @@ export function useSystemEvents() {
   }, [api, setEvents])
 }
 
-type PhalaFatContractQueryResult = {
-  deployer: string;
-  codeIndex: {
-    WasmCode: string;
-  }
-  salt: string;
-  clusterId: string;
-  instantiateData: string;
-}
-
-const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
-
-export type LocalContractInfo = {
-  contractId: string;
-  metadata: ContractMetadata;
-  createdAt: number;
-}
-
-export const contractsAtom = atomWithStorage<
-  Record<string, LocalContractInfo>
->('owned-contracts', {})
-
-export const currentContractIdAtom = atom('')
-
-export const currentContractAtom = atom(get => {
-  const contractId = get(currentContractIdAtom)
-  const contracts = get(contractsAtom)
-  return contracts[contractId]
-})
-
-export const phalaFatContractQueryAtom = atom(async get => {
-  const api = get(rpcApiInstanceAtom)
-  const info = get(currentContractAtom)
-  if (!api || !info) {
-    return null
-  }
-  const result = await new Promise(resolve => {
-    api.query.phalaFatContracts.contracts(info.contractId, (result: { toHuman: () => unknown }) => resolve(result.toHuman()))
-  })
-  return result as PhalaFatContractQueryResult
-})
-
-export const contractInstanceAtom = atom<ContractPromise | null>(null)
-
-export const derviedContractAtom = atom(async (get) => {
-  const api = get(rpcApiInstanceAtom)
-  const pruntimeURL = get(pruntimeURLAtom)
-  const contract = get(currentContractAtom)
-  if (!api) {
-    return
-  }
-  const contractPromise = new ContractPromise(
-    await create({api, baseURL: pruntimeURL, contractId: contract.contractId}),
-    contract.metadata,
-    contract.contractId
-  )
-  return contractPromise
-})
-
-export const messagesAtom = atom(get => {
-  const contract = get(currentContractAtom)
-  if (!contract) {
-    return []
-  }
-  return contract.metadata.V3.spec.messages || []
-})
-
-const pruntimeURL = 'https://poc5.phala.network/tee-api-1'
-
-export const currentContractInstanceAtom = atom(async (get) => {
-  const api = get(rpcApiInstanceAtom)
-  const contract = get(currentContractAtom)
-  if (!api || !contract) {
-    return null
-  }
-  const contractId = contract?.contractId
-  // https://poc5.phala.network/tee-api-1
-  // const prpc = Phala.createPruntimeApi(pruntimeURL);
-  // const worker = await getWorkerPubkey(api);
-  // const connectedWorker = hex((await prpc.getInfo({})).publicKey);
-  const newApi = await api.clone().isReady;
-  const contractPromise = new ContractPromise(
-    await Phala.create({api: newApi, baseURL: pruntimeURL, contractId}),
-    contract.metadata,
-    contractId
-  );
-  return contractPromise
-});
-
-async function sleep(t: number) {
-  await new Promise(resolve => {
-      setTimeout(resolve, t);
-  });
-}
-
-async function checkUntil<T>(async_fn: () => Promise<T>, timeout: number) {
-    const t0 = new Date().getTime();
-    while (true) {
-        if (await async_fn()) {
-            return;
-        }
-        const t = new Date().getTime();
-        if (t - t0 >= timeout) {
-            throw new Error('timeout');
-        }
-        await sleep(100);
-    }
-}
-
-async function blockBarrier(api: unknown, prpc: unknown, finalized=false, timeout=4*6000) {
-  const head = await (finalized
-      // @ts-ignore
-      ? api.rpc.chain.getFinalizedHead()
-      // @ts-ignore
-      : api.rpc.chain.getHeader()
-  );
-  let chainHeight = head.number.toNumber();
-  await checkUntil(
-      // @ts-ignore
-      async() => (await prpc.getInfo({})).blocknum > chainHeight,
-      timeout,
-  );
-}
-
-
-export const eventsAtom = atomWithReset<PolkadotEvent[]>([])
-
-const dispatchEventAtom = atom(null, (get, set, events: EventRecord[]) => {
-  const prev = get(eventsAtom)
-  set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev])
-})
-
-export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, signer: InjectedSigner) => {
-  return new Promise(async (resolve, reject) => {
-    // Ready -> Broadcast -> InBlock -> Finalized
-    const unsub = await target.signAndSend(
-      address, { signer }, (result) => {
-        const humanized = result.toHuman()          
-        if (result.status.isInBlock) {
-          let error;
-          for (const e of result.events) {
-            const { event: { data, method, section } } = e;
-            if (section === 'system' && method === 'ExtrinsicFailed') {
-              error = data[0];
-            }
-          }
-          // @ts-ignore
-          unsub();
-          if (error) {
-            reject(error);
-          } else {
-            resolve({
-              hash: result.status.asInBlock.toHuman(),
-              // @ts-ignore
-              events: result.toHuman().events,
-            });
-          }
-        } else if (result.status.isInvalid) {
-          // @ts-ignore
-          unsub();
-          reject('Invalid transaction');
-        }
-      }
-    )
-  })
-}
-
 export function useUploadCodeAndInstantiate() {
   const api = useAtomValue(rpcApiInstanceAtom)
   const dispatch = useUpdateAtom(dispatchEventAtom)
@@ -547,9 +561,7 @@ export function useUploadCodeAndInstantiate() {
   }, [api, dispatch, reset, toast, saveContract])
 }
 
-export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
-
-export const useRunner = (): [boolean, (inputs: Record<string, unknown>) => Promise<void>] => {
+export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Promise<void>] {
   const methodSpec = useAtomValue(currentMethodAtom)
   const contractInstance = useAtomValue(currentContractInstanceAtom)
   const account = useAtomValue(lastSelectedAccountAtom)
@@ -594,13 +606,13 @@ export const useRunner = (): [boolean, (inputs: Record<string, unknown>) => Prom
           signer
         )
         console.log(r1)
-        const prpc = await Phala.createPruntimeApi(pruntimeURL)
+        const prpc = await createPruntimeApi(pruntimeURL)
         await blockBarrier(contractInstance.api, prpc)
       }
       // query
       else {
         // @ts-ignore
-        const cert = await Phala.signCertificate({signer, account, api: contractInstance.api});
+        const cert = await signCertificate({signer, account, api: contractInstance.api});
         // @ts-ignore
         const r2 = await contractInstance?.query[queryMethods[methodSpec.label]](cert, { value: 0, gasLimit: -1 }, ...args);
         console.log(r2)
