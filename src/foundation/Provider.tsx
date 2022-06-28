@@ -6,8 +6,9 @@ import { ChakraProvider, extendTheme } from '@chakra-ui/react'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { ReactLocation, Router } from "@tanstack/react-location"
 
+import '@fontsource/montserrat/latin.css'
+import '@fontsource/roboto-mono/latin.css'
 import '@fontsource/poppins/latin.css'
-import '@fontsource/orbitron/latin.css'
 
 export type FoundationProviderProps =
   { children: ReactNode}
@@ -26,7 +27,7 @@ const theme = extendTheme({
     initialColorMode: 'dark',
   },
   fonts: {
-    heading: 'Orbitron, sans-serif',
+    heading: 'Montserrat, sans-serif',
     body: 'Poppins, sans-serif',
   },
   colors: {

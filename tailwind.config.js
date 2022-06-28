@@ -8,8 +8,7 @@ module.exports = {
           'sans-serif',
         ],
         mono: [
-          '"Berkeley Mono"',
-          // 'orbitron',
+          '"Roboto Mono"',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
@@ -19,7 +18,7 @@ module.exports = {
           '"Courier New"',
           'monospace',
         ],
-        pw: 'Orbitron',
+        heading: 'Montserrat',
       },
       colors: {
         phalaDark: {

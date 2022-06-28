@@ -918,15 +918,20 @@
   "resolved" "https://registry.npmjs.org/@emotion/weak-memoize/-/weak-memoize-0.2.5.tgz"
   "version" "0.2.5"
 
-"@fontsource/orbitron@^4.5.8":
-  "integrity" "sha512-En4xVwdVf3g3Rf6fuCWCdgIG9X6k1lW8rb5dZmgYv2WVwWofc14eoaRF551uOoHaWBsxHaF7o5mqY5EmnJaKbA=="
-  "resolved" "https://registry.npmjs.org/@fontsource/orbitron/-/orbitron-4.5.8.tgz"
-  "version" "4.5.8"
+"@fontsource/montserrat@^4.5.11":
+  "integrity" "sha512-XAYZmprnZDVSLIeEiB3evVG2JD+yoR9aT+I6LCOcwZFQ6ro9UPpopDncqoqwv+j5M0/UjyAP6ov70+L/fmP8Gg=="
+  "resolved" "https://registry.npmjs.org/@fontsource/montserrat/-/montserrat-4.5.11.tgz"
+  "version" "4.5.11"
 
 "@fontsource/poppins@^4.5.8":
   "integrity" "sha512-HE9yLDxYJEcxooVrYvvEhtyxaYU32hQIx1+npKegVefceE0l0zi0ePqKWWxYxkFpyy6WuZSQ+9rai3INnYKEJA=="
   "resolved" "https://registry.npmjs.org/@fontsource/poppins/-/poppins-4.5.8.tgz"
   "version" "4.5.8"
+
+"@fontsource/roboto-mono@^4.5.7":
+  "integrity" "sha512-1uBjM95BEz7zJlmmnpNAM5afMvIxx0wqr86eA76vRqZw8OF5wmsRqYfF3caHuVarBH9/AGN7t9h+3UXK8fjq/Q=="
+  "resolved" "https://registry.npmjs.org/@fontsource/roboto-mono/-/roboto-mono-4.5.7.tgz"
+  "version" "4.5.7"
 
 "@jridgewell/gen-mapping@^0.1.0":
   "integrity" "sha512-sQXCasFk+U8lWYEe66WxRDOE9PjVz4vSM51fTu3Hw+ClTpUSQb718772vH3pyS5pShp6lvQM7SxgIDXXXmOX7w=="

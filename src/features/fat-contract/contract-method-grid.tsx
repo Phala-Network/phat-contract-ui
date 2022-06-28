@@ -29,7 +29,7 @@ import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/ato
 
 export const argsFormModalVisibleAtom = atom(false)
 
-const MethodTypeLabel = tw.span`font-pw font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
+const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
   inputs: Record<string, unknown>,
