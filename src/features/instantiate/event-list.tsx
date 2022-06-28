@@ -4,7 +4,7 @@ import { useAtomValue, useResetAtom } from 'jotai/utils'
 import { Badge, Box, Button } from '@chakra-ui/react'
 import * as R from 'ramda'
 
-import { eventsAtom } from './hooks/use-upload-code-and-instantiate'
+import { eventsAtom } from '@/features/chain/atoms'
 
 const EventList = () => {
   const events = useAtomValue(eventsAtom)

@@ -1,18 +1,11 @@
-import type { FC, ReactNode } from 'react'
-import type { LocalContractInfo } from './atoms'
-
 import React from 'react'
 import tw from 'twin.macro'
-import { atom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
 import {
   Box,
-  Text,
   Heading,
   Table,
-  Thead,
   Tbody,
-  Tfoot,
   Tr,
   Th,
   Td,
@@ -20,7 +13,7 @@ import {
   Tag,
 } from "@chakra-ui/react";
 
-import { currentContractAtom, phalaFatContractQueryAtom } from './atoms'
+import { currentContractAtom, phalaFatContractQueryAtom } from '@/features/chain/atoms'
 import Code from '@/features/ui/code'
 
 

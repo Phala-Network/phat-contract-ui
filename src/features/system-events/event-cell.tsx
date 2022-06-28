@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { RecentSystemEvent } from '@/atoms/foundation'
+import type { RecentSystemEvent } from '@/features/chain/atoms'
 import type { EventMetadataLatest } from '@polkadot/types/interfaces'
 
 import React from 'react'

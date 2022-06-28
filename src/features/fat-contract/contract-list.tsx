@@ -1,14 +1,13 @@
 import type { FC } from 'react'
-import type { LocalContractInfo } from './atoms'
+import type { LocalContractInfo } from '@/features/chain/atoms'
 
-import React from 'react'
 import tw from 'twin.macro'
-import { atom } from 'jotai'
+
 import { Box } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai/utils'
 import { Link } from '@tanstack/react-location'
 
-import { contractsAtom } from './atoms'
+import { contractsAtom } from '@/features/chain/atoms'
 
 
 const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, createdAt }) => {

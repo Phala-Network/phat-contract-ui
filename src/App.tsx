@@ -7,7 +7,7 @@ import { useAtomValue } from 'jotai/utils'
 
 import { signCertificate, CertificateData } from './sdk'
 
-import { rpcApiInstanceAtom, rpcEndpointAtom, useConnectApi } from './atoms/foundation'
+import { rpcApiInstanceAtom, rpcEndpointAtom, useConnectApi } from './features/chain/atoms'
 import type { FoundationProviderProps } from '@/foundation/Provider'
 import FoundationProvider from '@/foundation/Provider'
 import AccountBadge from '@/features/account/Badge'
@@ -15,7 +15,7 @@ import AccountMenu from '@/features/account/account-menu'
 import FatContractUploadForm from '@/features/instantiate/fat-contract-upload-form'
 import EventDisplay from '@/features/system-events/event-display'
 import EventList from '@/features/instantiate/event-list'
-import { derviedContractAtom, contractsAtom } from '@/features/fat-contract/atoms'
+import { derviedContractAtom, contractsAtom } from '@/features/chain/atoms'
 import { lastSelectedAccountAtom, signerAtom } from '@/features/account/atoms'
 
 import ContractAddPage from '@/pages/contract-add-page'

@@ -13,7 +13,7 @@ import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-import { currentContractIdAtom, currentContractAtom, derviedContractAtom } from '@/features/fat-contract/atoms'
+import { currentContractIdAtom, currentContractAtom, derviedContractAtom } from '@/features/chain/atoms'
 import ContractInfo from '@/features/fat-contract/contract-info'
 import ContractQueryGrid from '@/features/fat-contract/contract-query-grid'
 

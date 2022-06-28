@@ -21,7 +21,7 @@ import { atom, useAtom } from 'jotai'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import * as R from 'ramda'
 
-import { rpcEndpointAtom, rpcApiStatusAtom, rpcEndpointErrorAtom, useConnectApi } from '@/atoms/foundation'
+import { rpcEndpointAtom, rpcApiStatusAtom, rpcEndpointErrorAtom, useConnectApi } from '@/features/chain/atoms'
 
 import { lastSelectedAccountDisplayNameAtom, lastSelectedAccountAddressAtom, connectionDetailModalVisibleAtom } from './atoms'
 import AccountSelectField from './account-select-field'

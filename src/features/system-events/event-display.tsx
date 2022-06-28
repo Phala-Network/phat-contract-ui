@@ -3,7 +3,7 @@ import { atom, useAtom } from 'jotai'
 import { atomWithStorage, useAtomValue } from 'jotai/utils'
 import { Accordion, Tabs, TabList, Tab } from '@chakra-ui/react'
 
-import { useSystemEvents, recentSystemEventsAtom } from '@/atoms/foundation'
+import { useSystemEvents, recentSystemEventsAtom } from '@/features/chain/atoms'
 
 import EventCell from './event-cell'
 
