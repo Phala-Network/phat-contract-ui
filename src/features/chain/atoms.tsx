@@ -12,7 +12,7 @@ import type { AbiEvent } from '@polkadot/api-contract/types'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { atom, useAtom } from 'jotai'
-import { atomWithStorage, atomWithReset, useAtomValue, useUpdateAtom, useResetAtom } from 'jotai/utils'
+import { atomWithStorage, atomWithReset, useAtomValue, useUpdateAtom, useResetAtom, waitForAll } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import { Abi, ContractPromise } from '@polkadot/api-contract'
 import { ApiPromise, WsProvider } from '@polkadot/api'
@@ -88,6 +88,14 @@ export type RecentSystemEvent = {
   }
 }
 
+export type MethodRunResult = {
+  contract: LocalContractInfo;
+  methodSpec: ContractMetaMessage;
+  succeed: boolean;
+  args: Record<string, unknown>;
+  output?: AnyJson;
+  completedAt: number;
+}
 
 //
 // Constants
@@ -95,24 +103,18 @@ export type RecentSystemEvent = {
 
 const MAX_EVENTS = 75;
 
-const pruntimeURL = 'https://poc5.phala.network/tee-api-1'
-
 //
 // Internal Functions
 //
 
 const debug = createLogger('chain', 'debug')
 
+const apiTypes = { ...khalaDev, ...phalaSDKTypes }
+
 export const createApiInstance = (endpointUrl: string): [WsProvider, ApiPromise] => {
   debug('create RPC connection to ', endpointUrl)
   const wsProvider = new WsProvider(endpointUrl)
-  const api = new ApiPromise({
-    provider: wsProvider,
-    types: {
-      ...khalaDev,
-      ...phalaSDKTypes,
-    },
-  })
+  const api = new ApiPromise({ provider: wsProvider, types: apiTypes })
   return [wsProvider, api]
 }
 
@@ -223,7 +225,7 @@ export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: str
 // Atoms
 //
 
-const pruntimeURLAtom = atom(pruntimeURL)
+const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
 
 export const rpcEndpointAtom = atom('')
 
@@ -355,34 +357,21 @@ export const messagesAtom = atom(get => {
   return contract.metadata.V3.spec.messages || []
 })
 
-export const currentContractInstanceAtom = atom(async (get) => {
-  const api = get(rpcApiInstanceAtom)
-  const contract = get(currentContractAtom)
-  if (!api || !contract) {
-    return null
-  }
-  const contractId = contract?.contractId
-  // https://poc5.phala.network/tee-api-1
-  // const prpc = Phala.createPruntimeApi(pruntimeURL);
-  // const worker = await getWorkerPubkey(api);
-  // const connectedWorker = hex((await prpc.getInfo({})).publicKey);
-  const newApi = await api.clone().isReady;
-  const contractPromise = new ContractPromise(
-    await create({api: newApi, baseURL: pruntimeURL, contractId}),
-    contract.metadata,
-    contractId
-  );
-  return contractPromise
-})
+export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
 
 export const eventsAtom = atomWithReset<PolkadotEvent[]>([])
 
 const dispatchEventAtom = atom(null, (get, set, events: EventRecord[]) => {
   const prev = get(eventsAtom)
-  set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev])
+  set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev ])
 })
 
-export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
+export const resultsAtom = atomWithReset<MethodRunResult[]>([])
+
+const dispatchResultsAtom = atom(null, (get, set, result: MethodRunResult) => {
+  const prev = get(resultsAtom)
+  set(resultsAtom, [ result, ...prev ])
+})
 
 //
 // Hooks
@@ -592,17 +581,29 @@ export function useUploadCodeAndInstantiate() {
 }
 
 export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Promise<void>] {
-  const methodSpec = useAtomValue(currentMethodAtom)
-  const contractInstance = useAtomValue(currentContractInstanceAtom)
-  const account = useAtomValue(lastSelectedAccountAtom)
+  const [api, pruntimeURL, methodSpec, contract, account] = useAtomValue(waitForAll([
+    rpcApiInstanceAtom,
+    pruntimeURLAtom,
+    currentMethodAtom,
+    currentContractAtom,
+    lastSelectedAccountAtom
+  ]))
+  const appendResult = useUpdateAtom(dispatchResultsAtom)
   const [isLoading, setIsLoading] = useState(false)
   const fn = useCallback(async (inputs: Record<string, unknown>) => {
     setIsLoading(true)
     try {
-      if (!contractInstance || !account || !methodSpec) {
-        console.debug('contractInstance or account is null')
+      if (!api || !account || !methodSpec) {
+        debug('contractInstance or account is null')
         return
       }
+      console.log('contract', contract)
+      const apiCopy = await api.clone().isReady
+      const contractInstance = new ContractPromise(
+        await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId}),
+        contract.metadata,
+        contract.contractId
+      )
       debug('methodSpec', methodSpec)
 
       const queryMethods = R.fromPairs(R.map(
@@ -617,7 +618,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
       // debug('txMethods', txMethods)
 
       if (!queryMethods[methodSpec.label] && !txMethods[methodSpec.label]) {
-        console.debug('method not found', methodSpec.label)
+        debug('method not found', methodSpec.label)
         return
       }
       const args = R.map(
@@ -641,24 +642,38 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
       }
       // query
       else {
-        // @ts-ignore
-        const cert = await signCertificate({signer, account, api: contractInstance.api});
-        // @ts-ignore
-        const r2 = await contractInstance?.query[queryMethods[methodSpec.label]](cert, { value: 0, gasLimit: -1 }, ...args);
-        debug(r2)
-        debug(r2?.output?.toHuman())
-        // if (methodSpec.label === 'attest') {
-        //   debug(
-        //       'Easy attestation:',
-        //       r2.result.isOk ? r2.output.toHuman() : r2.result.toHuman()
-        //   );
-        //   debug(contractInstance.registry.createType('GistQuote', r2.output.asOk.data.toHex()).toHuman())
-        // }
+        const cert = await signCertificate({signer, account, api: contractInstance.api as ApiPromise});
+        const queryResult = await contractInstance.query[queryMethods[methodSpec.label]](
+          // @FIXME this is a hack to make the ts compiler happy.
+          cert as unknown as string,
+          { value: 0, gasLimit: -1 },
+          ...args
+        )
+        debug(queryResult)
+        // @TODO Error handling
+        if (queryResult.result.isOk) {
+          appendResult({
+            contract,
+            methodSpec,
+            succeed: true,
+            args: inputs,
+            output: queryResult.output?.toHuman(),
+            completedAt: Date.now(),
+          })
+        } else {
+          appendResult({
+            contract,
+            methodSpec,
+            succeed: false,
+            args: inputs,
+            output: queryResult.result.toHuman(),
+            completedAt: Date.now(),
+          })
+        }
       }
-      debug('executed.')
     } finally {
       setIsLoading(false)
     }
-  }, [contractInstance, account, methodSpec])
+  }, [api, pruntimeURL, contract, account, methodSpec, appendResult])
   return [isLoading, fn]
 }
