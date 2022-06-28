@@ -16,3 +16,14 @@ export async function contracts(api: ApiPromise, contractId?: string) {
   const result = await api.query.phalaFatContracts.contracts.entries()
   return R.fromPairs(R.map(R.map(toHuman), result) as [string, AnyJson][])
 }
+
+export async function clusters(api: ApiPromise, clusterId?: string) {
+  const result = await api.query.phalaFatContracts.clusters.entries()
+  return R.fromPairs(R.map(R.map(toHuman), result) as [string, AnyJson][])
+}
+
+export async function clusterContracts(api: ApiPromise, clusterId: string) {
+  const result = await api.query.phalaFatContracts.clusterContracts(clusterId)
+  const contractIds = R.map(toHuman, result as unknown as Codec[])
+  return contractIds
+}

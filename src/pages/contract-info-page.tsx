@@ -1,12 +1,9 @@
 import React, { Suspense, useEffect } from 'react'
 import tw from 'twin.macro'
 import {
-  Button,
-  Box,
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
-  BreadcrumbSeparator,
 } from "@chakra-ui/react"
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'

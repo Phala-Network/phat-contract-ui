@@ -171,6 +171,26 @@ async function checkUntil<T>(async_fn: () => Promise<T>, timeout: number) {
     }
 }
 
+async function checkUntilEq<T>(async_fn: () => Promise<T>, expected: T, timeout: number, verbose=true) {
+  const t0 = new Date().getTime();
+  let lastActual = undefined;
+  while (true) {
+      const actual = await async_fn();
+      if (actual == expected) {
+          return;
+      }
+      if (actual != lastActual && verbose) {
+          debug(`Waiting... (current = ${actual}, expected = ${expected})`)
+          lastActual = actual;
+      }
+      const t = new Date().getTime();
+      if (t - t0 >= timeout) {
+          throw new Error('timeout');
+      }
+      await sleep(100);
+  }
+}
+
 async function blockBarrier(api: unknown, prpc: unknown, finalized=false, timeout=4*6000) {
   const head = await (finalized
       // @ts-ignore
@@ -382,6 +402,19 @@ export const countsAtom = atom(get => {
   }
 })
 
+export const availableClustersAtom = atomWithQuery(get => ({
+  queryKey: ['phalaFatContracts.clusters'],
+  queryFn: async () => {
+    await sleep(5000)
+    const api = get(rpcApiInstanceAtom)
+    if (!api) {
+      return []
+    }
+    const result = await PhalaFatContractsQuery.clusters(api)
+    return Object.entries(result)
+  }
+}))
+
 //
 // Hooks
 //
@@ -579,13 +612,30 @@ export function useUploadCodeAndInstantiate() {
       const contractId = instantiateEvent.event.data[0]
       const metadata = R.dissocPath(['source', 'wasm'], contract)
       saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
+
+      await checkUntilEq(
+        async () => {
+          const contractIds = await PhalaFatContractsQuery.clusterContracts(api, clusterId)
+          return contractIds.filter(id => id === contractId).length
+        },
+        1,
+        4 * 6000
+      )
+
+      await checkUntil(
+        // @ts-ignore
+        async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
+        4 * 6000
+      )
+
+      toast({
+        title: 'Instantiate Requested.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+      return contractId
     }
-    toast({
-      title: 'Instantiate Requested.',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    })
   }, [api, dispatch, reset, toast, saveContract])
 }
 
