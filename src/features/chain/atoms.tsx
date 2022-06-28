@@ -24,6 +24,7 @@ import { web3FromSource } from '@polkadot/extension-dapp'
 import { useToast } from '@chakra-ui/react'
 import * as R from 'ramda'
 
+import createLogger from '@/functions/createLogger'
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
 
 import { create, createPruntimeApi, signCertificate, types as phalaSDKTypes } from '../../sdk'
@@ -99,8 +100,10 @@ const pruntimeURL = 'https://poc5.phala.network/tee-api-1'
 // Internal Functions
 //
 
+const debug = createLogger('chain', 'debug')
+
 export const createApiInstance = (endpointUrl: string): [WsProvider, ApiPromise] => {
-  console.log('create RPC connection to ', endpointUrl)
+  debug('create RPC connection to ', endpointUrl)
   const wsProvider = new WsProvider(endpointUrl)
   const api = new ApiPromise({
     provider: wsProvider,
@@ -365,11 +368,11 @@ export function useConnectApi() {
   useEffect(() => {
     setError('')
     if (!endpointUrl) {
-      console.log('setStatus -> disconnected')
+      debug('setStatus -> disconnected')
       setStatus('disconnected')
       setApiInstance(null)
     } else {
-      console.log('setStatus -> connecting')
+      debug('setStatus -> connecting')
       setStatus('connecting')
 
       const fn = async () => {
@@ -379,7 +382,7 @@ export function useConnectApi() {
           const isFirefox = window.navigator.userAgent.indexOf('Firefox') !== -1
           setApiInstance(null)
           setEndpointUrl('')
-          console.log(new Date(), 'setStatus -> error')
+          debug('setStatus -> error')
           if (isFirefox) {
             setError('RPC Endpoint is unreachable. If you are using Firefox, please switch to Chrome and try again.')
           } else {
@@ -390,19 +393,19 @@ export function useConnectApi() {
         api.on('connected', async () => {
           await api.isReady
           setStatus('connected')
-          console.log(new Date(), 'setStatus -> connected')
+          debug('setStatus -> connected')
         })
 
         api.on('disconnected', () => {
-          console.log(new Date(), 'setStatus -> disconnected')
+          debug('setStatus -> disconnected')
           setStatus((prev) => prev === 'error' ? prev : 'disconnected')
           setEndpointUrl('')
         })
   
-        api.on('ready', () => console.log(new Date(), 'API ready'))
+        api.on('ready', () => debug('API ready'))
   
         const onError = (err: unknown) => {
-          console.log(new Date(), 'api error', err)
+          debug('api error', err)
           setStatus('error')
           setError(`RPC Error`)
           setApiInstance(null)
@@ -412,7 +415,7 @@ export function useConnectApi() {
             api.disconnect()
             ws.disconnect()
           } catch (err1) {
-            console.log('hey yo', err1)
+            debug('hey yo', err1)
           }
         }
         api.on('error', onError)
@@ -422,7 +425,7 @@ export function useConnectApi() {
             if (prev !== 'connected') {
               setApiInstance(null)
               setEndpointUrl('')
-              console.log(new Date(), 'setStatus -> error')
+              debug('setStatus -> error')
               setError('RPC Endpoint is unreachable')
               return 'error'
             }
@@ -437,7 +440,7 @@ export function useConnectApi() {
       try {
         fn()
       } catch (err) {
-        console.log('error', err)
+        debug('error', err)
       }
     }
   }, [endpointUrl, setEndpointUrl, setStatus, setApiInstance, setError])
@@ -500,8 +503,7 @@ export function useSystemEvents() {
                 // remove all events for the previous same-height blockNumber
                 ...events.filter((p) => !p.blockNumber?.eq(blockNumber))
               ].slice(0, MAX_EVENTS)
-            }));
-          }
+            }));          }
         } else {
           setEvents(({ events }) => ({
             eventCount: records.length,
@@ -573,7 +575,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
         console.debug('contractInstance or account is null')
         return
       }
-      console.log('methodSpec', methodSpec)
+      debug('methodSpec', methodSpec)
 
       const queryMethods = R.fromPairs(R.map(
         i => [i.meta.identifier, i.meta.method],
@@ -583,8 +585,8 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
         i => [i.meta.identifier, i.meta.method],
         R.values(contractInstance.tx || {})
       ))
-      // console.log('queryMethods', queryMethods)
-      // console.log('txMethods', txMethods)
+      // debug('queryMethods', queryMethods)
+      // debug('txMethods', txMethods)
 
       if (!queryMethods[methodSpec.label] && !txMethods[methodSpec.label]) {
         console.debug('method not found', methodSpec.label)
@@ -594,7 +596,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
         i => inputs[i.label],
         methodSpec.args
       )
-      console.log('args built: ', args)
+      debug('args built: ', args)
 
       const { signer } = await web3FromSource(account.meta.source)
 
@@ -605,7 +607,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
           account.address,
           signer
         )
-        console.log(r1)
+        debug(r1)
         const prpc = await createPruntimeApi(pruntimeURL)
         await blockBarrier(contractInstance.api, prpc)
       }
@@ -615,17 +617,17 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
         const cert = await signCertificate({signer, account, api: contractInstance.api});
         // @ts-ignore
         const r2 = await contractInstance?.query[queryMethods[methodSpec.label]](cert, { value: 0, gasLimit: -1 }, ...args);
-        console.log(r2)
-        console.log(r2?.output?.toHuman())
+        debug(r2)
+        debug(r2?.output?.toHuman())
         // if (methodSpec.label === 'attest') {
-        //   console.log(
+        //   debug(
         //       'Easy attestation:',
         //       r2.result.isOk ? r2.output.toHuman() : r2.result.toHuman()
         //   );
-        //   console.log(contractInstance.registry.createType('GistQuote', r2.output.asOk.data.toHex()).toHuman())
+        //   debug(contractInstance.registry.createType('GistQuote', r2.output.asOk.data.toHex()).toHuman())
         // }
       }
-      console.log('executed.')
+      debug('executed.')
     } finally {
       setIsLoading(false)
     }
