@@ -3,84 +3,104 @@ import type { MethodRunResult } from '@/features/chain/atoms'
 
 import tw from 'twin.macro'
 import { atom, useAtom } from 'jotai'
-import { useAtomValue } from 'jotai/utils'
-import { Link } from "@tanstack/react-location"
-import { TiTick, TiTimes } from 'react-icons/ti'
+import { useUpdateAtom, useAtomValue } from 'jotai/utils'
+import { TiTimes, TiArrowRepeat, TiMessageTyping } from 'react-icons/ti'
+import {
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+} from '@chakra-ui/react'
 
-import { resultsAtom } from '@/features/chain/atoms'
+import { countsAtom } from '@/features/chain/atoms'
+import EventPanel from './event-panel'
+import ResultPanel from './result-panel'
 
-import EventList from './event-list'
+const toggleEventListAtom = atom<boolean>(false)
+const currentTabAtom = atom<number>(0)
 
-const toggleEventListAtom = atom<boolean>(true)
-
-const QueryResultHistoryItem: FC<MethodRunResult> = (result) => {
-  const completedAt = new Date(result.completedAt)
-  const completedAtString = completedAt.toLocaleString()
+const CloseButton = () => {
+  const setShowEventList = useUpdateAtom(toggleEventListAtom)
   return (
-    <div>
-      <div tw="flex flex-row gap-3">
-        <div tw="rounded-full w-8 h-8 bg-gray-900 flex justify-center items-center border border-solid border-gray-800">
-          {result.succeed ? <TiTick tw="text-xl text-phala-500" /> : <TiTimes tw="text-xl text-red-500" />}
-        </div>
-        <article tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
-          <header tw="flex justify-between items-center pb-2 mb-2 border-b border-solid border-gray-700">
-            <Link to={`/contracts/view/${result.contract.contractId}`}>
-              <h4 tw="text-sm font-mono px-2 py-1 bg-black rounded-lg inline-block">
-                {result.contract.metadata.contract.name}
-                .
-                {result.methodSpec.label}
-              </h4>
-              <div tw="text-xs font-mono px-2 my-1 text-gray-400">{result.contract.contractId}</div>
-            </Link>
-            <time tw="text-sm text-gray-400">{completedAtString}</time>
-          </header>
-          <pre tw="text-base font-mono">
-            {typeof result.output === 'string' ? result.output : JSON.stringify(result.output, null, 2)}
-          </pre>
-        </article>
-      </div>
-    </div>
+    <button
+      tw="absolute top-2 right-0 p-1 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
+      onClick={() => setShowEventList(false)}
+    >
+      <TiTimes tw="text-lg" />
+    </button>
   )
 }
 
-const QueryResultHistory = () => {
-  const queryResults = useAtomValue(resultsAtom)
+const CounterButton = tw.button`
+  flex gap-1 min-w-[2.5rem] justify-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black
+`
+
+const Counters = () => {
+  const counts = useAtomValue(countsAtom)
+  const setShowEventList = useUpdateAtom(toggleEventListAtom)
+  const setCurrentTab = useUpdateAtom(currentTabAtom)
   return (
-    <div tw="flex flex-col gap-4">
-      {queryResults.map((result, index) => (
-        <div key={index}>
-          <QueryResultHistoryItem {...result} />
-        </div>
-      ))}
+    <div tw="flex flex-row gap-1">
+      <CounterButton
+        onClick={() => {
+          setShowEventList(true)
+          setCurrentTab(0)
+        }}
+      >
+        <TiArrowRepeat tw="text-base" />
+        <span tw="text-sm font-mono">{counts.eventCount}</span>
+      </CounterButton>
+      <CounterButton
+        onClick={() => {
+          setShowEventList(true)
+          setCurrentTab(1)
+        }}
+      >
+        <TiMessageTyping tw="text-base" />
+        <span tw="text-sm font-mono">{counts.resultCount}</span>
+      </CounterButton>
     </div>
   )
 }
 
 export default function StatusBar() {
-  const [showEventList, setShowEventList] = useAtom(toggleEventListAtom)
+  const showEventList = useAtomValue(toggleEventListAtom)
+  const [currentTab, setCurrentTab] = useAtom(currentTabAtom)
   return (
-    <footer
-      css={[
-        tw`flex-shrink bg-black transition-all max-w-full px-4`,
-        showEventList ? tw`h-[44vh] pb-2` : tw`h-auto`,
-      ]}
-    >
-      <div
-        onClick={() => setShowEventList(i => !i)}
-        css={[
-          tw`mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2 text-sm`,
-        ]}
-        >
-        Events
+    <footer css={[tw`flex-shrink bg-black max-w-full px-4`]}>
+      <div css={[showEventList ? tw`h-0 hidden` : tw`h-8`]}>
+        <div tw="mx-auto h-full w-full max-w-7xl transition-all flex items-center">
+          <Counters />
+        </div>
       </div>
       <div
         css={[
-          tw`flex flex-row bg-black mx-auto w-full max-w-7xl`,
-          showEventList ? tw`block` : tw`hidden`,
+          tw`flex flex-row bg-black mx-auto w-full max-w-7xl transition-all`,
+          showEventList ? tw`h-[30vh]` : tw`h-0 overflow-hidden`,
         ]}
       >
-        {/* <EventList /> */}
-        <QueryResultHistory />
+        <Tabs tw="w-full" colorScheme="phalaDark" index={currentTab} onChange={i => setCurrentTab(i)}>
+          <TabList tw="relative">
+            <Tab>
+              <TiArrowRepeat tw="text-gray-400 text-base mr-1" />
+              Events
+            </Tab>
+            <Tab>
+              <TiMessageTyping tw="text-gray-400 text-base mr-1" />
+              Result
+            </Tab>
+            <CloseButton />
+          </TabList>
+          <TabPanels>
+            <TabPanel px="0">
+              <EventPanel />
+            </TabPanel>
+            <TabPanel px="0">
+              <ResultPanel />
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </div>
     </footer>
   )

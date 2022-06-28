@@ -373,6 +373,15 @@ const dispatchResultsAtom = atom(null, (get, set, result: MethodRunResult) => {
   set(resultsAtom, [ result, ...prev ])
 })
 
+export const countsAtom = atom(get => {
+  const events = get(eventsAtom)
+  const results = get(resultsAtom)
+  return {
+    eventCount: events.length,
+    resultCount: results.length,
+  }
+})
+
 //
 // Hooks
 //
@@ -589,6 +598,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
     lastSelectedAccountAtom
   ]))
   const appendResult = useUpdateAtom(dispatchResultsAtom)
+  const dispatch = useUpdateAtom(dispatchEventAtom)
   const [isLoading, setIsLoading] = useState(false)
   const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
@@ -637,6 +647,8 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
           account.address,
           signer
         )
+        // @ts-ignore
+        dispatch(r1.events)
         debug(r1)
         const prpc = await createPruntimeApi(pruntimeURL)
         await blockBarrier(contractInstance.api, prpc)
@@ -675,6 +687,6 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
     } finally {
       setIsLoading(false)
     }
-  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult])
+  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch])
   return [isLoading, fn]
 }

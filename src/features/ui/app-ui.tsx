@@ -3,8 +3,6 @@ import type { FC, ReactNode } from 'react'
 import tw, { styled } from 'twin.macro'
 import { Link } from "@tanstack/react-location"
 
-import AccountBadge from '@/features/account/Badge'
-
 export const AppUI = styled.div`
   ${tw`flex flex-col max-h-full h-full overflow-y-hidden`}
   justify-content: safe center;
@@ -17,7 +15,7 @@ export const AppHeader: FC<{
 }> = ({ title = 'PHALA', left, right }) => {
   return (
     <div tw="bg-black">
-      <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-4">
+      <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
         <div tw="flex-1 min-w-0">
           {left ? left : (
             <h2 tw="text-2xl font-bold leading-7 text-white font-mono">
