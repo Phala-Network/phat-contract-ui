@@ -5,7 +5,7 @@ import tw from 'twin.macro'
 import { atom, useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
 import { Link } from "@tanstack/react-location"
-import { TiFlash, TiTick, TiTimes } from 'react-icons/ti'
+import { TiTick, TiTimes } from 'react-icons/ti'
 
 import { resultsAtom } from '@/features/chain/atoms'
 

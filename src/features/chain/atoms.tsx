@@ -580,8 +580,8 @@ export function useUploadCodeAndInstantiate() {
   }, [api, dispatch, reset, toast, saveContract])
 }
 
-export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Promise<void>] {
-  const [api, pruntimeURL, methodSpec, contract, account] = useAtomValue(waitForAll([
+export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
+  const [api, pruntimeURL, selectedMethodSpec, contract, account] = useAtomValue(waitForAll([
     rpcApiInstanceAtom,
     pruntimeURLAtom,
     currentMethodAtom,
@@ -590,8 +590,9 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
   ]))
   const appendResult = useUpdateAtom(dispatchResultsAtom)
   const [isLoading, setIsLoading] = useState(false)
-  const fn = useCallback(async (inputs: Record<string, unknown>) => {
+  const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
+    const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
       if (!api || !account || !methodSpec) {
         debug('contractInstance or account is null')
@@ -674,6 +675,6 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>) => Prom
     } finally {
       setIsLoading(false)
     }
-  }, [api, pruntimeURL, contract, account, methodSpec, appendResult])
+  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult])
   return [isLoading, fn]
 }

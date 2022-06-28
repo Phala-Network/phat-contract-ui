@@ -16,12 +16,13 @@ import {
   FormLabel,
   Button,
   ButtonGroup,
+  CircularProgress,
 } from '@chakra-ui/react'
 import { atom, useAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AiFillPlayCircle } from 'react-icons/ai'
+import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
 import Code from '@/features/ui/code'
 import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
@@ -47,6 +48,21 @@ const ExecuteButton: FC<{
     >
       Run
     </Button>
+  )
+}
+
+const InstaExecuteButton: FC<{
+  methodSpec: ContractMetaMessage,
+}> = ({ methodSpec }) => {
+  const [isRunning, runner] = useRunner()
+  return (
+    <button
+      tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"
+      disabled={isRunning}
+      onClick={() => runner({}, methodSpec)}
+    >
+      {isRunning ? <CircularProgress isIndeterminate size="1.5rem" color="black" /> : <TiFlash tw="h-6 w-6 text-phala-200" />}
+    </button>
   )
 }
 
@@ -135,14 +151,19 @@ const ContractMethodGrid = () => {
                   <MethodTypeLabel>query</MethodTypeLabel>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  setCurrentMethod(message)
-                  setArgsFormModalVisible(true)
-                }}
-              >
-                <AiFillPlayCircle tw="h-8 w-8 text-phala-500" />
-              </button>
+              {message.args.length > 0 ? (
+                <button
+                  tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                  onClick={() => {
+                    setCurrentMethod(message)
+                    setArgsFormModalVisible(true)
+                  }}
+                >
+                  <TiMediaPlay tw="h-6 w-6 text-phala-500" />
+                </button>
+              ) : (
+                <InstaExecuteButton methodSpec={message} />
+              )}
             </div>
             <div tw="my-1">
               <Code>{message.selector}</Code>
