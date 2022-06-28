@@ -1,6 +1,6 @@
 import type { ApiTypes } from '@polkadot/api-base/types/base'
 import type { Vec, Bytes } from '@polkadot/types'
-import type { Codec } from '@polkadot/types/types'
+import type { AnyJson, Codec } from '@polkadot/types/types'
 import type { SubmittableExtrinsic } from '@polkadot/api-base/types/submittable'
 import type { Event as PolkadotEvent, EventRecord } from '@polkadot/types/interfaces/system'
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
@@ -19,7 +19,6 @@ import { stringify, stringToU8a } from '@polkadot/util'
 import { keyring } from '@polkadot/ui-keyring'
 import { xxhashAsHex } from '@polkadot/util-crypto'
 import { khalaDev } from '@phala/typedefs'
-
 import { web3FromSource } from '@polkadot/extension-dapp'
 import { useToast } from '@chakra-ui/react'
 import * as R from 'ramda'
@@ -28,6 +27,7 @@ import createLogger from '@/functions/createLogger'
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
 
 import { create, createPruntimeApi, signCertificate, types as phalaSDKTypes } from '../../sdk'
+import * as PhalaFatContractsQuery from './phala-fat-contracts-query'
 
 //
 // Types

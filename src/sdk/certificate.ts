@@ -1,5 +1,6 @@
 import {waitReady, sr25519KeypairFromSeed} from '@polkadot/wasm-crypto'
 import type {ApiPromise} from '@polkadot/api'
+import type { Signer as InjectedSigner } from '@polkadot/api/types'
 import type {KeyringPair} from '@polkadot/keyring/types'
 import type {Signer} from '@polkadot/types/types'
 import {u8aToHex, hexToU8a, hexAddPrefix} from '@polkadot/util'
@@ -20,7 +21,7 @@ interface CertificateBaseParams {
 }
 
 interface CertificateParamsWithSigner extends CertificateBaseParams {
-  signer: Signer
+  signer: Signer | InjectedSigner
   account: InjectedAccountWithMeta
 }
 
