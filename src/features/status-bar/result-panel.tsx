@@ -4,7 +4,7 @@ import type { MethodRunResult } from '@/features/chain/atoms'
 import tw from 'twin.macro'
 import { useAtomValue } from 'jotai/utils'
 import { Link } from "@tanstack/react-location"
-import { TiTick, TiTimes } from 'react-icons/ti'
+import { TiTick, TiTimes, TiInfoOutline } from 'react-icons/ti'
 
 import { resultsAtom } from '@/features/chain/atoms'
 
@@ -43,6 +43,12 @@ export default function ResultPanel() {
   return (
     <div tw="h-[30vh] overflow-y-scroll px-6">
       <div tw="flex flex-col gap-4">
+        {!queryResults.length && (
+          <div tw="text-gray-600 text-sm flex items-center">
+            <TiInfoOutline tw="mr-1 text-lg" />
+            Empty.
+          </div>
+        )}
         {queryResults.map((result, index) => (
           <div key={index}>
             <QueryResultHistoryItem {...result} />

@@ -2,6 +2,7 @@ import React from 'react'
 import tw from 'twin.macro'
 import { useAtomValue, useResetAtom } from 'jotai/utils'
 import { Badge } from '@chakra-ui/react'
+import { TiInfoOutline } from 'react-icons/ti'
 import * as R from 'ramda'
 
 import { eventsAtom } from '@/features/chain/atoms'
@@ -12,6 +13,12 @@ const EventPanel = () => {
   return (
     <div tw="overflow-y-scroll h-[30vh] px-6">
       <div tw="flex flex-col gap-4">
+        {!events.length && (
+          <div tw="text-gray-600 text-sm flex items-center">
+            <TiInfoOutline tw="mr-1 text-lg" />
+            Empty.
+          </div>
+        )}
         {events.map((event, index) => (
           <article tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
             <div tw="mb-2">
