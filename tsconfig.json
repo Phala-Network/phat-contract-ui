@@ -19,6 +19,7 @@
     "baseUrl": "./src",
     "paths": {
       "@/foundation/*": ["foundation/*"],
+      "@/functions/*": ["functions/*"],
       "@/features/*": ["features/*"],
       "@/atoms/*": ["atoms/*"],
       "@/hooks/*": ["hooks/*"],
