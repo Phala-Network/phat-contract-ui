@@ -16,6 +16,7 @@ import {
 import { currentContractAtom, phalaFatContractQueryAtom } from '@/features/chain/atoms'
 import Code from '@/features/ui/code'
 
+const StyledTd = tw(Td)`py-4`
 
 const ContractInfo = () => {
   const contract = useAtomValue(currentContractAtom)
@@ -30,37 +31,41 @@ const ContractInfo = () => {
         <Tag tw="ml-4 mt-1">{contract.metadata.contract.version}</Tag>
       </Heading>
       <TableContainer>
-        <Table size="sm" colorScheme="phala">
+        <Table size="sm" colorScheme="phalaDark">
           <Tbody>
             <Tr>
+              <Th>Contract ID</Th>
+              <StyledTd><Code>{contract.contractId}</Code></StyledTd>
+            </Tr>
+            <Tr>
               <Th>Hash</Th>
-              <Td><Code>{contract.metadata.source.hash}</Code></Td>
+              <StyledTd><Code>{contract.metadata.source.hash}</Code></StyledTd>
             </Tr>
             <Tr>
               <Th>Language</Th>
-              <Td>{contract.metadata.source.language}</Td>
+              <StyledTd>{contract.metadata.source.language}</StyledTd>
             </Tr>
             <Tr>
               <Th>Compiler</Th>
-              <Td>{contract.metadata.source.compiler}</Td>
+              <StyledTd>{contract.metadata.source.compiler}</StyledTd>
             </Tr>
             {query && (
               <>
                 <Tr>
                   <Th>Developer</Th>
-                  <Td><Code>{query.deployer}</Code></Td>
+                  <StyledTd><Code>{query.deployer}</Code></StyledTd>
                 </Tr>
                 <Tr>
                   <Th>Salt</Th>
-                  <Td><Code>{query.salt}</Code></Td>
+                  <StyledTd><Code>{query.salt}</Code></StyledTd>
                 </Tr>
                 <Tr>
                   <Th>ClusterId</Th>
-                  <Td><Code>{query.clusterId}</Code></Td>
+                  <StyledTd><Code>{query.clusterId}</Code></StyledTd>
                 </Tr>
                 <Tr>
                   <Th>InstantiateData</Th>
-                  <Td><Code>{query.instantiateData}</Code></Td>
+                  <StyledTd><Code>{query.instantiateData}</Code></StyledTd>
                 </Tr>
               </>
             )}

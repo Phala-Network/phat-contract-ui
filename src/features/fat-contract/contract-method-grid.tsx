@@ -103,7 +103,7 @@ const SimpleArgsFormModal = () => {
         </ModalBody>
         <ModalFooter>
           <ButtonGroup>
-            <Suspense fallback={<div>Loading...</div>}>
+            <Suspense fallback={<Button colorScheme="phalaDark" isDisabled>Run</Button>}>
               <ExecuteButton inputs={inputs} onFinish={() => setVisible(false)} />
             </Suspense>
             <Button onClick={() => setVisible(false)}>Close</Button>
@@ -114,7 +114,7 @@ const SimpleArgsFormModal = () => {
   )
 }
 
-const ContractQueryGrid = () => {
+const ContractMethodGrid = () => {
   const messages = useAtomValue(messagesAtom)
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
@@ -158,4 +158,4 @@ const ContractQueryGrid = () => {
   )
 }
 
-export default ContractQueryGrid
+export default ContractMethodGrid
