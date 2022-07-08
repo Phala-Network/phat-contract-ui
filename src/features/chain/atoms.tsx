@@ -594,21 +594,26 @@ export function useUploadCodeAndInstantiate() {
     }
     reset()
     const { signer } = await web3FromSource(account.meta.source)
-    const r1 = await signAndSend(api.tx.phalaFatContracts.uploadCodeToCluster(contract.source.wasm, clusterId), account.address, signer)
-    // @ts-ignore
-    dispatch(r1.events)
+
     const salt = '0x' + new Date().getTime()
     const initSelector = contract.V3.spec.constructors.filter(c => c.label === 'default' || c.label === 'new')[0].selector
-    const r2 = await signAndSend(
-      api.tx.phalaFatContracts.instantiateContract(
-        { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
-      ),
       account.address, signer
+
+    const result = await signAndSend(
+      api.tx.utility.batchAll([
+        api.tx.phalaFatContracts.uploadCodeToCluster(contract.source.wasm, clusterId),
+        api.tx.phalaFatContracts.instantiateContract(
+          { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
+        ),
+      ]),
+      account.address,
+      signer
     )
     // @ts-ignore
-    dispatch(r2.events)
+    dispatch(result.events)
+
     // @ts-ignore
-    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), r2.events)
+    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
     if (instantiateEvent && instantiateEvent.event.data.length > 2) {
       const contractId = instantiateEvent.event.data[0]
       const metadata = R.dissocPath(['source', 'wasm'], contract)
