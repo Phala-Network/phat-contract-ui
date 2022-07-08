@@ -1,8 +1,9 @@
 import { atom } from 'jotai'
+import { atomWithReset } from 'jotai/utils'
 
 export const candidateAtom = atom<ContractMetadata | null>(null)
 
-export const candidateFileInfoAtom = atom({ name: '', size: 0 })
+export const candidateFileInfoAtom = atomWithReset({ name: '', size: 0 })
 
 export const contractParserErrorAtom = atom('')
 
