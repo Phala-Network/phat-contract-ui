@@ -562,7 +562,8 @@ export function useSystemEvents() {
                 // remove all events for the previous same-height blockNumber
                 ...events.filter((p) => !p.blockNumber?.eq(blockNumber))
               ].slice(0, MAX_EVENTS)
-            }));          }
+            }));
+          }
         } else {
           setEvents(({ events }) => ({
             eventCount: records.length,
