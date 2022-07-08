@@ -6,12 +6,12 @@ import {
   VStack,
   useToast,
 } from '@chakra-ui/react'
-import { useAtomValue } from 'jotai/utils'
+import { useAtomValue, useResetAtom } from 'jotai/utils'
 import { useNavigate } from '@tanstack/react-location'
 
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
 import { useUploadCodeAndInstantiate, hasConnectedAtom } from '@/features/chain/atoms'
-import { candidateAtom, clusterIdAtom } from './atoms'
+import { candidateAtom, clusterIdAtom, candidateFileInfoAtom } from './atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
 import ClusterIdField from './cluster-id-field'
@@ -21,6 +21,7 @@ const SubmitButton = () => {
   const candidate = useAtomValue(candidateAtom)
   const clusterId = useAtomValue(clusterIdAtom)
   const hasConnected = useAtomValue(hasConnectedAtom)
+  const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
   const uploadCodeAndInstantiate = useUploadCodeAndInstantiate()
@@ -48,6 +49,7 @@ const SubmitButton = () => {
     if (account && candidate) {
       setIsLoading(true)
       const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId)
+      resetContractFileInfo()
       setIsLoading(false)
       if (contractId) {        
         navigate({ to: `/contracts/view/${contractId}` })

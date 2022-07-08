@@ -13,7 +13,7 @@ import type { AbiEvent } from '@polkadot/api-contract/types'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { atom, useAtom } from 'jotai'
 import { atomWithStorage, atomWithReset, useAtomValue, useUpdateAtom, useResetAtom, waitForAll } from 'jotai/utils'
-import { atomWithQuery } from 'jotai/query'
+import { atomWithQuery, queryClientAtom } from 'jotai/query'
 import { Abi, ContractPromise } from '@polkadot/api-contract'
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { stringify, stringToU8a } from '@polkadot/util'
@@ -562,7 +562,8 @@ export function useSystemEvents() {
                 // remove all events for the previous same-height blockNumber
                 ...events.filter((p) => !p.blockNumber?.eq(blockNumber))
               ].slice(0, MAX_EVENTS)
-            }));          }
+            }));
+          }
         } else {
           setEvents(({ events }) => ({
             eventCount: records.length,
@@ -593,21 +594,26 @@ export function useUploadCodeAndInstantiate() {
     }
     reset()
     const { signer } = await web3FromSource(account.meta.source)
-    const r1 = await signAndSend(api.tx.phalaFatContracts.uploadCodeToCluster(contract.source.wasm, clusterId), account.address, signer)
-    // @ts-ignore
-    dispatch(r1.events)
+
     const salt = '0x' + new Date().getTime()
     const initSelector = contract.V3.spec.constructors.filter(c => c.label === 'default' || c.label === 'new')[0].selector
-    const r2 = await signAndSend(
-      api.tx.phalaFatContracts.instantiateContract(
-        { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
-      ),
       account.address, signer
+
+    const result = await signAndSend(
+      api.tx.utility.batchAll([
+        api.tx.phalaFatContracts.uploadCodeToCluster(contract.source.wasm, clusterId),
+        api.tx.phalaFatContracts.instantiateContract(
+          { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
+        ),
+      ]),
+      account.address,
+      signer
     )
     // @ts-ignore
-    dispatch(r2.events)
+    dispatch(result.events)
+
     // @ts-ignore
-    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), r2.events)
+    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
     if (instantiateEvent && instantiateEvent.event.data.length > 2) {
       const contractId = instantiateEvent.event.data[0]
       const metadata = R.dissocPath(['source', 'wasm'], contract)
@@ -640,16 +646,18 @@ export function useUploadCodeAndInstantiate() {
 }
 
 export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
-  const [api, pruntimeURL, selectedMethodSpec, contract, account] = useAtomValue(waitForAll([
+  const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient] = useAtomValue(waitForAll([
     rpcApiInstanceAtom,
     pruntimeURLAtom,
     currentMethodAtom,
     currentContractAtom,
-    lastSelectedAccountAtom
+    lastSelectedAccountAtom,
+    queryClientAtom,
   ]))
   const appendResult = useUpdateAtom(dispatchResultsAtom)
   const dispatch = useUpdateAtom(dispatchEventAtom)
   const [isLoading, setIsLoading] = useState(false)
+
   const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
@@ -688,10 +696,9 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
       )
       debug('args built: ', args)
 
-      const { signer } = await web3FromSource(account.meta.source)
-
       // tx
       if (methodSpec.mutates) {
+        const { signer } = await web3FromSource(account.meta.source)
         const r1 = await signAndSend(
           contractInstance.tx[txMethods[methodSpec.label]]({}, ...args),
           account.address,
@@ -705,10 +712,16 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
       }
       // query
       else {
-        const cert = await signCertificate({signer, account, api: contractInstance.api as ApiPromise});
+        const cert = await queryClient.fetchQuery(['queryContractCert', account.address], async () => {
+          const { signer } = await web3FromSource(account.meta.source)
+          return await signCertificate({signer, account, api: contractInstance.api as ApiPromise})
+        }, {
+          staleTime: 1000 * 60 * 15, // 15 minutes
+        })
         const queryResult = await contractInstance.query[queryMethods[methodSpec.label]](
           // @FIXME this is a hack to make the ts compiler happy.
           cert as unknown as string,
+          // querySignCache as unknown as string,
           { value: 0, gasLimit: -1 },
           ...args
         )
@@ -737,6 +750,6 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
     } finally {
       setIsLoading(false)
     }
-  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch])
+  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient])
   return [isLoading, fn]
 }
