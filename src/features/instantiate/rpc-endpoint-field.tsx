@@ -37,7 +37,7 @@ export default function RpcEndpointField() {
               isLoading={status === 'connecting'}
               isDisabled={status === 'connected' && input === endpoint}
               onClick={() => {
-                if (input.indexOf('wss://') !== 0 || input.indexOf('ws://') !== 0) {
+                if (input.indexOf('wss://') !== 0 && input.indexOf('ws://') !== 0) {
                   setValidateError('Invalid RPC Endpoint URL')
                   setEndpoint('')
                 } else {
