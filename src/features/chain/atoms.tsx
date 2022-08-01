@@ -601,7 +601,7 @@ export function useUploadCodeAndInstantiate() {
 
     const result = await signAndSend(
       api.tx.utility.batchAll([
-        api.tx.phalaFatContracts.uploadCodeToCluster(contract.source.wasm, clusterId),
+        api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
         api.tx.phalaFatContracts.instantiateContract(
           { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
         ),
