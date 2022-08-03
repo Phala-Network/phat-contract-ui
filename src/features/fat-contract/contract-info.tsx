@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import tw from 'twin.macro'
 import { useAtomValue } from 'jotai/utils'
 import {
@@ -11,6 +11,7 @@ import {
   Td,
   TableContainer,
   Tag,
+  Button,
 } from "@chakra-ui/react";
 
 import { currentContractAtom, phalaFatContractQueryAtom } from '@/features/chain/atoms'
@@ -18,18 +19,38 @@ import Code from '@/features/ui/code'
 
 const StyledTd = tw(Td)`py-4`
 
+const useContractMetaExport = () => {
+  const contract = useAtomValue(currentContractAtom)
+  return useCallback(() => {
+    const meta = contract.metadata
+    // @ts-ignore
+    meta.phat = { contractId: contract.contractId }
+    var element = document.createElement('a');
+    element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(meta)));
+    element.setAttribute('download', `${contract.metadata.contract.name}.json`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  }, [contract])
+}
+
 const ContractInfo = () => {
   const contract = useAtomValue(currentContractAtom)
   const query = useAtomValue(phalaFatContractQueryAtom)
+  const handleExport = useContractMetaExport()
   if (!contract)  {
     return null
   }
   return (
     <Box borderWidth="1px" overflow="hidden" my="4" p="8" bg="gray.800">
-      <Heading tw="mb-8 flex flex-row items-center">
-        {contract.metadata.contract.name}
-        <Tag tw="ml-4 mt-1">{contract.metadata.contract.version}</Tag>
-      </Heading>
+      <div tw="mb-8 flex justify-between items-center">
+        <Heading tw="flex flex-row items-center">
+          {contract.metadata.contract.name}
+          <Tag tw="ml-4 mt-1">{contract.metadata.contract.version}</Tag>
+        </Heading>
+        <Button onClick={handleExport}>Export</Button>
+      </div>
       <TableContainer>
         <Table size="sm" colorScheme="phalaDark">
           <Tbody>

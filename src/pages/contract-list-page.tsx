@@ -1,15 +1,15 @@
 import type { FC } from 'react'
 import type { LocalContractInfo } from '@/features/chain/atoms'
 
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useState, useCallback } from 'react'
 import tw from 'twin.macro'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
 import { Link, useNavigate } from '@tanstack/react-location'
-import { AiOutlineReload, AiOutlinePlus } from 'react-icons/ai'
+import { AiOutlineReload, AiOutlinePlus, AiOutlineImport } from 'react-icons/ai'
 
 import { lastSelectedAccountAddressAtom, connectionDetailModalVisibleAtom } from '@/features/account/atoms'
-import { hasConnectedAtom, availableContractsAtom } from '@/features/chain/atoms'
+import { hasConnectedAtom, availableContractsAtom, useLocalContractsImport } from '@/features/chain/atoms'
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -18,6 +18,13 @@ const ContractListSkeleton = () => (
     </Box>
   </Stack>
 )
+
+const PhalaButton = tw(Button)`
+  inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md transition-colors
+  text-black bg-phalaDark-500
+  hover:bg-gray-900 hover:text-phalaDark-500
+  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-phala-500
+`
 
 const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) => {
   // convert timestamp savedAt to human readable datetime string
@@ -54,6 +61,7 @@ const ContractList = () => {
   const lastSelectedAccountAddress = useAtomValue(lastSelectedAccountAddressAtom)
   const setConnectionDetailModalVisible = useUpdateAtom(connectionDetailModalVisibleAtom)
   const navigate = useNavigate()
+  const contractImport = useLocalContractsImport()
   if (!hasConnected) {
     return <ContractListSkeleton />
   }
@@ -77,14 +85,8 @@ const ContractList = () => {
         </svg>
         <h3 tw="mt-2 text-sm font-medium text-gray-400">No Contract</h3>
         <p tw="mt-1 text-sm text-gray-500">Get started by uploading a new fat contract.</p>
-        <div tw="mt-6 mb-4">
-          <Button
-            tw="
-            inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md transition-colors
-            text-black bg-phalaDark-500
-            hover:bg-gray-900 hover:text-phalaDark-500
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-phala-500
-            "
+        <div tw="mt-6 mb-4 flex flex-row gap-2 justify-center">
+          <PhalaButton
             onClick={() => {
               if (!lastSelectedAccountAddress) {
                 setConnectionDetailModalVisible(true)
@@ -95,7 +97,14 @@ const ContractList = () => {
           >
             <AiOutlinePlus tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
             {lastSelectedAccountAddress ? 'Upload' : 'Sign In'}
-          </Button>
+          </PhalaButton>
+          {!!lastSelectedAccountAddress && (
+            <PhalaButton as="label" tw="cursor-pointer">
+              <input type="file" tw="hidden" onChange={contractImport} />
+              <AiOutlineImport tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+              Import
+            </PhalaButton>
+          )}
         </div>
       </div>
     )
@@ -104,8 +113,35 @@ const ContractList = () => {
     <>
       <ButtonGroup>
         <Link to="/contracts/add">
-          <Button bg="black" borderRadius={0} as="span">Add New Contract</Button>
+          <Button bg="black" borderRadius={0} as="span">Upload</Button>
         </Link>
+        <Button bg="black"  borderRadius={0} as="label" tw="cursor-pointer">
+          <input type="file" tw="hidden" onChange={(evt) => {
+            if (evt.target && evt.target.files && evt.target.files.length) {
+              const reader = new FileReader()
+              reader.addEventListener('load', () => {
+                try {
+                  const contract = JSON.parse(reader.result as string)
+                  if (!contract || !contract.source || !contract.source.hash || !contract.source.wasm) {
+                    // set(contractParserErrorAtom, "Your contract file is invalid.")
+                    console.log('import error: Your contract file is invalid')
+                    return
+                  }
+                  if (!contract.V3) {
+                    console.log('import error: Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.')
+                    // set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
+                    return
+                  }
+                } catch (e) {
+                  console.error(e)
+                  // set(contractParserErrorAtom, `Your contract file is invalid: ${e}`)
+                }
+              })
+              reader.readAsText(evt.target.files[0], 'utf-8')
+            }
+          }} />
+          Import
+        </Button>
         <ReloadButton />
       </ButtonGroup>
       <div tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
