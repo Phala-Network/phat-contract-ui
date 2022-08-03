@@ -116,30 +116,7 @@ const ContractList = () => {
           <Button bg="black" borderRadius={0} as="span">Upload</Button>
         </Link>
         <Button bg="black"  borderRadius={0} as="label" tw="cursor-pointer">
-          <input type="file" tw="hidden" onChange={(evt) => {
-            if (evt.target && evt.target.files && evt.target.files.length) {
-              const reader = new FileReader()
-              reader.addEventListener('load', () => {
-                try {
-                  const contract = JSON.parse(reader.result as string)
-                  if (!contract || !contract.source || !contract.source.hash || !contract.source.wasm) {
-                    // set(contractParserErrorAtom, "Your contract file is invalid.")
-                    console.log('import error: Your contract file is invalid')
-                    return
-                  }
-                  if (!contract.V3) {
-                    console.log('import error: Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.')
-                    // set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
-                    return
-                  }
-                } catch (e) {
-                  console.error(e)
-                  // set(contractParserErrorAtom, `Your contract file is invalid: ${e}`)
-                }
-              })
-              reader.readAsText(evt.target.files[0], 'utf-8')
-            }
-          }} />
+          <input type="file" tw="hidden" onChange={contractImport} />
           Import
         </Button>
         <ReloadButton />
