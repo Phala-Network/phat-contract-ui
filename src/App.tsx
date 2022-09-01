@@ -33,7 +33,7 @@ export default function PhalaContractsUI() {
     >
       <AppUI>
         <AppHeader
-          title="PHALA Contracts UI"
+          title="Phat Contract UI"
           right={<AccountBadge />}
         />
         <AppContainer>

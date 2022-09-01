@@ -84,7 +84,7 @@ const ContractList = () => {
           />
         </svg>
         <h3 tw="mt-2 text-sm font-medium text-gray-400">No Contract</h3>
-        <p tw="mt-1 text-sm text-gray-500">Get started by uploading a new fat contract.</p>
+        <p tw="mt-1 text-sm text-gray-500">Get started by uploading a new Phat Contract.</p>
         <div tw="mt-6 mb-4 flex flex-row gap-2 justify-center">
           <PhalaButton
             onClick={() => {
@@ -159,7 +159,7 @@ const ContractListPage = () => {
           <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
           <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
           <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
-            Awesome Fat Contracts
+            Awesome Phat Contract
           </Button>
           <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
             Oracle Workshop
