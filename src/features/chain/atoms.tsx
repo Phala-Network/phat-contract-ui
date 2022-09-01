@@ -246,7 +246,7 @@ export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: str
 // Atoms
 //
 
-const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
+export const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
 
 export const rpcEndpointAtom = atom('')
 

@@ -21,7 +21,7 @@ import { atom, useAtom } from 'jotai'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import * as R from 'ramda'
 
-import { rpcEndpointAtom, rpcApiStatusAtom, rpcEndpointErrorAtom, useConnectApi } from '@/features/chain/atoms'
+import { rpcEndpointAtom, rpcApiStatusAtom, rpcEndpointErrorAtom, pruntimeURLAtom, useConnectApi } from '@/features/chain/atoms'
 
 import { lastSelectedAccountDisplayNameAtom, lastSelectedAccountAddressAtom, connectionDetailModalVisibleAtom } from './atoms'
 import AccountSelectField from './account-select-field'
@@ -115,6 +115,26 @@ const RpcEndpointField = () => {
   )
 }
 
+const PRuntimeUrlField = () => {
+  const [endpoint, setEndpoint] = useAtom(pruntimeURLAtom)
+  return (
+    <FormControl>
+      <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">Default PRuntime Endpoint</FormLabel>
+      <div tw="pt-2 px-4 pb-4">
+        <InputGroup>
+          <Input
+            pr="5.5rem"
+            css={tw`text-sm font-mono bg-gray-200 outline-none`}
+            type='text'
+            value={endpoint}
+            onChange={ev => setEndpoint(ev.target.value)}
+          />
+        </InputGroup>
+      </div>
+    </FormControl>
+  )
+}
+
 const ConnectionModal = () => {
   const [isOpen, setIsOpen] = useAtom(connectionDetailModalVisibleAtom)
   return (
@@ -126,6 +146,7 @@ const ConnectionModal = () => {
         </ModalHeader>
         <ModalBody tw="text-[#555]">
           <RpcEndpointField />
+          <PRuntimeUrlField />
           <AccountSelectField />
         </ModalBody>
         <ModalFooter>
