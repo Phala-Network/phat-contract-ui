@@ -681,7 +681,6 @@ export function useUploadCodeAndInstantiate() {
       toast({
         title: `${err}`,
         status: 'error',
-        duration: 3000,
         isClosable: true,
       })
     } finally {
