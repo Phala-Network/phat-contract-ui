@@ -20,7 +20,7 @@ const EventPanel = () => {
           </div>
         )}
         {events.map((event, index) => (
-          <article tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
+          <article key={index} tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
             <div tw="mb-2">
               <Badge borderRadius='full' px='2' colorScheme='phala' mr="2">{event.section}</Badge>
               <Badge borderRadius='full' px='2' colorScheme='phalaDark'>{event.method}</Badge>
