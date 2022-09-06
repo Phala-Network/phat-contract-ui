@@ -1,6 +1,13 @@
 import { atom } from 'jotai'
 import { atomWithReset } from 'jotai/utils'
 
+export interface SelectorOption {
+  value: string
+  label: string
+  selected: boolean
+  argCounts: number
+}
+
 export const candidateAtom = atom<ContractMetadata | null>(null)
 
 export const candidateFileInfoAtom = atomWithReset({ name: '', size: 0 })
@@ -12,7 +19,12 @@ export const contractAvailableSelectorAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return [...contract.V3.spec.constructors.map(i => ({ value: i.selector, label: i.label, default: i.label === 'default' }))]
+  return [...contract.V3.spec.constructors.map(i => ({
+    value: i.selector,
+    label: i.label,
+    default: i.label === 'default',
+    argCounts: i.args.length,
+  }))]
 })
 
 export const contractSelectedInitSelectorAtom = atom('')
@@ -24,6 +36,7 @@ export const contractSelectorOptionListAtom = atom(get => {
     value: i.value,
     label: i.label,
     selected: selected ? i.value === selected : i.default,
+    argCounts: i.argCounts,
   }))
 })
 
