@@ -27,6 +27,7 @@ import * as R from 'ramda'
 
 import createLogger from '@/functions/createLogger'
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
+import { contractSelectedInitSelectorAtom } from '@/features/instantiate/atoms'
 
 import { create, createPruntimeApi, signCertificate, types as phalaSDKTypes } from '../../sdk'
 import * as PhalaFatContractsQuery from './phala-fat-contracts-query'
@@ -586,6 +587,7 @@ export function useUploadCodeAndInstantiate() {
   const reset = useResetAtom(eventsAtom)
   const toast = useToast()
   const saveContract = useUpdateAtom(localContractsAtom)
+  const chooseInitSelector = useAtomValue(contractSelectedInitSelectorAtom)
 
   useConnectApi()
 
@@ -593,57 +595,99 @@ export function useUploadCodeAndInstantiate() {
     if (!api) {
       throw new Error('API instance is not ready yet.')
     }
-    reset()
-    const { signer } = await web3FromSource(account.meta.source)
+    console.group('Instantiate Contract:', clusterId)
+    try {
+      const { signer } = await web3FromSource(account.meta.source)
 
-    const salt = '0x' + new Date().getTime()
-    const initSelector = contract.V3.spec.constructors.filter(c => c.label === 'default' || c.label === 'new')[0].selector
-      account.address, signer
+      // Clear the Event Panel.
+      reset()
+  
+      const salt = '0x' + new Date().getTime()
 
-    const result = await signAndSend(
-      api.tx.utility.batchAll([
-        api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
-        api.tx.phalaFatContracts.instantiateContract(
-          { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
-        ),
-      ]),
-      account.address,
-      signer
-    )
-    // @ts-ignore
-    dispatch(result.events)
+      if (contract.V3.spec.constructors.length === 0) {
+        throw new Error('No constructor found.')
+      }
+      const defaultInitSelector = R.pipe(
+        R.filter((c: ContractMetaConstructor) => c.label === 'default' || c.label === 'new'),
+        R.sortBy((c: ContractMetaConstructor) => c.args.length),
+        i => R.head<ContractMetaConstructor>(i),
+        (i) => i ? i.selector : undefined,
+      )(contract.V3.spec.constructors)
 
-    // @ts-ignore
-    const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
-    if (instantiateEvent && instantiateEvent.event.data.length > 2) {
-      const contractId = instantiateEvent.event.data[0]
-      const metadata = R.dissocPath(['source', 'wasm'], contract)
-      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
-
-      await checkUntilEq(
-        async () => {
-          const contractIds = await PhalaFatContractsQuery.clusterContracts(api, clusterId)
-          return contractIds.filter(id => id === contractId).length
-        },
-        1,
-        4 * 6000
+      const initSelector = chooseInitSelector || defaultInitSelector
+      console.log('user choose initSelector: ', chooseInitSelector)
+      console.log('default initSelector: ', defaultInitSelector)
+      if (!initSelector) {
+        throw new Error('No valid initSelector specified.')
+      }
+  
+      // Upload & instantiate contract
+      console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
+      const result = await signAndSend(
+        api.tx.utility.batchAll([
+          api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
+          api.tx.phalaFatContracts.instantiateContract(
+            { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
+          ),
+        ]),
+        account.address,
+        signer
       )
+      // @ts-ignore
+      dispatch(result.events)
+      console.log('Uploaded. Wait for the contract to be instantiated...')
+  
+      // @ts-ignore
+      const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
+      if (instantiateEvent && instantiateEvent.event.data.length > 2) {
+        const contractId = instantiateEvent.event.data[0]
+        const metadata = R.dissocPath(['source', 'wasm'], contract)
+  
+        // Check contracts in cluster or not.
+        console.log('Pooling: Check contracts in cluster (30 secs timeout)')
+        try {
+          await checkUntilEq(
+            async () => {
+              const contractIds = await PhalaFatContractsQuery.clusterContracts(api, clusterId)
+              return contractIds.filter(id => id === contractId).length
+            },
+            1,
+            1000 * 30 // 30 secs
+          )
+        } catch (err) {
+          throw new Error('Failed to check contract in cluster: may be initialized failed in cluster')
+        }
 
-      await checkUntil(
-        // @ts-ignore
-        async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
-        4 * 6000
-      )
-
+        console.log('Pooling: ensure contract exists in registry (30 secs timeout)')
+        await checkUntil(
+          // @ts-ignore
+          async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
+          4 * 6000
+        )
+  
+        // Save contract metadata to local storage
+        console.log('Save contract metadata to local storage.')
+        saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
+  
+        toast({
+          title: 'Instantiate Requested.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+        return contractId
+      }
+    } catch (err) {
       toast({
-        title: 'Instantiate Requested.',
-        status: 'success',
+        title: `${err}`,
+        status: 'error',
         duration: 3000,
         isClosable: true,
       })
-      return contractId
+    } finally {
+      console.groupEnd()
     }
-  }, [api, dispatch, reset, toast, saveContract])
+  }, [api, dispatch, reset, toast, saveContract, chooseInitSelector])
 }
 
 export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
