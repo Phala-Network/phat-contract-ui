@@ -50,24 +50,19 @@ export function Select<T>({
       >
         {preview}
       </MenuButton>
-      {(options.length !== 0) && (
-        <MenuList tw="rounded-sm bg-black box-shadow[none]">
-          {options.map((option, idx) => (
-            <MenuItem
-              key={idx}
-              onClick={() => onChange(option.value)}
-              tw="text-gray-200"
-            >
-              <MenuItemOption
-                icon={<CheckIcon tw="text-phala-500" />}
-                isChecked={option.value === selected}
-              >
-                {option.label}
-              </MenuItemOption>
-            </MenuItem>
-          ))}
-        </MenuList>
-      )}
+      <MenuList tw="rounded-sm bg-black box-shadow[none]">
+        {options.map((option, idx) => (
+          <MenuItemOption
+            key={idx}
+            onClick={() => onChange(option.value)}
+            tw="text-gray-200"
+            icon={<CheckIcon tw="text-phala-500" />}
+            isChecked={option.value === selected}
+          >
+            {option.label}
+          </MenuItemOption>
+        ))}
+      </MenuList>
     </Menu>
   )
 }
