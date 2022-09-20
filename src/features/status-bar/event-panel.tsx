@@ -46,7 +46,11 @@ const EventPanel = () => {
             {event.section === 'system' && event.data.map((rec: object, idx) => (
               <div key={idx} tw="px-1 text-sm font-mono">
                 {R.toPairs(rec).map(([key, value]: [string, string]) => (
-                  <div tw="my-2" key={key}>{key}: {value}</div>
+                  (typeof value === 'string') ? (
+                    <div tw="my-2" key={key}>{`${key}: ${value}`}</div>
+                  ) : (
+                    <div tw="my-2" key={key}>{`${key}: ${JSON.stringify(value)}`}</div>
+                  )
                 ))}
               </div>
             ))}
