@@ -11,7 +11,7 @@ const EventPanel = () => {
   const events = useAtomValue(eventsAtom)
   const reset = useResetAtom(eventsAtom)
   return (
-    <div tw="overflow-y-scroll h-[30vh] px-6">
+    <div tw="overflow-y-scroll h-[26vh] px-6">
       <div tw="flex flex-col gap-4">
         {!events.length && (
           <div tw="text-gray-600 text-sm flex items-center">
