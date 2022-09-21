@@ -4,6 +4,7 @@ import { Provider as JotaiProvider } from 'jotai'
 import { queryClientAtom } from 'jotai/query'
 import { ChakraProvider, extendTheme } from '@chakra-ui/react'
 import { QueryClient, QueryClientProvider } from 'react-query'
+import { ReactQueryDevtools } from 'react-query/devtools'
 import { ReactLocation, Router } from "@tanstack/react-location"
 
 import '@fontsource/montserrat/latin.css'
@@ -161,6 +162,7 @@ const FoundationProvider: FC<FoundationProviderProps> = ({
           >
             {children}
           </Router>
+          <ReactQueryDevtools />
         </ChakraProvider>
       </JotaiProvider>
     </QueryClientProvider>
