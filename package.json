@@ -29,6 +29,7 @@
     "@types/react-dropzone": "^5.1.0",
     "axios": "^0.27.2",
     "browser-crypto": "^1.4.0",
+    "buffer": "^6.0.3",
     "framer-motion": "^6",
     "jotai": "^1.6.3",
     "protobufjs": "^6.11.3",

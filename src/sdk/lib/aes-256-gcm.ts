@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv } from 'browser-crypto'
 import {hexToU8a, hexAddPrefix, hexStripPrefix} from '@polkadot/util'
-import { Buffer } from 'safe-buffer'
+import { Buffer } from 'buffer/'
 
 const ALGO = 'aes-256-gcm'
 const AUTH_TAG_LENGTH = 32

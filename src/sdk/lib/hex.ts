@@ -11,7 +11,7 @@ function oldBrowser () {
 }
 
 // var Buffer = require('safe-buffer').Buffer
-import { Buffer } from 'safe-buffer'
+import { Buffer } from 'buffer/'
 // var crypto = globalThis.crypto || globalThis.msCrypto
 
 
