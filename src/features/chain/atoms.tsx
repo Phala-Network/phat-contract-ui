@@ -214,6 +214,7 @@ export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: str
     const unsub = await target.signAndSend(
       address, { signer }, (result) => {
         const humanized = result.toHuman()          
+        console.log('signAndSend result: ', result)
         if (result.status.isInBlock) {
           let error;
           for (const e of result.events) {
@@ -635,12 +636,12 @@ export function useUploadCodeAndInstantiate() {
       )
       // @ts-ignore
       dispatch(result.events)
-      console.log('Uploaded. Wait for the contract to be instantiated...')
+      console.log('Uploaded. Wait for the contract to be instantiated...', result)
   
       // @ts-ignore
       const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
-      if (instantiateEvent && instantiateEvent.event.data.length > 2) {
-        const contractId = instantiateEvent.event.data[0]
+      if (instantiateEvent && instantiateEvent.event.data && instantiateEvent.event.data.contract) {
+        const contractId = instantiateEvent.event.data.contract
         const metadata = R.dissocPath(['source', 'wasm'], contract)
   
         // Check contracts in cluster or not.
@@ -676,6 +677,8 @@ export function useUploadCodeAndInstantiate() {
           isClosable: true,
         })
         return contractId
+      } else {
+        throw new Error('Contract instantiation failed.')
       }
     } catch (err) {
       toast({
@@ -750,7 +753,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
         )
         // @ts-ignore
         dispatch(r1.events)
-        debug(r1)
+        debug('result: ', r1)
         const prpc = await createPruntimeApi(pruntimeURL)
         await blockBarrier(contractInstance.api, prpc)
       }
@@ -769,7 +772,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
           { value: 0, gasLimit: -1 },
           ...args
         )
-        debug(queryResult)
+        debug('query result: ', queryResult)
         // @TODO Error handling
         if (queryResult.result.isOk) {
           appendResult({
