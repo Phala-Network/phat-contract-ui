@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {ApiPromise} from '@polkadot/api'
+import type {Bytes} from '@polkadot/types-codec'
 import {
   u8aToHex,
   hexToU8a,
@@ -13,7 +14,7 @@ import {
   sr25519Sign,
   sr25519Agree,
 } from '@polkadot/wasm-crypto'
-import type {ContractCallRequest, AccountId} from '@polkadot/types/interfaces'
+import type {AccountId} from '@polkadot/types/interfaces'
 import {from} from 'rxjs'
 import {encrypt, decrypt} from './lib/aes-256-gcm'
 import {randomHex} from './lib/hex'
@@ -224,17 +225,27 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
     enumerable: true,
   })
 
+  const instantiateWithCode = () => null
+  instantiateWithCode.meta = {args: new Array(6)}
+
   Object.defineProperty(api.tx, 'contracts', {
     value: {
-      instantiateWithCode: () => null,
+      instantiateWithCode,
       call: txContracts,
     },
     enumerable: true,
   })
 
-  Object.defineProperty(api.rx.rpc, 'contracts', {
+  Object.defineProperty(api.rx.call, 'contractsApi', {
     value: {
-      call: ({origin, dest, inputData}: ContractCallRequest) => {
+      call: (
+        origin: CertificateData,
+        dest: AccountId,
+        value: unknown,
+        gasLimit: unknown,
+        storageDepositLimit: unknown,
+        inputData: Bytes
+      ) => {
         return from(
           query(
             api
@@ -262,6 +273,11 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
         )
       },
     },
+    enumerable: true,
+  })
+
+  Object.defineProperty(api.call, 'contractsApi', {
+    value: {call: () => null},
     enumerable: true,
   })
 
