@@ -202,9 +202,10 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
 
   const txContracts = (
     dest: AccountId,
-    value: any,
-    gasLimit: any,
-    data: Uint8Array
+    value: unknown,
+    gas: unknown,
+    storageDepositLimit: unknown,
+    encParams: Uint8Array
   ) => {
     return command({
       contractId: dest.toHex(),
@@ -213,7 +214,7 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
           InkMessage: {
             nonce: hexAddPrefix(randomHex(32)),
             // FIXME: unexpected u8a prefix
-            message: api.createType('Vec<u8>', data).toHex(),
+            message: api.createType('Vec<u8>', encParams).toHex(),
           },
         })
         .toHex(),
