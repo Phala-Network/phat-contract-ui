@@ -1,10 +1,10 @@
-import type { FC } from 'react'
+import { FC, Suspense } from 'react'
 import type { MethodRunResult } from '@/features/chain/atoms'
 
 import tw from 'twin.macro'
 import { atom, useAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
-import { TiTimes, TiArrowRepeat, TiMessageTyping } from 'react-icons/ti'
+import { TiTimes, TiArrowRepeat, TiMessageTyping, TiCogOutline } from 'react-icons/ti'
 import {
   Tabs,
   TabList,
@@ -16,6 +16,7 @@ import {
 import { countsAtom } from '@/features/chain/atoms'
 import EventPanel from './event-panel'
 import ResultPanel from './result-panel'
+import LogPanel from './log-panel'
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
@@ -33,7 +34,7 @@ const CloseButton = () => {
 }
 
 const CounterButton = tw.button`
-  flex gap-1 min-w-[2.5rem] justify-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black
+  flex gap-1 min-w-[2.5rem] justify-center items-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black
 `
 
 const Counters = () => {
@@ -59,6 +60,14 @@ const Counters = () => {
       >
         <TiMessageTyping tw="text-base" />
         <span tw="text-sm font-mono">{counts.resultCount}</span>
+      </CounterButton>
+      <CounterButton
+        onClick={() => {
+          setShowEventList(true)
+          setCurrentTab(2)
+        }}
+      >
+        <TiCogOutline tw="text-base" />
       </CounterButton>
     </div>
   )
@@ -90,6 +99,10 @@ export default function StatusBar() {
               <TiMessageTyping tw="text-gray-400 text-base mr-1" />
               Result
             </Tab>
+            <Tab>
+              <TiCogOutline tw="text-gray-400 text-base mr-1" />
+              Log
+            </Tab>
             <CloseButton />
           </TabList>
           <TabPanels>
@@ -98,6 +111,11 @@ export default function StatusBar() {
             </TabPanel>
             <TabPanel px="0">
               <ResultPanel />
+            </TabPanel>
+            <TabPanel px="0">
+              <Suspense fallback={<div />}>
+                <LogPanel />
+              </Suspense>
             </TabPanel>
           </TabPanels>
         </Tabs>

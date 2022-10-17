@@ -8,3 +8,5 @@ interface Pairs<T> extends Array<any> {
   0: string;
   1: T;
 }
+
+type Nullable<T> = T | null | undefined;
