@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { LocalContractInfo } from '@/features/chain/atoms'
+import type { LocalContractInfo } from '@/features/phat-contract/atoms'
 
 import React, { Suspense, useState, useCallback } from 'react'
 import tw from 'twin.macro'
@@ -8,8 +8,10 @@ import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
 import { Link, useNavigate } from '@tanstack/react-location'
 import { AiOutlineReload, AiOutlinePlus, AiOutlineImport } from 'react-icons/ai'
 
-import { lastSelectedAccountAddressAtom, connectionDetailModalVisibleAtom } from '@/features/account/atoms'
-import { hasConnectedAtom, availableContractsAtom, useLocalContractsImport } from '@/features/chain/atoms'
+import { useShowAccountSelectModal } from '@/components/app-ui'
+import { currentAccountAtom } from '@/features/identity/atoms'
+import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-contract/atoms'
+import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -56,15 +58,11 @@ const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) 
 }
 
 const ContractList = () => {
-  const hasConnected = useAtomValue(hasConnectedAtom)
   const contracts = useAtomValue(availableContractsAtom)
-  const lastSelectedAccountAddress = useAtomValue(lastSelectedAccountAddressAtom)
-  const setConnectionDetailModalVisible = useUpdateAtom(connectionDetailModalVisibleAtom)
+  const account = useAtomValue(currentAccountAtom)
+  const showAccountSelectModal = useShowAccountSelectModal()
   const navigate = useNavigate()
   const contractImport = useLocalContractsImport()
-  if (!hasConnected) {
-    return <ContractListSkeleton />
-  }
   if (contracts.length === 0) {
     return (
       <div tw="bg-black py-6 min-w-full text-center">
@@ -88,17 +86,18 @@ const ContractList = () => {
         <div tw="mt-6 mb-4 flex flex-row gap-2 justify-center">
           <PhalaButton
             onClick={() => {
-              if (!lastSelectedAccountAddress) {
-                setConnectionDetailModalVisible(true)
+              if (!account) {
+                showAccountSelectModal()
+                // setConnectionDetailModalVisible(true)
               } else {
                 navigate({ to: '/contracts/add' })
               }
             }}
           >
             <AiOutlinePlus tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            {lastSelectedAccountAddress ? 'Upload' : 'Sign In'}
+            {!!account ? 'Upload' : 'Sign In'}
           </PhalaButton>
-          {!!lastSelectedAccountAddress && (
+          {!!account && (
             <PhalaButton as="label" tw="cursor-pointer">
               <input type="file" tw="hidden" onChange={contractImport} />
               <AiOutlineImport tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
@@ -134,7 +133,7 @@ const ContractList = () => {
 
 const ReloadButton = () => {
   const [loading, setLoading] = useState(false)
-  const dispatch = useUpdateAtom(availableContractsAtom)
+  const dispatch = useUpdateAtom(onChainContractsAtom)
   return (
     <Button
       bg="black"

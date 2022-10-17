@@ -1,29 +1,28 @@
-import type { FoundationProviderProps } from '@/foundation/Provider'
+// import type { FoundationProviderProps } from '@/foundation/Provider'
 
 import { Outlet } from "@tanstack/react-location"
 
-import { rpcEndpointAtom } from './features/chain/atoms'
 import FoundationProvider from '@/foundation/Provider'
-import { AppUI, AppHeader, AppContainer } from '@/features/ui/app-ui'
-import StatusBar from '@/features/status-bar/status-bar'
-import AccountBadge from '@/features/account/Badge'
+import { AppUI, AppHeader, AppContainer } from '@/components/app-ui'
+import StatusBar from '@/components/status-bar/status-bar'
 
 import ContractAddPage from '@/pages/contract-add-page'
 import ContractListPage from '@/pages/contract-list-page'
 import ContractInfoPage from '@/pages/contract-info-page'
 import ComponentListPage from '@/pages/component-list-page'
 
-const endpoint = 'wss://poc5.phala.network/ws';
+// const endpoint = 'wss://poc5.phala.network/ws';
+// const endpoint = 'ws://localhost:9944';
 // const endpoint = 'wss://rococo-canvas-rpc.polkadot.io';
 
-const initialValues: FoundationProviderProps["initialValues"] = [
-  [rpcEndpointAtom, endpoint],
-]
+// const initialValues: FoundationProviderProps["initialValues"] = [
+//   [rpcEndpointAtom, endpoint],
+// ]
 
 export default function PhalaContractsUI() {
   return (
     <FoundationProvider
-      initialValues={initialValues}
+      // initialValues={initialValues}
       routes={[
         { path: "/", element: <ContractListPage /> },
         { path: "/contracts/add", element: <ContractAddPage /> },
@@ -34,7 +33,6 @@ export default function PhalaContractsUI() {
       <AppUI>
         <AppHeader
           title="Phat Contract UI"
-          right={<AccountBadge />}
         />
         <AppContainer>
           <Outlet />

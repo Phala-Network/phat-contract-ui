@@ -1,5 +1,5 @@
 import type {ApiPromise} from '@polkadot/api'
-import type {InjectedAccountWithMeta} from '@polkadot/extension-inject/types'
+import type {InjectedAccount, InjectedAccountWithMeta} from '@polkadot/extension-inject/types'
 import type {KeyringPair} from '@polkadot/keyring/types'
 import type {Signer} from '@polkadot/types/types'
 import type {Signer as InjectedSigner} from '@polkadot/api/types'
@@ -45,6 +45,7 @@ export const signCertificate = async (
   const generatedSeed = hexToU8a(hexAddPrefix(randomHex(32)))
   const generatedPair = sr25519KeypairFromSeed(generatedSeed)
   const [secret, pubkey] = [generatedPair.slice(0, 64), generatedPair.slice(64)]
+  console.log('sign certificate', params)
 
   const encodedCertificateBody = api
     .createType('CertificateBody', {

@@ -1,3 +1,5 @@
+import type { FC, ReactNode } from 'react'
+
 import React, { Suspense, useState } from 'react'
 import tw from 'twin.macro'
 import {
@@ -5,22 +7,46 @@ import {
   Spinner,
   VStack,
   useToast,
+  FormControl,
+  FormLabel,
+  Skeleton,
 } from '@chakra-ui/react'
-import { useAtomValue, useResetAtom } from 'jotai/utils'
+import { useAtom, useAtomValue } from 'jotai'
+import { useResetAtom } from 'jotai/utils'
 import { useNavigate } from '@tanstack/react-location'
 
-import { lastSelectedAccountAtom } from '@/features/account/atoms'
-import { useUploadCodeAndInstantiate, hasConnectedAtom } from '@/features/chain/atoms'
-import { candidateAtom, clusterIdAtom, candidateFileInfoAtom } from './atoms'
+import { Select } from '@/components/inputs/select'
+import { currentAccountAtom } from '@/features/identity/atoms'
+import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom } from '../atoms'
+import useUploadCodeAndInstantiate from '../hooks/useUploadCodeAndInstantiate'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
-import ClusterIdField from './cluster-id-field'
+
+const ClusterIdSelect = () => {
+  const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
+  const options = useAtomValue(availableClusterOptionsAtom)
+  return (
+    <Select value={clusterId} onChange={setClusterId} options={options} />
+  )
+}
+
+const SuspenseFormFIeld: FC<{ label: string, children: ReactNode }> = ({ label, children }) => {
+  return (
+    <FormControl>
+      <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">{label}</FormLabel>
+      <div tw="px-4 mt-4">
+        <Suspense fallback={<Skeleton height="40px" />}>
+          {children}
+        </Suspense>
+      </div>
+    </FormControl>
+  )
+}
 
 const SubmitButton = () => {
-  const account = useAtomValue(lastSelectedAccountAtom)
+  const account = useAtomValue(currentAccountAtom)
   const candidate = useAtomValue(candidateAtom)
-  const clusterId = useAtomValue(clusterIdAtom)
-  const hasConnected = useAtomValue(hasConnectedAtom)
+  const clusterId = useAtomValue(currentClusterIdAtom)
   const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
@@ -57,7 +83,7 @@ const SubmitButton = () => {
     }
   }
   return (
-    <Button size="lg" onClick={handleSubmit} disabled={!hasConnected} isLoading={isLoading}>Submit</Button>
+    <Button size="lg" onClick={handleSubmit} isLoading={isLoading}>Submit</Button>
   )
 }
 
@@ -75,7 +101,9 @@ const FatContractUploadForm = () => {
         <AccountSelectField /> */}
         <ContractFileUpload />
         <InitSelectorField />
-        <ClusterIdField />
+        <SuspenseFormFIeld label="Cluster ID">
+          <ClusterIdSelect />
+        </SuspenseFormFIeld>
         {/* <EventList /> */}
       </VStack>
       <div tw="mb-4 w-full flex justify-end">

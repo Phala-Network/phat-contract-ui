@@ -2,9 +2,9 @@ import React, { useState } from 'react'
 import tw from 'twin.macro'
 import { Heading, Box, Button, Input, Switch, FormControl, FormLabel } from '@chakra-ui/react'
 
-import { BoolInput } from '@/features/ui/inputs/bool'
-import { TextInput } from '@/features/ui/inputs/text'
-import { Select } from '@/features/ui/inputs/select'
+import { BoolInput } from '@/components/inputs/bool'
+import { TextInput } from '@/components/inputs/text'
+import { Select } from '@/components/inputs/select'
 
 
 const SimpleArgs = [

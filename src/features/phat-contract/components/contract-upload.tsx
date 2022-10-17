@@ -10,7 +10,7 @@ import {
   contractCandidateAtom,
   candidateFileInfoAtom,
   contractParserErrorAtom,
-} from "./atoms";
+} from "../atoms";
 
 const HelpText = () => {
   const error = useAtomValue(contractParserErrorAtom)

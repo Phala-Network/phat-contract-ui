@@ -15,7 +15,8 @@ import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/chain/atoms'
+// import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/chain/atoms'
+import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/phat-contract/atoms'
 import ContractInfo from '@/features/phat-contract/components/contract-info'
 import ContractMethodGrid from '@/features/phat-contract/components/contract-method-grid'
 

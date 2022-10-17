@@ -6,6 +6,7 @@
    ApiTypes,
    SubmittableExtrinsic,
    AugmentedSubmittable,
+   MethodResult,
  } from '@polkadot/api/types'
  import type {Vec, Struct, Option, Int, Tuple} from '@polkadot/types/codec'
  import type {bool, u32, u64, u128, Text, Bytes} from '@polkadot/types/primitive'
@@ -158,6 +159,34 @@
          ApiType,
          (opts?: unknown) => Observable<u64>
        >
+     }
+
+     phalaFatContracts: {
+      contracts: AugmentedQueryAt<
+        ApiType,
+        (contractId?: string) => Observable<MethodResult<Option<ContractInfo>>>,
+        [string]
+      >
+
+      clusters: AugmentedQueryAt<
+        ApiType,
+        (clusterId?: string) => Observable<MethodResult<Option<ClusterInfo>>>,
+        [string] // H256 / cluster id
+      >
+
+      clusterContracts: AugmentedQueryAt<
+        ApiType,
+        (clusterId?: string) => Observable<Vec<H256>>,
+        [string]
+      >
+     }
+
+     phalaRegistry: {
+      contractKeys: AugmentedQueryAt<
+        ApiType,
+        (contractId?: string) => Observable<Option<string>>,
+        [string]
+      >
      }
  
      uniques: {

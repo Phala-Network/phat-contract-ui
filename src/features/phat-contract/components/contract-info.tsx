@@ -14,8 +14,8 @@ import {
   Button,
 } from "@chakra-ui/react";
 
-import { currentContractAtom, phalaFatContractQueryAtom } from '@/features/chain/atoms'
-import Code from '@/features/ui/code'
+import { currentContractAtom, phalaFatContractQueryAtom } from '../atoms'
+import Code from '@/components/code'
 
 const StyledTd = tw(Td)`py-4`
 

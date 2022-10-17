@@ -11,9 +11,9 @@ import { hexToString } from '@polkadot/util'
 import * as R from 'ramda'
 
 import { create, signCertificate } from '../../sdk'
-import { pruntimeURLAtom, rpcApiInstanceAtom } from '@/features/chain/atoms'
-import { lastSelectedAccountAtom } from '@/features/account/atoms'
-import { clusterIdAtom } from '../phat-contract/atoms'
+import { apiPromiseAtom } from '@/features/parachain/atoms'
+import { pruntimeURLAtom, currentClusterIdAtom as clusterIdAtom } from '@/features/phat-contract/atoms'
+import { currentAccountAtom } from '@/features/identity/atoms'
 
 interface ClusterQueryResult {
   systemContract: string
@@ -22,8 +22,8 @@ interface ClusterQueryResult {
 const logsAtom = atom<string[]>([])
 
 const useFetchPinkLog = () => {
-  const api = useAtomValue(rpcApiInstanceAtom)
-  const account = useAtomValue(lastSelectedAccountAtom)
+  const api = useAtomValue(apiPromiseAtom)
+  const account = useAtomValue(currentAccountAtom)
   const pruntimeURL = useAtomValue(pruntimeURLAtom)
   const clusterId = useAtomValue(clusterIdAtom)
   const setLogs = useSetAtom(logsAtom)

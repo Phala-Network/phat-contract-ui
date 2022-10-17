@@ -24,8 +24,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
-import Code from '@/features/ui/code'
-import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
+import Code from '@/components/code'
+import useContractExecutor from '../hooks/useContractExecutor'
+import { currentMethodAtom, messagesAtom } from '../atoms'
+// import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
 export const argsFormModalVisibleAtom = atom(false)
 
@@ -35,7 +37,7 @@ const ExecuteButton: FC<{
   inputs: Record<string, unknown>,
   onFinish?: () => void
 }> = ({ inputs, onFinish }) => {
-  const [isRunning, runner] = useRunner()
+  const [isRunning, runner] = useContractExecutor()
   return (
     <Button
       colorScheme="phalaDark"
@@ -54,7 +56,7 @@ const ExecuteButton: FC<{
 const InstaExecuteButton: FC<{
   methodSpec: ContractMetaMessage,
 }> = ({ methodSpec }) => {
-  const [isRunning, runner] = useRunner()
+  const [isRunning, runner] = useContractExecutor()
   return (
     <button
       tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"

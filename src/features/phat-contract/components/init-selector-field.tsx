@@ -1,4 +1,4 @@
-import type { SelectorOption } from './atoms'
+import type { SelectorOption } from '../atoms'
 
 import React from 'react'
 import tw from 'twin.macro'
@@ -6,7 +6,7 @@ import { FormControl, FormLabel, FormHelperText, Select } from '@chakra-ui/react
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import * as R from 'ramda'
 
-import { candidateFileInfoAtom, contractSelectorOptionListAtom, contractSelectedInitSelectorAtom } from './atoms'
+import { candidateFileInfoAtom, contractSelectorOptionListAtom, contractSelectedInitSelectorAtom } from '../atoms'
 
 const InitSelectorField = () => { 
   const finfo = useAtomValue(candidateFileInfoAtom)
