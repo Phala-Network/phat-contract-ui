@@ -1,29 +1,34 @@
-import axios from 'axios'
 import type {ApiPromise} from '@polkadot/api'
+import type {SubmittableExtrinsic} from '@polkadot/api/types'
 import type {Bytes} from '@polkadot/types-codec'
+import type {AccountId} from '@polkadot/types/interfaces'
 import {
-  u8aToHex,
-  hexToU8a,
   hexAddPrefix,
-  stringToHex,
   hexStripPrefix,
+  hexToU8a,
+  stringToHex,
+  u8aToHex,
 } from '@polkadot/util'
 import {
-  waitReady,
+  sr25519Agree,
   sr25519KeypairFromSeed,
   sr25519Sign,
-  sr25519Agree,
+  waitReady,
 } from '@polkadot/wasm-crypto'
-import type {AccountId} from '@polkadot/types/interfaces'
+import axios, {AxiosError} from 'axios'
 import {from} from 'rxjs'
-import {encrypt, decrypt} from './lib/aes-256-gcm'
-import {randomHex} from './lib/hex'
 import type {CertificateData} from './certificate'
-import {pruntimeRpc, prpc} from './proto'
-import type {SubmittableExtrinsic} from '@polkadot/api/types'
+import {decrypt, encrypt} from './lib/aes-256-gcm'
+import {randomHex} from './lib/hex'
+import {prpc, pruntime_rpc as pruntimeRpc} from './proto'
 
 export type Query = (
   encodedQuery: string,
+  certificateData: CertificateData
+) => Promise<string>
+
+export type SidevmQuery = (
+  bytes: Bytes,
   certificateData: CertificateData
 ) => Promise<string>
 
@@ -52,48 +57,9 @@ type CreateFn = (options: {
   api: ApiPromise
   baseURL: string
   contractId: string
-}) => Promise<ApiPromise>
+}) => Promise<{api: ApiPromise; sidevmQuery: SidevmQuery}>
 
-export const createPruntimeApi = async (baseURL: string) => {
-  const http = axios.create({
-    baseURL,
-    headers: {
-      'Content-Type': 'application/octet-stream',
-    },
-    responseType: 'arraybuffer',
-  }).post
-
-  // Get public key from remote for encrypting
-  const {publicKey} = pruntimeRpc.PhactoryInfo.decode(
-    new Uint8Array((await http<ArrayBuffer>('/prpc/PhactoryAPI.GetInfo')).data)
-  )
-
-  if (!publicKey) throw new Error('No remote pubkey')
-
-  const pruntimeApi = pruntimeRpc.PhactoryAPI.create(
-    async (method, requestData, callback) => {
-      try {
-        const res = await http<ArrayBuffer>(
-          `/prpc/PhactoryAPI.${method.name}`,
-          new Uint8Array(requestData)
-        )
-        callback(null, new Uint8Array(res.data))
-      } catch (err: any) {
-        if (err?.response?.data instanceof ArrayBuffer) {
-          const message = new Uint8Array(err.response.data)
-          callback(new Error(prpc.PrpcError.decode(message).message))
-        } else {
-          throw err
-        }
-      }
-    }
-  )
-  return pruntimeApi
-}
-
-export const create: CreateFn = async ({api, baseURL, contractId}) => {
-  await waitReady()
-
+export const createPruntimeApi = (baseURL: string) => {
   // Create a http client prepared for protobuf
   const http = axios.create({
     baseURL,
@@ -103,14 +69,6 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
     responseType: 'arraybuffer',
   }).post
 
-  // Get public key from remote for encrypting
-  const {publicKey} = pruntimeRpc.PhactoryInfo.decode(
-    new Uint8Array((await http<ArrayBuffer>('/prpc/PhactoryAPI.GetInfo')).data)
-  )
-
-  if (!publicKey) throw new Error('No remote pubkey')
-  const remotePubkey = hexAddPrefix(publicKey)
-
   const pruntimeApi = pruntimeRpc.PhactoryAPI.create(
     async (method, requestData, callback) => {
       try {
@@ -119,8 +77,11 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
           new Uint8Array(requestData)
         )
         callback(null, new Uint8Array(res.data))
-      } catch (err: any) {
-        if (err?.response?.data instanceof ArrayBuffer) {
+      } catch (err: unknown) {
+        if (
+          err instanceof AxiosError &&
+          err.response?.data instanceof ArrayBuffer
+        ) {
           const message = new Uint8Array(err.response.data)
           callback(new Error(prpc.PrpcError.decode(message).message))
         } else {
@@ -130,11 +91,26 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
     }
   )
 
+  return pruntimeApi
+}
+
+export const create: CreateFn = async ({api, baseURL, contractId}) => {
+  await waitReady()
+
+  const pruntimeApi = createPruntimeApi(baseURL)
+
+  // Get public key from remote for encrypting
+  const {publicKey} = await pruntimeApi.getInfo({})
+
+  if (!publicKey) throw new Error('No remote pubkey')
+  const remotePubkey = hexAddPrefix(publicKey)
+
   // Generate a keypair for encryption
   // NOTE: each instance only has a pre-generated pair now, it maybe better to generate a new keypair every time encrypting
   const seed = hexToU8a(hexAddPrefix(randomHex(32)))
   const pair = sr25519KeypairFromSeed(seed)
   const [sk, pk] = [pair.slice(0, 64), pair.slice(64)]
+
   const queryAgreementKey = sr25519Agree(
     hexToU8a(hexAddPrefix(remotePubkey)),
     sk
@@ -142,6 +118,11 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
   const contractKey = (
     await api.query.phalaRegistry.contractKeys(contractId)
   ).toString()
+
+  if (!contractKey) {
+    throw new Error(`No contract key for ${contractId}`)
+  }
+
   const commandAgreementKey = sr25519Agree(hexToU8a(contractKey), sk)
 
   const createEncryptedData: CreateEncryptedData = (data, agreementKey) => {
@@ -182,10 +163,24 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
       }
       const data = decrypt(encryptedData, queryAgreementKey, iv)
       return hexAddPrefix(data)
-      // return decrypt2(encryptedData, queryAgreementKey, iv)
     })
-    // .then(data => hexAddPrefix(data))
   }
+
+  const sidevmQuery: SidevmQuery = async (bytes, certificateData) =>
+    query(
+      api
+        .createType('InkQuery', {
+          head: {
+            nonce: hexAddPrefix(randomHex(32)),
+            id: contractId,
+          },
+          data: {
+            SidevmMessage: bytes,
+          },
+        })
+        .toHex(),
+      certificateData
+    )
 
   const command: Command = ({contractId, payload}) => {
     const encodedPayload = api
@@ -260,7 +255,7 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
                 },
               })
               .toHex(),
-            origin as any as CertificateData
+            origin
           ).then((data) => {
             return api.createType(
               'ContractExecResult',
@@ -282,5 +277,5 @@ export const create: CreateFn = async ({api, baseURL, contractId}) => {
     enumerable: true,
   })
 
-  return api
+  return {api, sidevmQuery}
 }
