@@ -111,13 +111,6 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       // query
       else {
         const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
-        // const cert = await queryClient.fetchQuery(['queryContractCert', account.address], async () => {
-        //   const { signer } = await web3FromSource(account.meta.source)
-        //   // @ts-ignore
-        //   return await signCertificate({signer, account, api: contractInstance.api as ApiPromise})
-        // }, {
-        //   staleTime: 1000 * 60 * 15, // 15 minutes
-        // })
         const queryResult = await contractInstance.query[queryMethods[methodSpec.label]](
           // @FIXME this is a hack to make the ts compiler happy.
           cert as unknown as string,
