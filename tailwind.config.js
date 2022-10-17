@@ -21,6 +21,18 @@ module.exports = {
         heading: 'Montserrat',
       },
       colors: {
+        brand: {
+          DEFAULT: '#6FB74E',
+          '100': '#E7F3E2',
+          '200': '#ADD69A',
+          '300': '#6FB74E',
+          '400': '#5F9F41',
+          '500': '#56913B',
+          '600': '#45742F',
+          '700': '#345723',
+          '800': '#2B481E',
+          '900': '#233A18'
+        },
         phalaDark: {
           DEFAULT: '#9DC431',
           '50': '#E2EFBE',

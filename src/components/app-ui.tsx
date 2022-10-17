@@ -9,6 +9,7 @@ import { lastSelectedWeb3ProviderAtom, useRestoreLastSelectedAccount } from '@/f
 import AccessPointCombo from '@/features/identity/components/AccessPointCombo'
 import { WalletSelectModal, AccountSelectModal } from '@/features/identity/components/AccountSelectModal'
 import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
+import Logo from './Logo'
 
 export const walletSelectModalVisibleAtom = atom(false) 
 
@@ -46,7 +47,9 @@ export const AppHeader: FC<{
         <div tw="flex-1 min-w-0">
           {left ? left : (
             <h2 tw="text-2xl font-bold leading-7 text-white font-heading">
-              <Link tw="text-phala-500" to="/">{title}</Link>
+              <Link tw="text-phala-500" to="/" title={title}>
+                <Logo />
+              </Link>
             </h2>
           )}
         </div>

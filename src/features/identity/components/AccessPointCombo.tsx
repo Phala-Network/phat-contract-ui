@@ -135,7 +135,7 @@ const CurrentAccountName = (props: Omit<ButtonProps, "as">) => {
 const StyledButtonGroup = styled.div`
   border-image-slice: 1;
   border-width: 1px;
-  border-image-source: linear-gradient(90deg, #36FAD7 0%, #36FAFA 100%);
+  border-image-source: linear-gradient(90deg, #2B481E 0%, #233A18 100%);
   border-radius: 2px;
   background: #000;
 `
