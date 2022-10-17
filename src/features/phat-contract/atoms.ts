@@ -252,17 +252,11 @@ export const currentSystemContractIdAtom = atom(get => {
   return null
 })
 
-export const currentSystemContractInstanceAtom = atom<ContractPromise | null>(null)
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 // Sidevm Contract / Pink Logger Cotnract
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-export const pinkLoggerEnabledAtom = atom(false)
-
-export const pinkLoggerContractIdAtom = atom<string | null>(null)
 
 export const pinkLoggerResultAtom = atom<string[]>([])
 

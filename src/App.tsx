@@ -4,7 +4,7 @@ import { Outlet } from "@tanstack/react-location"
 
 import FoundationProvider from '@/foundation/Provider'
 import { AppUI, AppHeader, AppContainer } from '@/components/app-ui'
-import StatusBar from '@/components/status-bar/status-bar'
+import StatusBar from '@/components/StatusBar'
 
 import ContractAddPage from '@/pages/contract-add-page'
 import ContractListPage from '@/pages/contract-list-page'

@@ -24,7 +24,6 @@ import {
 import { atom, useAtomValue, useAtom, useSetAtom } from 'jotai'
 
 import { Select } from '@/components/inputs/select'
-import ConnectButton from '@/features/parachain/components/ConnectButton'
 import EndpointAddressInput from '@/features/parachain/components/EndpointAddressInput'
 import {
   pruntimeURLAtom,
@@ -33,9 +32,7 @@ import {
   currentWorkerIdAtom,
   availableWorkerListAtom,
   availablePruntimeListAtom,
-  pinkLoggerEnabledAtom,
 } from '@/features/phat-contract/atoms'
-import useCheckPinkLogger from '@/features/phat-contract/hooks/useCheckPinkLogger'
 
 export const connectionDetailModalVisibleAtom = atom(false)
 
@@ -81,17 +78,6 @@ const PruntimeEndpointSelect = () => {
   )
 }
 
-const StartPinkLoggerButton = () => {
-  const [isChecking, checkLogger] = useCheckPinkLogger()
-  const isLoggerAvailable = useAtomValue(pinkLoggerEnabledAtom)
-  return (
-    <div tw="pt-4 w-full flex flex-row justify-between items-center">
-      <span>{isLoggerAvailable ? 'TRUE' : 'FALSE'}</span>
-      <Button isLoading={isChecking} onClick={checkLogger}>Check Logger</Button>
-    </div>
-  )
-}
-
 export default function ConnectionDetailModal() {
   const [visible, setVisible] = useAtom(connectionDetailModalVisibleAtom)
   return (
@@ -112,9 +98,6 @@ export default function ConnectionDetailModal() {
               <SuspenseFormField label="PRuntime">
                 <PruntimeEndpointSelect />
               </SuspenseFormField>
-              <Suspense fallback={<div />}>
-                <StartPinkLoggerButton />
-              </Suspense>
             </VStack>
           </ModalBody>
         <ModalFooter></ModalFooter>

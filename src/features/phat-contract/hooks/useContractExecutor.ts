@@ -16,8 +16,16 @@ import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
+import { queryPinkLoggerContract } from '../queries'
 
-import { pruntimeURLAtom, currentMethodAtom, currentContractAtom, dispatchResultsAtom, pinkLoggerContractIdAtom, pinkLoggerResultAtom } from '../atoms'
+import {
+  pruntimeURLAtom,
+  currentMethodAtom,
+  currentContractAtom,
+  dispatchResultsAtom,
+  pinkLoggerResultAtom,
+  currentSystemContractIdAtom,
+} from '../atoms'
 
 interface InkResponse {
   nonce: string
@@ -40,7 +48,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     queryClientAtom,
     signerAtom,
   ]))
-  const pinkLoggerContractId = useAtomValue(pinkLoggerContractIdAtom)
+  const systemContractId = useAtomValue(currentSystemContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
@@ -140,25 +148,24 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         }
       }
     } finally {
-      if (api && signer && account && pinkLoggerContractId) {
+      if (api && signer && account && systemContractId) {
         const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
-        const { sidevmQuery } = await create({
-          api: await api.clone().isReady,
-          baseURL: pruntimeURL,
-          contractId: pinkLoggerContractId,
-        })
-        const raw = await sidevmQuery('' as unknown as Bytes, cert)
-        const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
-        if (resp.result.Ok) {
-          const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
-          setLogs(lines)
+        const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId))
+        if (result) {
+          const { sidevmQuery } = result
+          const raw = await sidevmQuery('' as unknown as Bytes, cert)
+          const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
+          if (resp.result.Ok) {
+            const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
+            setLogs(R.reverse(lines))
+          }
         }
       }
       setIsLoading(false)
     }
   }, [
     api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, pinkLoggerContractId, setLogs,
+    signer, setLogs, systemContractId
   ])
   return [isLoading, fn]
 }
