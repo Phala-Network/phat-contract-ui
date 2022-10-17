@@ -200,7 +200,7 @@ export function queryPinkLoggerContract(
         return null
       }
       const loggerContractId = output.toHex()
-      if (!loggerContractId) {
+      if (!loggerContractId || loggerContractId === '0x') {
         return null
       }
       return await create({

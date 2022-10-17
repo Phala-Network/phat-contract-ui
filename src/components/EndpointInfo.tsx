@@ -3,8 +3,6 @@ import type { FC, ReactNode } from 'react'
 import React, { Suspense, useMemo } from 'react'
 import tw, { styled } from 'twin.macro'
 import {
-  Box,
-  Button,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -13,15 +11,14 @@ import {
   ModalCloseButton,
   ModalFooter,
   VStack,
-  Input,
-  InputGroup,
   FormControl,
   FormLabel,
-  FormErrorMessage,
-  InputRightElement,
   Skeleton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
 } from '@chakra-ui/react'
-import { atom, useAtomValue, useAtom, useSetAtom } from 'jotai'
+import { atom, useAtomValue, useAtom } from 'jotai'
 
 import { Select } from '@/components/inputs/select'
 import EndpointAddressInput from '@/features/parachain/components/EndpointAddressInput'
@@ -36,9 +33,21 @@ import {
 
 export const connectionDetailModalVisibleAtom = atom(false)
 
+const RPCNotReadyAlert = () => {
+  return (
+    <Alert status="warning">
+      <AlertIcon />
+      <AlertTitle>RPC is not Ready</AlertTitle>
+    </Alert>
+  )
+}
+
 const ClusterIdSelect = () => {
   const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
   const options = useAtomValue(availableClusterOptionsAtom)
+  if (options.length === 0) {
+    return <RPCNotReadyAlert />
+  }
   return (
     <Select value={clusterId} onChange={setClusterId} options={options} />
   )
@@ -61,6 +70,9 @@ const WorkerSelect = () => {
   const [currentWorkerId, setCurrentWorkerId] = useAtom(currentWorkerIdAtom)
   const availableWorkerList = useAtomValue(availableWorkerListAtom)
   const options = useMemo(() => availableWorkerList.map(i => ({ value: i, label: i.substring(0, 12) + '...' + i.substring(i.length - 12) })), [availableWorkerList])
+  if (options.length === 0) {
+    return <RPCNotReadyAlert />
+  }
   return (
     <Select value={currentWorkerId} onChange={setCurrentWorkerId} options={options} />
   )
@@ -73,6 +85,9 @@ const PruntimeEndpointSelect = () => {
     () => availableWorkerList.map(i => ({ value: i, label: i })),
     [availableWorkerList]
   )
+  if (options.length === 0) {
+    return <RPCNotReadyAlert />
+  }
   return (
     <Select value={currentPruntime} onChange={setCurrentPruntime} options={options} />
   )

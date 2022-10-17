@@ -149,16 +149,20 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       }
     } finally {
       if (api && signer && account && systemContractId) {
-        const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
-        const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId))
-        if (result) {
-          const { sidevmQuery } = result
-          const raw = await sidevmQuery('' as unknown as Bytes, cert)
-          const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
-          if (resp.result.Ok) {
-            const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
-            setLogs(R.reverse(lines))
+        try {
+          const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
+          const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId))
+          if (result) {
+            const { sidevmQuery } = result
+            const raw = await sidevmQuery('' as unknown as Bytes, cert)
+            const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
+            if (resp.result.Ok) {
+              const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
+              setLogs(R.reverse(lines))
+            }
           }
+        } catch (err) {
+          console.error('PinkLogger failed: ', err)
         }
       }
       setIsLoading(false)

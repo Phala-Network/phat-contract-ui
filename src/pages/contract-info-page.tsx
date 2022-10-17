@@ -15,7 +15,6 @@ import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
-// import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/chain/atoms'
 import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/phat-contract/atoms'
 import ContractInfo from '@/features/phat-contract/components/contract-info'
 import ContractMethodGrid from '@/features/phat-contract/components/contract-method-grid'
@@ -30,26 +29,6 @@ const CurrentContractName = () => {
     <BreadcrumbItem>
       <BreadcrumbLink>{contract.metadata.contract.name}</BreadcrumbLink>
     </BreadcrumbItem>
-  )
-}
-
-const PRuntimeUrlField = () => {
-  const [endpoint, setEndpoint] = useAtom(pruntimeURLAtom)
-  return (
-    <FormControl tw="bg-transparent border mb-4">
-      <FormLabel tw="p-4 pb-0 w-full text-white bg-transparent">PRuntime Endpoint</FormLabel>
-      <div tw="pt-2 px-4 pb-4">
-        <InputGroup>
-          <Input
-            pr="5.5rem"
-            css={tw`text-sm font-mono bg-gray-200 outline-none`}
-            type='text'
-            value={endpoint}
-            onChange={ev => setEndpoint(ev.target.value)}
-          />
-        </InputGroup>
-      </div>
-    </FormControl>
   )
 }
 
@@ -70,7 +49,6 @@ const ContractInfoPage = () => {
       <Suspense fallback={<div />}>
         <ContractInfo />
       </Suspense>
-      <PRuntimeUrlField />
       <Suspense fallback={<div />}>
         <ContractMethodGrid />
       </Suspense>

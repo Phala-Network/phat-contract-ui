@@ -232,7 +232,7 @@ export const pruntimeListQueryAtom = atomWithQuery(get => {
 export const availablePruntimeListAtom = atom(get => {
   const result = get(pruntimeListQueryAtom)
   if (result) {
-    return result[0][1].V1 || []
+    return R.pathOr([], [0, 1, 'V1'], result)
   }
   return []
 })

@@ -94,7 +94,7 @@ const SimpleArgsFormModal = () => {
               <FormControl key={idx}>
                 <FormLabel>
                   {arg.label}
-                  <code tw="ml-2 text-xs text-gray-500">{JSON.stringify(arg.type.displayName)}</code>
+                  <code tw="ml-2 text-xs text-gray-500 font-mono">{arg.type.displayName.join('::')}</code>
                 </FormLabel>
                 <div tw="px-4 pb-4">
                   <InputGroup>
