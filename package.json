@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noemit"
   },
   "babelMacros": {
     "twin": {
@@ -13,7 +14,7 @@
     }
   },
   "dependencies": {
-    "@chakra-ui/react": "^2.2.1",
+    "@chakra-ui/react": "^2.3.5",
     "@emotion/react": "^11",
     "@emotion/styled": "^11",
     "@fontsource/montserrat": "^4.5.11",
@@ -31,7 +32,10 @@
     "axios": "^0.27.2",
     "browser-crypto": "^1.4.0",
     "buffer": "^6.0.3",
-    "framer-motion": "^6",
+    "cookies-next": "^2.1.1",
+    "decimal.js": "^10.4.2",
+    "fp-ts": "^2.12.3",
+    "framer-motion": "^7.5.3",
     "jotai": "^1.8.5",
     "protobufjs": "^6.11.3",
     "ramda": "^0.28.0",
@@ -42,19 +46,21 @@
     "react-icons": "^4.3.1",
     "react-markdown": "^8.0.3",
     "react-query": "^3.39.1",
-    "remark-gfm": "^3.0.1"
+    "remark-gfm": "^3.0.1",
+    "xstate": "^4.33.6"
   },
   "devDependencies": {
     "@emotion/babel-plugin-jsx-pragmatic": "^0.1.5",
     "@polkadot/types": "^9.4.1",
-    "@types/ramda": "^0.28.11",
+    "@tanstack/react-query-devtools": "^4.12.0",
+    "@types/ramda": "^0.28.16",
     "@types/react": "^18.0.1",
     "@types/react-dom": "^18.0.5",
     "@vitejs/plugin-react": "^1.0.7",
     "babel-plugin-macros": "^3.1.0",
     "tailwindcss": "^3.1.4",
     "twin.macro": "^2.8.2",
-    "typescript": "^4.7.4",
+    "typescript": "^4.8.4",
     "vite": "^2.9.12"
   }
 }

@@ -248,7 +248,8 @@ export const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: str
 // Atoms
 //
 
-export const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
+// export const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
+export const pruntimeURLAtom = atom('http://192.168.50.2:8000')
 
 export const rpcEndpointAtom = atom('')
 
@@ -285,9 +286,9 @@ export const availableContractsAtom = atomWithQuery(get => ({
     const onChainKeys = Object.keys(onChain)
   
     return R.pipe(
-      R.filter((i: Pairs<LocalContractInfo>) => R.includes(i[0], onChainKeys)),
+      R.filter((i: Pairs<string, LocalContractInfo>) => R.includes(i[0], onChainKeys)),
       R.sortBy((i) => R.propOr(0, 'savedAt', i[1])),
-      lst => R.reverse<Pairs<LocalContractInfo>>(lst),
+      lst => R.reverse<Pairs<string, LocalContractInfo>>(lst),
     )(Object.entries(onLocal))
   },
   refetchInterval: 1000 * 60 * 15, // every 15 minutes
@@ -576,7 +577,7 @@ export function useSystemEvents() {
       })
 
       return () => {
-        unsubscribe.then((fn) => R.is(Function, fn) && fn())
+        unsubscribe.then((fn: Nullable<Function>) => R.is(Function, fn) && fn())
       }
     }
   }, [api, setEvents])

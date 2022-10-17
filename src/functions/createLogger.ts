@@ -1,4 +1,3 @@
-
 type LiteralLogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'log'
 type LogLevel = keyof Console & LiteralLogLevel
 
