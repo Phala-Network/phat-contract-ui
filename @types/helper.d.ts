@@ -4,7 +4,7 @@ type FixedLengthArray<T extends any[]> =
   Pick<T, Exclude<keyof T, ArrayLengthMutationKeys>>
   & { [Symbol.iterator]: () => IterableIterator< ArrayItems<T> > }
 
-interface Pairs<T> extends Array<any> {
-  0: string;
-  1: T;
-}
+
+type Pairs<T1, T2 = T1> = [T1, T2]
+
+type Nullable<T> = T | null | undefined;

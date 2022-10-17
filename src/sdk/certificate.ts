@@ -1,13 +1,14 @@
-import {waitReady, sr25519KeypairFromSeed} from '@polkadot/wasm-crypto'
 import type {ApiPromise} from '@polkadot/api'
-import type { Signer as InjectedSigner } from '@polkadot/api/types'
+import type {InjectedAccount, InjectedAccountWithMeta} from '@polkadot/extension-inject/types'
 import type {KeyringPair} from '@polkadot/keyring/types'
 import type {Signer} from '@polkadot/types/types'
-import {u8aToHex, hexToU8a, hexAddPrefix} from '@polkadot/util'
+import type {Signer as InjectedSigner} from '@polkadot/api/types'
+
+import {hexAddPrefix, hexToU8a, u8aToHex} from '@polkadot/util'
 import {decodeAddress} from '@polkadot/util-crypto'
+import {sr25519KeypairFromSeed, waitReady} from '@polkadot/wasm-crypto'
 import {randomHex} from './lib/hex'
-import {pruntimeRpc} from './proto'
-import type {InjectedAccountWithMeta} from '@polkadot/extension-inject/types'
+import {pruntime_rpc as pruntimeRpc} from './proto'
 
 export type CertificateData = {
   certificate: pruntimeRpc.ICertificate
@@ -44,6 +45,7 @@ export const signCertificate = async (
   const generatedSeed = hexToU8a(hexAddPrefix(randomHex(32)))
   const generatedPair = sr25519KeypairFromSeed(generatedSeed)
   const [secret, pubkey] = [generatedPair.slice(0, 64), generatedPair.slice(64)]
+  console.log('sign certificate', params)
 
   const encodedCertificateBody = api
     .createType('CertificateBody', {

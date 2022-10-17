@@ -10,7 +10,7 @@ import {
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 
-import FatContractUploadForm from '@/features/instantiate/fat-contract-upload-form'
+import FatContractUploadForm from '@/features/phat-contract/components/fat-contract-upload-form'
 
 
 const ContractAddPage = () => {

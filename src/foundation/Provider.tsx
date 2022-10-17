@@ -32,6 +32,18 @@ const theme = extendTheme({
     body: 'Poppins, sans-serif',
   },
   colors: {
+    brand: {
+      DEFAULT: '#6FB74E',
+      '100': '#E7F3E2',
+      '200': '#ADD69A',
+      '300': '#6FB74E',
+      '400': '#5F9F41',
+      '500': '#56913B',
+      '600': '#45742F',
+      '700': '#345723',
+      '800': '#2B481E',
+      '900': '#233A18'
+    },
     phalaDark: {
       DEFAULT: '#9DC431',
       '50': '#E2EFBE',
@@ -59,6 +71,7 @@ const theme = extendTheme({
       '900': '#537100'
     }
   },
+  /*
   components: {
     Input: {
       variants: {
@@ -132,6 +145,7 @@ const theme = extendTheme({
       },
     },
   }
+  */
 })
 
 const location = new ReactLocation()
