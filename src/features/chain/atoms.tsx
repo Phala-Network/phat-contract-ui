@@ -365,7 +365,7 @@ export const derviedContractAtom = atom(async (get) => {
     return
   }
   const contractPromise = new ContractPromise(
-    await create({api, baseURL: pruntimeURL, contractId: contract.contractId}),
+    (await create({api, baseURL: pruntimeURL, contractId: contract.contractId})).api,
     contract.metadata,
     contract.contractId
   )
@@ -716,7 +716,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
       console.log('contract', contract)
       const apiCopy = await api.clone().isReady
       const contractInstance = new ContractPromise(
-        await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId}),
+        (await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId})).api,
         contract.metadata,
         contract.contractId
       )
@@ -761,6 +761,7 @@ export function useRunner(): [boolean, (inputs: Record<string, unknown>, overrid
       else {
         const cert = await queryClient.fetchQuery(['queryContractCert', account.address], async () => {
           const { signer } = await web3FromSource(account.meta.source)
+          // @ts-ignore
           return await signCertificate({signer, account, api: contractInstance.api as ApiPromise})
         }, {
           staleTime: 1000 * 60 * 15, // 15 minutes
