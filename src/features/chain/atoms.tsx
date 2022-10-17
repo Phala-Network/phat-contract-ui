@@ -27,7 +27,7 @@ import * as R from 'ramda'
 
 import createLogger from '@/functions/createLogger'
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
-import { contractSelectedInitSelectorAtom } from '@/features/instantiate/atoms'
+import { contractSelectedInitSelectorAtom } from '@/features/phat-contract/atoms'
 
 import { create, createPruntimeApi, signCertificate, types as phalaSDKTypes } from '../../sdk'
 import * as PhalaFatContractsQuery from './phala-fat-contracts-query'

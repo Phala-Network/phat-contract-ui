@@ -13,7 +13,7 @@ import * as R from 'ramda'
 import { create, signCertificate } from '../../sdk'
 import { pruntimeURLAtom, rpcApiInstanceAtom } from '@/features/chain/atoms'
 import { lastSelectedAccountAtom } from '@/features/account/atoms'
-import { clusterIdAtom } from '../instantiate/atoms'
+import { clusterIdAtom } from '../phat-contract/atoms'
 
 interface ClusterQueryResult {
   systemContract: string
