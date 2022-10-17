@@ -16,8 +16,8 @@ import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
 import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/chain/atoms'
-import ContractInfo from '@/features/fat-contract/contract-info'
-import ContractMethodGrid from '@/features/fat-contract/contract-method-grid'
+import ContractInfo from '@/features/phat-contract/contract-info'
+import ContractMethodGrid from '@/features/phat-contract/contract-method-grid'
 
 
 const CurrentContractName = () => {
