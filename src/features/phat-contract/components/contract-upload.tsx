@@ -36,8 +36,8 @@ const Dropzone = () => {
   }, [setCandidate])
   const {getRootProps, getInputProps, isDragActive} = useDropzone({ onDrop })
   return (
-    <div tw="mt-1 mx-4">
-      <div tw="flex justify-center px-6 pt-5 pb-6 bg-gray-200 rounded-md">
+    <div tw="mt-1">
+      <div tw="flex justify-center px-6 pt-5 pb-6 bg-gray-300 rounded-sm">
         <div {...getRootProps()} tw="space-y-1 w-full">
           <IoCloudUploadOutline tw="h-8 w-8 text-black mx-auto mb-4" />
           <label tw="flex text-sm justify-center text-gray-600 cursor-pointer">
@@ -88,7 +88,7 @@ const ContractFileUpload = () => {
   const finfo = useAtomValue(candidateFileInfoAtom)
   return (
     <FormControl>
-      <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">Contract File</FormLabel>
+      <FormLabel>Contract File</FormLabel>
       {finfo.size ? (
         <CandidatePreview />
       ) : (

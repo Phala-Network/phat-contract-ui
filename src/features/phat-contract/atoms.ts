@@ -1,5 +1,6 @@
-import type { Abi, ContractPromise } from '@polkadot/api-contract'
-import { AnyJson } from '@polkadot/types/types'
+import type { ContractPromise } from '@polkadot/api-contract'
+import type { AnyJson } from '@polkadot/types/types'
+import type { SidevmQuery } from '../../sdk'
 
 import { atom } from 'jotai'
 import { atomWithReset, atomWithStorage } from 'jotai/utils'
@@ -7,7 +8,8 @@ import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
-import { queryClusterList, queryContractList } from './queries'
+import { queryClusterList, queryContractList, queryEndpointList } from './queries'
+import { endpointAtom } from '@/atoms/endpointsAtom'
 
 export interface SelectorOption {
   value: string
@@ -144,12 +146,55 @@ export const registeredClusterListAtom = atomWithQuery(get => {
 
 export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
-  console.log('clusters', clusters)
   return clusters.map(([id, obj]) => {
     const { permission } = obj
     return { label: `[${permission}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
   })
 })
+
+export const currentClusterAtom = atom(get => {
+  const clusters = get(registeredClusterListAtom)
+  const currentClusterId = get(currentClusterIdAtom)
+  const found = R.find(([id]) => id === currentClusterId, clusters)
+  if (found) {
+    return found[1]
+  }
+  return null
+})
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//
+// Worker
+//
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+export const userSelectedWorkerIdAtom = atomWithStorage<Record<string, string>>('user-selected-worker', {})
+
+export const currentWorkerIdAtom = atom(
+  get => {
+    const rec = get(userSelectedWorkerIdAtom)
+    const endpoint = get(endpointAtom)
+    if (rec[endpoint]) {
+      return rec[endpoint]
+    }
+    const workers = get(availableWorkerListAtom)
+    return R.head(workers)
+  },
+  (get, set, value: string) => {
+    const endpoint = get(endpointAtom)
+    const rec = get(userSelectedWorkerIdAtom)
+    set(userSelectedWorkerIdAtom, {...rec, [endpoint]: value})
+  }
+)
+
+export const availableWorkerListAtom = atom(get => {
+  const clusterInfo = get(currentClusterAtom)
+  if (clusterInfo) {
+    return clusterInfo.workers
+  }
+  return []
+})
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
@@ -157,8 +202,41 @@ export const availableClusterOptionsAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// export const pruntimeURLAtom = atom('https://poc5.phala.network/tee-api-1')
-export const pruntimeURLAtom = atom('http://192.168.50.2:8000')
+const DEFAULT_ENDPOINT = 'https://poc5.phala.network/tee-api-1'
+
+export const userSelectedPruntimeAtom = atomWithStorage<Record<string, string>>('user-selected-pruntime', {})
+
+export const pruntimeURLAtom = atom(
+  get => {
+    const rec = get(userSelectedPruntimeAtom)
+    const endpoint = get(endpointAtom)
+    if (rec[endpoint]) {
+      return rec[endpoint]
+    }
+    const pruntimes = get(availablePruntimeListAtom)
+    return R.head(pruntimes) || DEFAULT_ENDPOINT
+  },
+  (get, set, value: string) => {
+    const endpoint = get(endpointAtom)
+    const rec = get(userSelectedPruntimeAtom)
+    set(userSelectedPruntimeAtom, {...rec, [endpoint]: value})
+  }
+)
+
+export const pruntimeListQueryAtom = atomWithQuery(get => {
+  const api = get(apiPromiseAtom)
+  const workerId = get(currentWorkerIdAtom)
+  return queryEndpointList(api, workerId)
+})
+
+export const availablePruntimeListAtom = atom(get => {
+  const result = get(pruntimeListQueryAtom)
+  if (result) {
+    return result[0][1].V1 || []
+  }
+  return []
+})
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
@@ -166,8 +244,15 @@ export const pruntimeURLAtom = atom('http://192.168.50.2:8000')
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const systemContractInstanceAtom = atom(get => {
+export const currentSystemContractIdAtom = atom(get => {
+  const clusterInfo = get(currentClusterAtom)
+  if (clusterInfo) {
+    return clusterInfo.systemContract
+  }
+  return null
 })
+
+export const currentSystemContractInstanceAtom = atom<ContractPromise | null>(null)
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
@@ -175,9 +260,11 @@ export const systemContractInstanceAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const pinkLoggerContractInstanceAtom = atom(get => {
+export const pinkLoggerEnabledAtom = atom(false)
 
-})
+export const pinkLoggerContractIdAtom = atom<string | null>(null)
+
+export const pinkLoggerResultAtom = atom<string[]>([])
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //

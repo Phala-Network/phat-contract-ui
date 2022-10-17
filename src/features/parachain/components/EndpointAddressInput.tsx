@@ -1,3 +1,4 @@
+import tw from 'twin.macro'
 import {
   FormControl,
   FormLabel,
@@ -14,12 +15,12 @@ import { setCookie } from 'cookies-next'
 import { endpointAtom, PARACHAIN_ENDPOINT } from '@/atoms/endpointsAtom'
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 
-export default function EndpointAddressInput() {
+export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom)
   const [machine, send] = useAtom(websocketConnectionMachineAtom)
   return (
     <FormControl>
-      <FormLabel>Khala Parachain Endpoint Address</FormLabel>
+      <FormLabel>{label || 'Khala Parachain Endpoint Address'}</FormLabel>
       <InputGroup>
         <Input
           type='url'

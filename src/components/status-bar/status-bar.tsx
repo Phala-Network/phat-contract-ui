@@ -25,15 +25,14 @@ import {
 import * as R from 'ramda'
 
 import { eventsAtom } from '@/features/parachain/atoms'
-import { resultsAtom } from '@/features/phat-contract/atoms'
-
-import LogPanel from './log-panel'
+import { resultsAtom, pinkLoggerResultAtom } from '@/features/phat-contract/atoms'
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
 
 const eventCountsAtom = atom(get => get(eventsAtom).length)
 const resultCountsAtom = atom(get => get(resultsAtom).length)
+const logCountsAtom = atom(get => get(pinkLoggerResultAtom).length)
 
 const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
@@ -56,6 +55,7 @@ const Counters = () => {
   const setCurrentTab = useUpdateAtom(currentTabAtom)
   const eventCounts = useAtomValue(eventCountsAtom)
   const resultCounts = useAtomValue(resultCountsAtom)
+  const logCounts = useAtomValue(logCountsAtom)
   return (
     <div tw="flex flex-row gap-1">
       <CounterButton
@@ -83,6 +83,7 @@ const Counters = () => {
         }}
       >
         <TiCogOutline tw="text-base" />
+        <span tw="text-sm font-mono">{logCounts}</span>
       </CounterButton>
     </div>
   )
@@ -177,6 +178,17 @@ function ResultPanel() {
   )
 }
 
+const Logs = () => {
+  const logs = useAtomValue(pinkLoggerResultAtom)
+  return (
+    <div tw="flex flex-col gap-2 my-4">
+      {logs.map((log, i) => (
+        <div key={i} tw="font-mono text-sm">{log}</div>
+      ))}
+    </div>
+  )
+}
+
 export default function StatusBar() {
   const showEventList = useAtomValue(toggleEventListAtom)
   const [currentTab, setCurrentTab] = useAtom(currentTabAtom)
@@ -217,9 +229,9 @@ export default function StatusBar() {
               <ResultPanel />
             </TabPanel>
             <TabPanel px="0">
-              <Suspense fallback={<div />}>
-                <LogPanel />
-              </Suspense>
+              <div tw="overflow-y-scroll h-[26vh] px-6">
+                <Logs />
+              </div>
             </TabPanel>
           </TabPanels>
         </Tabs>

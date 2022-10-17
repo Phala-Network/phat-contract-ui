@@ -10,7 +10,7 @@
  } from '@polkadot/api/types'
  import type {Vec, Struct, Option, Int, Tuple} from '@polkadot/types/codec'
  import type {bool, u32, u64, u128, Text, Bytes} from '@polkadot/types/primitive'
- import type {AccountId, AccountId32, Balance} from '@polkadot/types/interfaces'
+ import type {AccountId, AccountId32, Balance, H256} from '@polkadot/types/interfaces'
  import type {Registration} from '@polkadot/types/interfaces/identity'
  import type {Observable} from '@polkadot/types/types'
  import type {
@@ -187,6 +187,17 @@
         (contractId?: string) => Observable<Option<string>>,
         [string]
       >
+
+      endpoints: AugmentedQueryAt<
+        ApiType,
+        (workerId?: string) => Observable<MethodResult<Option<EndpointInfo>>>,
+        [string]
+      >
+
+      gatkeeper: AugmentedQuery<
+         ApiType,
+         () => Observable<MethodResult<Vec<H256>>>
+       >
      }
  
      uniques: {

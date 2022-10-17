@@ -37,3 +37,17 @@ export function queryClusterList(api: ApiPromise) {
     }
   }
 }
+
+export function queryEndpointList(api: ApiPromise, workerId?: string) {
+  return {
+    queryKey: ['phalaFatContracts.endpoints', workerId],
+    queryFn: async () => {
+      const result = await api.query.phalaRegistry.endpoints.entries()
+      const transformed: Pairs<string, EndpointInfo>[] = result.map(([storageKey, value]) => {
+        const keys = storageKey.toHuman() as string[]
+        return [keys[0], value.unwrap().toHuman()]
+      })
+      return transformed
+    }
+  }
+}

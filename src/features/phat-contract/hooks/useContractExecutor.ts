@@ -1,8 +1,11 @@
+import type {Bytes} from '@polkadot/types-codec'
+
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
 import { queryClientAtom } from 'jotai/query'
-import { Abi, ContractPromise } from '@polkadot/api-contract'
+import { ContractPromise } from '@polkadot/api-contract'
+import { hexToString } from '@polkadot/util'
 import * as R from 'ramda'
 
 import { create, createPruntimeApi } from '../../../sdk'
@@ -14,7 +17,16 @@ import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
 
-import { pruntimeURLAtom, currentMethodAtom, currentContractAtom, dispatchResultsAtom } from '../atoms'
+import { pruntimeURLAtom, currentMethodAtom, currentContractAtom, dispatchResultsAtom, pinkLoggerContractIdAtom, pinkLoggerResultAtom } from '../atoms'
+
+interface InkResponse {
+  nonce: string
+  result: {
+    Ok?: {
+      InkMessageReturn: string
+    }
+  }
+}
 
 const debug = createLogger('chain', 'debug')
 
@@ -28,8 +40,10 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     queryClientAtom,
     signerAtom,
   ]))
+  const pinkLoggerContractId = useAtomValue(pinkLoggerContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
+  const setLogs = useSetAtom(pinkLoggerResultAtom)
   const [isLoading, setIsLoading] = useState(false)
 
   const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
@@ -126,8 +140,25 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         }
       }
     } finally {
+      if (api && signer && account && pinkLoggerContractId) {
+        const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
+        const { sidevmQuery } = await create({
+          api: await api.clone().isReady,
+          baseURL: pruntimeURL,
+          contractId: pinkLoggerContractId,
+        })
+        const raw = await sidevmQuery('' as unknown as Bytes, cert)
+        const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
+        if (resp.result.Ok) {
+          const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
+          setLogs(lines)
+        }
+      }
       setIsLoading(false)
     }
-  }, [api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient, signer])
+  }, [
+    api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
+    signer, pinkLoggerContractId, setLogs,
+  ])
   return [isLoading, fn]
 }

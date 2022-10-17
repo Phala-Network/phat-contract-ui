@@ -37,9 +37,8 @@ export function Select<T>({
   return (
     <Menu>
       <MenuButton
+        w="100%"
         as={Button}
-        tw="w-full border border-solid border-gray-300 rounded-sm text-gray-600 text-left"
-        bg="gray.200"
         _focus={{
           borderColor: "phalaDark.600", 
         }}

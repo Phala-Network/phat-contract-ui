@@ -8,6 +8,7 @@ import { useAutoConnect } from '@/features/parachain/atoms'
 import { lastSelectedWeb3ProviderAtom, useRestoreLastSelectedAccount } from '@/features/identity/atoms'
 import AccessPointCombo from '@/features/identity/components/AccessPointCombo'
 import { WalletSelectModal, AccountSelectModal } from '@/features/identity/components/AccountSelectModal'
+import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
 
 export const walletSelectModalVisibleAtom = atom(false) 
 
@@ -38,6 +39,7 @@ export const AppHeader: FC<{
   useRestoreLastSelectedAccount()
   useAutoConnect()
   const showAccountSelectModal = useShowAccountSelectModal()
+  const setEndpointInfoVisible = useSetAtom(connectionDetailModalVisibleAtom)
   return (
     <div tw="bg-black py-2">
       <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
@@ -48,12 +50,13 @@ export const AppHeader: FC<{
             </h2>
           )}
         </div>
-        <div tw="mt-4 flex md:mt-0 md:ml-4">
-          <AccessPointCombo onAccountClick={showAccountSelectModal} />
+        <div tw="mt-4 flex flex-row items-center justify-center gap-1 md:mt-0 md:ml-4">
+          <AccessPointCombo onAccountClick={showAccountSelectModal} onConnectionStatusClick={() => setEndpointInfoVisible(true)} />
         </div>
       </header>
       <WalletSelectModal visibleAtom={walletSelectModalVisibleAtom} accountSelectModalVisibleAtom={accountSelectModalVisibleAtom} />
       <AccountSelectModal visibleAtom={accountSelectModalVisibleAtom} walletSelectModalVisibleAtom={walletSelectModalVisibleAtom} />
+      <EndpointInfoModal />
     </div>
   )
 }

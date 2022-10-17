@@ -59,6 +59,7 @@ const theme = extendTheme({
       '900': '#537100'
     }
   },
+  /*
   components: {
     Input: {
       variants: {
@@ -132,6 +133,7 @@ const theme = extendTheme({
       },
     },
   }
+  */
 })
 
 const location = new ReactLocation()

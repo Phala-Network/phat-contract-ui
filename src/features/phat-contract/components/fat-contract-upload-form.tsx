@@ -30,11 +30,11 @@ const ClusterIdSelect = () => {
   )
 }
 
-const SuspenseFormFIeld: FC<{ label: string, children: ReactNode }> = ({ label, children }) => {
+const SuspenseFormField: FC<{ label: string, children: ReactNode }> = ({ label, children }) => {
   return (
     <FormControl>
-      <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">{label}</FormLabel>
-      <div tw="px-4 mt-4">
+      <FormLabel>{label}</FormLabel>
+      <div>
         <Suspense fallback={<Skeleton height="40px" />}>
           {children}
         </Suspense>
@@ -92,18 +92,18 @@ const FatContractUploadForm = () => {
     <div>
       <VStack
         my={4}
-        pb={8}
+        p={4}
         spacing={4}
         align="left"
-        tw="bg-[#f3f3f3] text-[#555]"
+        bg="gray.700"
       >
         {/* <RpcEndpointField />
         <AccountSelectField /> */}
         <ContractFileUpload />
         <InitSelectorField />
-        <SuspenseFormFIeld label="Cluster ID">
+        <SuspenseFormField label="Cluster ID">
           <ClusterIdSelect />
-        </SuspenseFormFIeld>
+        </SuspenseFormField>
         {/* <EventList /> */}
       </VStack>
       <div tw="mb-4 w-full flex justify-end">

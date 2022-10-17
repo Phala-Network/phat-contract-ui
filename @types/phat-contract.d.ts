@@ -15,3 +15,7 @@ interface ContractInfo {
   instantiateData: string
   salt: string
 }
+
+interface EndpointInfo {
+  V1: string[]
+}

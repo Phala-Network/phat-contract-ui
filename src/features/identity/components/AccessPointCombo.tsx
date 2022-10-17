@@ -28,9 +28,9 @@ const RuntimeChainName = ({ compact }: { compact?: boolean }) => {
   )
 }
 
-const EndpointSwitchButton = ({ compact }: { compact?: boolean }) => {
+const EndpointSwitchButton = ({ compact, onClick }: { compact?: boolean, onClick?: React.MouseEventHandler<HTMLButtonElement> }) => {
   return (
-    <div tw="flex flex-row items-center pl-3">
+    <Button variant="unstyled" tw="flex flex-row items-center pl-3" onClick={onClick}>
       <Suspense
         fallback={
           <>
@@ -44,7 +44,7 @@ const EndpointSwitchButton = ({ compact }: { compact?: boolean }) => {
         <ConnectStatusDot connected="1" />
         <RuntimeChainName compact={compact} />
       </Suspense>
-    </div>
+    </Button>
   )
 }
 
@@ -140,10 +140,15 @@ const StyledButtonGroup = styled.div`
   background: #000;
 `
 
-export default function AccessPointCombo({ onAccountClick }: { onAccountClick: () => void }) {
+export interface AccessPointComboProps {
+  onConnectionStatusClick?: React.MouseEventHandler<HTMLButtonElement>
+  onAccountClick: () => void
+}
+
+export default function AccessPointCombo({ onConnectionStatusClick, onAccountClick }: AccessPointComboProps) {
   return (
     <ButtonGroup as={StyledButtonGroup}>
-      <EndpointSwitchButton compact />
+      <EndpointSwitchButton compact onClick={onConnectionStatusClick} />
       <div tw="flex flex-row items-center bg-gray-900 h-full p-1 rounded-l-sm">
         <CurrentBalance />
         <Suspense fallback={<DisconnectedAccountName onClick={onAccountClick} />}>
