@@ -16,12 +16,26 @@ export interface InjectedAccountWithMetaAndName extends InjectedAccountWithMeta 
   name: string
 }
 
-export const availableWeb3ProvidersAtom = atom<Pairs<string>[]>(() => {
+function getInjectedWeb3Provider() {
+  return map<[string, InjectedWindowProvider], Pairs<string>>(
+    ([k, v]) => [k, v.version],
+    toPairs(propOr({}, 'injectedWeb3', window) as object)
+  )
+}
+
+export const availableWeb3ProvidersAtom = atom<Pairs<string>[]>([])
+
+availableWeb3ProvidersAtom.onMount = (set) => {
   // if (typeof window === 'undefined') {
   //   return []
   // }
-  return map(([k, v]: [string, InjectedWindowProvider]) => [k, v.version], toPairs(propOr({}, 'injectedWeb3', window) as object))
-})
+  set(getInjectedWeb3Provider())
+  // Hacks that wait for browser extension initialization.
+  // See also: https://github.com/Phala-Network/apps/blob/9bc790981d70a2d0cfef2bf6008e3e0de73c4bc3/apps/app/src/hooks/useAutoConnectWallet.ts#L19
+  setTimeout(() => {
+    set(getInjectedWeb3Provider())
+  }, 500)
+}
 
 export const availableAccountsAtom = atom<InjectedAccountWithMetaAndName[]>([])
 
