@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react'
+import { FC, ReactNode, useEffect } from 'react'
 
 import React, { Suspense, useState } from 'react'
 import tw from 'twin.macro'
@@ -17,6 +17,7 @@ import {
 import { useAtom, useAtomValue } from 'jotai'
 import { useResetAtom, waitForAll } from 'jotai/utils'
 import { useNavigate } from '@tanstack/react-location'
+import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom } from '@/features/identity/atoms'
@@ -28,6 +29,20 @@ import InitSelectorField from './init-selector-field'
 const ClusterIdSelect = () => {
   const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
   const options = useAtomValue(availableClusterOptionsAtom)
+  useEffect(() => {
+    if (options && options.length > 0) {
+      setClusterId(prev => {
+        if (!prev) {
+          return options[0].value
+        }
+        const result = find(i => i.value === prev, options)
+        if (!result) {
+          return options[0].value
+        }
+        return prev
+      })
+    }
+  }, [setClusterId, options])
   if (!options.length) {
     return (
       <Alert status="warning">
