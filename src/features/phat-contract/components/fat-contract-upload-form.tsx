@@ -15,7 +15,7 @@ import {
   AlertTitle,
 } from '@chakra-ui/react'
 import { useAtom, useAtomValue } from 'jotai'
-import { useResetAtom } from 'jotai/utils'
+import { useResetAtom, waitForAll } from 'jotai/utils'
 import { useNavigate } from '@tanstack/react-location'
 
 import { Select } from '@/components/inputs/select'
@@ -55,11 +55,15 @@ const SuspenseFormField: FC<{ label: string, children: ReactNode }> = ({ label, 
 }
 
 const SubmitButton = () => {
-  const account = useAtomValue(currentAccountAtom)
-  const candidate = useAtomValue(candidateAtom)
-  const clusterId = useAtomValue(currentClusterIdAtom)
-  const pruntime = useAtomValue(pruntimeURLAtom)
+  const [account, candidate, clusterId, pruntime] = useAtomValue(waitForAll([
+    currentAccountAtom,
+    candidateAtom,
+    currentClusterIdAtom,
+    pruntimeURLAtom,
+  ]))
+  console.log(`account: ${account?.address} clusterId: ${clusterId} pruntime: ${pruntime}`)
   const balance = useAtomValue(currentAccountBalanceAtom)
+  console.log('Current Balance: ', balance.toFixed())
   const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
@@ -69,36 +73,41 @@ const SubmitButton = () => {
   const isDisabled = !(clusterId && pruntime && balance.gt(1))
   
   const handleSubmit = async () => {
-    if (!account) {
-      toast({
-        title: 'Please select an account first.',
-        status: 'error',
-        duration: 9000,
-        isClosable: true,
-      })
-      return
-    }
-    if (!candidate) {
-      toast({
-        title: 'Please choose a contract file first.',
-        status: 'error',
-        duration: 9000,
-        isClosable: true,
-      })
-      return
-    }
-    if (account && candidate) {
-      setIsLoading(true)
-      const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId)
-      resetContractFileInfo()
-      setIsLoading(false)
-      if (contractId) {        
-        navigate({ to: `/contracts/view/${contractId}` })
+    setIsLoading(true)
+    try {
+      if (!account) {
+        toast({
+          title: 'Please select an account first.',
+          status: 'error',
+          duration: 9000,
+          isClosable: true,
+        })
+        return
       }
+      if (!candidate) {
+        toast({
+          title: 'Please choose a contract file first.',
+          status: 'error',
+          duration: 9000,
+          isClosable: true,
+        })
+        return
+      }
+      if (account && candidate) {
+        const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId)
+        resetContractFileInfo()
+        if (contractId) {        
+          navigate({ to: `/contracts/view/${contractId}` })
+        }
+      }
+    } finally {
+      setIsLoading(false)
     }
   }
   return (
-    <Button size="lg" onClick={handleSubmit} isDisabled={isDisabled} isLoading={isLoading}>Submit</Button>
+    <Button size="lg" onClick={handleSubmit} isDisabled={isDisabled} isLoading={isLoading}>
+      Submit
+    </Button>
   )
 }
 
