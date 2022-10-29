@@ -17,6 +17,10 @@ import {
   Alert,
   AlertIcon,
   AlertTitle,
+  Input,
+  InputGroup,
+  Button,
+  ButtonGroup,
 } from '@chakra-ui/react'
 import { atom, useAtomValue, useAtom } from 'jotai'
 
@@ -32,6 +36,8 @@ import {
 } from '@/features/phat-contract/atoms'
 
 export const connectionDetailModalVisibleAtom = atom(false)
+
+const preferCustomPruntime = atom(false)
 
 const RPCNotReadyAlert = () => {
   return (
@@ -81,15 +87,31 @@ const WorkerSelect = () => {
 const PruntimeEndpointSelect = () => {
   const [currentPruntime, setCurrentPruntime] = useAtom(pruntimeURLAtom)
   const availableWorkerList = useAtomValue(availablePruntimeListAtom)
+  const [isCustomPruntime, setIsCustomPruntime] = useAtom(preferCustomPruntime)
   const options = useMemo(
     () => availableWorkerList.map(i => ({ value: i, label: i })),
     [availableWorkerList]
   )
-  if (options.length === 0) {
-    return <RPCNotReadyAlert />
+  if (options.length === 0 || isCustomPruntime) {
+    return (
+      <div tw="flex flex-col items-start gap-0.5">
+        <InputGroup>
+          <Input
+            onChange={i => setCurrentPruntime(i.target.value)}
+            value={currentPruntime}
+          />
+        </InputGroup>
+        <Button disabled={options.length === 0} size="xs" variant="link" onClick={() => setIsCustomPruntime(false)}>
+          Choose from Public Pruntime List
+        </Button>
+      </div>
+    )
   }
   return (
-    <Select value={currentPruntime} onChange={setCurrentPruntime} options={options} />
+    <ButtonGroup w="full">
+      <Select value={currentPruntime} onChange={setCurrentPruntime} options={options} />
+      <Button onClick={() => setIsCustomPruntime(true)}>Custom</Button>
+    </ButtonGroup>
   )
 }
 
