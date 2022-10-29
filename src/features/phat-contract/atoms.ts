@@ -302,3 +302,5 @@ export const dispatchResultsAtom = atom(null, (get, set, result: ContractExecute
   const prev = get(resultsAtom)
   set(resultsAtom, [ result, ...prev ])
 })
+
+export const instantiateTimeoutAtom = atom(60)

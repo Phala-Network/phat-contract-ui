@@ -13,6 +13,10 @@ import {
   Alert,
   AlertIcon,
   AlertTitle,
+  Input,
+  InputGroup,
+  InputRightAddon,
+  FormHelperText,
 } from '@chakra-ui/react'
 import { useAtom, useAtomValue } from 'jotai'
 import { useResetAtom, waitForAll } from 'jotai/utils'
@@ -21,7 +25,7 @@ import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom } from '@/features/identity/atoms'
-import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom } from '../atoms'
+import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom } from '../atoms'
 import useUploadCodeAndInstantiate from '../hooks/useUploadCodeAndInstantiate'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
@@ -69,6 +73,23 @@ const SuspenseFormField: FC<{ label: string, children: ReactNode }> = ({ label, 
   )
 }
 
+const InstantiateTimeoutField = () => {
+  const [instantiateTimeout, setInstantiateTimeout] = useAtom(instantiateTimeoutAtom)
+  return (
+    <FormControl>
+      <FormLabel>Instantiate Timeout</FormLabel>
+      <div tw="flex flex-row gap-1 max-w-[16rem]">
+        <InputGroup>
+          <Input onChange={ev => setInstantiateTimeout(parseInt(ev.target.value, 10))} value={instantiateTimeout} type="number" inputMode="decimal" />
+          <InputRightAddon children="secs" />
+        </InputGroup>
+        <Button onClick={() => setInstantiateTimeout(60)}>Reset</Button>
+      </div>
+      <FormHelperText>Set up wait timeout for polling updates from chain, default 60 secs.</FormHelperText>
+    </FormControl>
+  )
+}
+
 const SubmitButton = () => {
   const [account, candidate, clusterId, pruntime] = useAtomValue(waitForAll([
     currentAccountAtom,
@@ -76,9 +97,7 @@ const SubmitButton = () => {
     currentClusterIdAtom,
     pruntimeURLAtom,
   ]))
-  console.log(`account: ${account?.address} clusterId: ${clusterId} pruntime: ${pruntime}`)
   const balance = useAtomValue(currentAccountBalanceAtom)
-  console.log('Current Balance: ', balance.toFixed())
   const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
@@ -136,14 +155,12 @@ const FatContractUploadForm = () => {
         align="left"
         bg="gray.700"
       >
-        {/* <RpcEndpointField />
-        <AccountSelectField /> */}
         <ContractFileUpload />
         <InitSelectorField />
         <SuspenseFormField label="Cluster ID">
           <ClusterIdSelect />
         </SuspenseFormField>
-        {/* <EventList /> */}
+        <InstantiateTimeoutField />
       </VStack>
       <div tw="mb-4 w-full flex justify-end">
         <Suspense fallback={<Button><Spinner /></Button>}>

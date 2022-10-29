@@ -14,6 +14,7 @@ import { apiPromiseAtom, dispatchEventAtom, eventsAtom } from '@/features/parach
 import {
   contractSelectedInitSelectorAtom,
   localContractsAtom,
+  instantiateTimeoutAtom,
 } from '../atoms'
 
 export default function useUploadCodeAndInstantiate() {
@@ -21,6 +22,7 @@ export default function useUploadCodeAndInstantiate() {
   const signer = useAtomValue(signerAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const reset = useResetAtom(eventsAtom)
+  const instantiateTimeout = useAtomValue(instantiateTimeoutAtom)
   const toast = useToast()
   const saveContract = useSetAtom(localContractsAtom)
   const chooseInitSelector = useAtomValue(contractSelectedInitSelectorAtom)
@@ -77,7 +79,7 @@ export default function useUploadCodeAndInstantiate() {
         const metadata = R.dissocPath(['source', 'wasm'], contract)
   
         // Check contracts in cluster or not.
-        console.log('Pooling: Check contracts in cluster (30 secs timeout)')
+        console.log(`Pooling: Check contracts in cluster (${instantiateTimeout} secs timeout): ${clusterId}`)
         try {
           await checkUntilEq(
             async () => {
@@ -86,16 +88,16 @@ export default function useUploadCodeAndInstantiate() {
               return contractIds.filter((id) => id === contractId).length
             },
             1,
-            1000 * 30 // 30 secs
+            1000 * instantiateTimeout
           )
         } catch (err) {
           throw new Error('Failed to check contract in cluster: may be initialized failed in cluster')
         }
 
-        console.log('Pooling: ensure contract exists in registry (30 secs timeout)')
+        console.log(`Pooling: ensure contract exists in registry (${instantiateTimeout * 4} secs timeout)`)
         await checkUntil(
           async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
-          4 * 6000
+          4 * instantiateTimeout
         )
   
         // Save contract metadata to local storage
@@ -113,6 +115,7 @@ export default function useUploadCodeAndInstantiate() {
         throw new Error('Contract instantiation failed.')
       }
     } catch (err) {
+      console.error(err)
       toast({
         title: `${err}`,
         status: 'error',
@@ -121,5 +124,5 @@ export default function useUploadCodeAndInstantiate() {
     } finally {
       console.groupEnd()
     }
-  }, [api, dispatch, reset, toast, saveContract, chooseInitSelector])
+  }, [api, dispatch, reset, toast, saveContract, chooseInitSelector, instantiateTimeout])
 }
