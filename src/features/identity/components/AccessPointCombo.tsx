@@ -93,6 +93,10 @@ const Balance = () => {
 }
 
 const CurrentBalance = () => {
+  const account = useAtomValue(currentAccountAtom)
+  if (!account) {
+    return null
+  }
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={null}>

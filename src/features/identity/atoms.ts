@@ -6,21 +6,26 @@ import { atom, useSetAtom, useAtomValue } from 'jotai'
 import { atomWithStorage, RESET } from 'jotai/utils'
 import { Keyring } from '@polkadot/ui-keyring'
 import { decodeAddress } from '@polkadot/util-crypto'
-import { propOr, path, map, toPairs, find, fromPairs, sort } from 'ramda'
+import { propOr, path, map, toPairs, find, fromPairs, sort, nth, join } from 'ramda'
 import Decimal from 'decimal.js'
 
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription'
 import trimAddress from '@/features/identity/trimAddress'
+import createLogger from '@/functions/createLogger'
+
+const debug = createLogger('identity')
 
 export interface InjectedAccountWithMetaAndName extends InjectedAccountWithMeta {
   name: string
 }
 
 function getInjectedWeb3Provider() {
-  return map<[string, InjectedWindowProvider], Pairs<string>>(
+  const result = map<[string, InjectedWindowProvider], Pairs<string>>(
     ([k, v]) => [k, v.version],
     toPairs(propOr({}, 'injectedWeb3', window) as object)
   )
+  debug('Found web3 providers:', join(', ', map(nth(0), result)))
+  return result
 }
 
 export const availableWeb3ProvidersAtom = atom<Pairs<string>[]>([])
@@ -104,7 +109,7 @@ export const currentAccountAtom = atom(
       const lastSelectedAddress = get(lastSelectedAccountAddressAtom)
       set(selectedWeb3ProviderAtom, name)
       const found = find(acc => acc.address === lastSelectedAddress, accounts)
-      console.log('restore', found)
+      debug('restore last selected:', `[${propOr('', 'address', found)}] ${propOr('', 'name', found)}`)
       if (found) {
         set(inMemoryCurrentAccountAtom, found)
       }
@@ -112,7 +117,9 @@ export const currentAccountAtom = atom(
       set(inMemoryCurrentAccountAtom, null)
       set(lastSelectedAccountAddressAtom, '')
     } else {
+      await new Promise(r => setTimeout(r, 1))
       set(lastSelectedWeb3ProviderAtom, get(selectedWeb3ProviderAtom))
+      await new Promise(r => setTimeout(r, 1))
       set(inMemoryCurrentAccountAtom, account)
       set(lastSelectedAccountAddressAtom, account.address)
     }
@@ -138,8 +145,11 @@ export const useRestoreLastSelectedAccount = () => {
   const prepareKeyring = useSetAtom(keyringInstanceAtom)
   useEffect(() => {
     // if (isMounted) {
-      prepareKeyring(RESET)
-      restoreAccount(RESET)
+      (async () => {
+        prepareKeyring(RESET)
+        await new Promise(i => setTimeout(i, 100))
+        restoreAccount(RESET)
+      })();
     // }
   // }, [isMounted, restoreAccount, prepareKeyring])
   }, [restoreAccount, prepareKeyring])
