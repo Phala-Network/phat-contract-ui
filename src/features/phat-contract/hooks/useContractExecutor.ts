@@ -113,7 +113,13 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         return
       }
       const args = R.map(
-        i => inputs[i.label],
+        i => {
+          const value = inputs[i.label]
+          if (i.type.type === 1 && typeof value === 'string') {
+            return [`"${value}"`]
+          }
+          return value
+        },
         methodSpec.args
       )
       debug('args built: ', args)
