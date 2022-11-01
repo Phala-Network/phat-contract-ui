@@ -39,6 +39,7 @@ export function queryClusterList(api: ApiPromise) {
       })
       return transformed
     },
+    staleTime: ms('5m'),
   }
 }
 
@@ -59,6 +60,7 @@ export function queryClusterWorkerPublicKey(api: ApiPromise, clusterId?: string)
         return transformed
       }
     },
+    staleTime: ms('30m'),
   }
 }
 
@@ -73,6 +75,7 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
       })
       return transformed
     },
+    staleTime: ms('5m'),
   }
 }
 
@@ -236,5 +239,6 @@ export function queryPinkLoggerContract(
         remotePubkey: remotePubkey,
       })
     },
+    staleTime: ms('30m'),
   }
 }
