@@ -6,6 +6,7 @@ import { waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
 import { hexToString } from '@polkadot/util'
+import { Buffer } from 'buffer'
 import * as R from 'ramda'
 
 import { create } from '../../../sdk'
@@ -38,6 +39,22 @@ interface InkResponse {
 }
 
 const debug = createLogger('chain', 'debug')
+
+function hex(b: any) {
+  if (typeof b != "string") {
+      b = Buffer.from(b).toString('hex');
+  }
+  if (!b.startsWith('0x')) {
+      return '0x' + b;
+  } else {
+      return b;
+  }
+}
+
+function toBytes(s: string) {
+  let utf8Encode = new TextEncoder();
+  return utf8Encode.encode(s)
+}
 
 const remotePubkeyAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
@@ -157,11 +174,17 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {
             const { sidevmQuery } = result
-            const raw = await sidevmQuery('' as unknown as Bytes, cert)
+            const params = {
+              action: 'GetLog',
+              contract: contract.contractId,
+            } 
+            const raw = await sidevmQuery(hex(toBytes(JSON.stringify(params))) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
             if (resp.result.Ok) {
-              const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
-              setLogs(R.reverse(lines))
+              const response: PinkLoggerResposne = JSON.parse(resp.result.Ok.InkMessageReturn)
+              // console.log('response', response.records[0].output)
+              // const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
+              setLogs(R.reverse(response.records))
             }
           }
         } catch (err) {

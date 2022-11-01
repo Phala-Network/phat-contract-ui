@@ -258,7 +258,7 @@ export const currentSystemContractIdAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const pinkLoggerResultAtom = atom<string[]>([])
+export const pinkLoggerResultAtom = atom<PinkLoggerRecord[]>([])
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //

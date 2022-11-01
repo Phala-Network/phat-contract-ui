@@ -182,9 +182,18 @@ const Logs = () => {
   const logs = useAtomValue(pinkLoggerResultAtom)
   return (
     <div tw="flex flex-col gap-2 my-4">
-      {logs.map((log, i) => (
-        <div key={i} tw="font-mono text-sm">{log}</div>
-      ))}
+      {logs.map((log, i) => {
+        if (log.type !== 'MessageOutput') {
+        return <div key={i} tw="font-mono text-sm">{JSON.stringify(log)}</div>
+        }
+        return (
+          <div key={i} tw="font-mono text-sm">
+            <span tw="mr-1">MessageOutput</span>
+            <span tw="mr-1">[#{log.blockNumber}]</span>
+            {log.output}
+          </div>
+        )
+      })}
     </div>
   )
 }
