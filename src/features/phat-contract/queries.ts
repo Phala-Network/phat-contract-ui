@@ -2,8 +2,11 @@ import type { ApiPromise } from "@polkadot/api"
 import type { Codec, AnyJson } from '@polkadot/types-codec/types'
 
 import * as R from 'ramda'
-import { CertificateData, create } from "../../sdk"
+import ms from 'ms'
 import { ContractPromise } from "@polkadot/api-contract"
+import { QueryFunctionContext } from "@tanstack/query-core"
+
+import { CertificateData, create } from "../../sdk"
 
 function toHuman(value: Codec): AnyJson {
   return value.toHuman()
@@ -35,7 +38,27 @@ export function queryClusterList(api: ApiPromise) {
         return [keys[0], value.unwrap().toHuman()]
       })
       return transformed
-    }
+    },
+  }
+}
+
+export function queryClusterWorkerPublicKey(api: ApiPromise, clusterId?: string) {
+  return {
+    queryKey: ['phalaFatContracts.clusterWorkers', clusterId],
+    queryFn: async (ctx: any) => {
+      const { queryKey: [, clusterId ]} = ctx as QueryFunctionContext<[string, string]>
+      if (clusterId) {
+        const result = await api.query.phalaFatContracts.clusterWorkers(clusterId)
+        return [[clusterId, result.toHuman()]]
+      } else {
+        const result = await api.query.phalaFatContracts.clusterWorkers.entries()
+        const transformed = result.map(([storageKey, value]) => {
+          const keys = storageKey.toHuman() as string[]
+          return [keys[0], value.toHuman()]
+        })
+        return transformed
+      }
+    },
   }
 }
 
@@ -49,17 +72,18 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
         return [keys[0], value.unwrap().toHuman()]
       })
       return transformed
-    }
+    },
   }
 }
 
 
-async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string) {
+async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string, remotePubkey: string) {
   return new ContractPromise(
     (await create({
       api: await api.clone().isReady,
       baseURL: pruntime,
       contractId: contractId,
+      remotePubkey: remotePubkey,
     })).api,
     // contractSystem.metadata,
     {
@@ -185,7 +209,8 @@ export function queryPinkLoggerContract(
   api: ApiPromise,
   pruntime: string,
   cert: CertificateData,
-  systemContractId: string
+  systemContractId: string,
+  remotePubkey: string
 ) {
   return {
     queryKey: ['pinkLoggerContract', pruntime, cert, systemContractId],
@@ -193,7 +218,8 @@ export function queryPinkLoggerContract(
       const systemContract = await createSystemContractPromise(
         await api.clone().isReady,
         pruntime,
-        systemContractId
+        systemContractId,
+        remotePubkey
       )
       const { output } = await systemContract.query['system::getDriver'](cert as unknown as string, {}, "PinkLogger")
       if (!output) {
@@ -207,6 +233,7 @@ export function queryPinkLoggerContract(
         api: await api.clone().isReady,
         baseURL: pruntime,
         contractId: loggerContractId,
+        remotePubkey: remotePubkey,
       })
     },
   }

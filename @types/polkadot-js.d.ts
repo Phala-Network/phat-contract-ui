@@ -10,7 +10,7 @@
  } from '@polkadot/api/types'
  import type {Vec, Struct, Option, Int, Tuple} from '@polkadot/types/codec'
  import type {bool, u32, u64, u128, Text, Bytes} from '@polkadot/types/primitive'
- import type {AccountId, AccountId32, Balance, H256} from '@polkadot/types/interfaces'
+ import type {AccountId, AccountId32, Balance, H256, Sr25519Signature} from '@polkadot/types/interfaces'
  import type {Registration} from '@polkadot/types/interfaces/identity'
  import type {Observable} from '@polkadot/types/types'
  import type {
@@ -177,6 +177,12 @@
       clusterContracts: AugmentedQueryAt<
         ApiType,
         (clusterId?: string) => Observable<Vec<H256>>,
+        [string]
+      >
+
+      clusterWorkers: AugmentedQueryAt<
+        ApiType,
+        (clusterId?: string) => Observable<Vec<Sr25519Signature>>,
         [string]
       >
      }

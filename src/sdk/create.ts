@@ -57,6 +57,7 @@ type CreateFn = (options: {
   api: ApiPromise
   baseURL: string
   contractId: string
+  remotePubkey?: string
 }) => Promise<{api: ApiPromise; sidevmQuery: SidevmQuery}>
 
 export const createPruntimeApi = (baseURL: string) => {
@@ -94,16 +95,17 @@ export const createPruntimeApi = (baseURL: string) => {
   return pruntimeApi
 }
 
-export const create: CreateFn = async ({api, baseURL, contractId}) => {
+export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey}) => {
   await waitReady()
 
   const pruntimeApi = createPruntimeApi(baseURL)
 
-  // Get public key from remote for encrypting
-  const {publicKey} = await pruntimeApi.getInfo({})
-
-  if (!publicKey) throw new Error('No remote pubkey')
-  const remotePubkey = hexAddPrefix(publicKey)
+  if (!remotePubkey) {
+    // Get public key from remote for encrypting
+    const info = await pruntimeApi.getInfo({})
+    if (!info || !info.publicKey) throw new Error('No remote pubkey')
+    remotePubkey = hexAddPrefix(info.publicKey)
+  }
 
   // Generate a keypair for encryption
   // NOTE: each instance only has a pre-generated pair now, it maybe better to generate a new keypair every time encrypting

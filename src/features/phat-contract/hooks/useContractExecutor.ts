@@ -3,7 +3,7 @@ import type {Bytes} from '@polkadot/types-codec'
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
-import { queryClientAtom } from 'jotai/query'
+import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
 import { hexToString } from '@polkadot/util'
 import * as R from 'ramda'
@@ -16,7 +16,7 @@ import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
-import { queryPinkLoggerContract } from '../queries'
+import { queryClusterWorkerPublicKey, queryPinkLoggerContract } from '../queries'
 
 import {
   pruntimeURLAtom,
@@ -25,6 +25,7 @@ import {
   dispatchResultsAtom,
   pinkLoggerResultAtom,
   currentSystemContractIdAtom,
+  currentClusterIdAtom,
 } from '../atoms'
 
 interface InkResponse {
@@ -38,6 +39,12 @@ interface InkResponse {
 
 const debug = createLogger('chain', 'debug')
 
+const remotePubkeyAtom = atomWithQuery(get => {
+  const api = get(apiPromiseAtom)
+  const clusterId = get(currentClusterIdAtom)
+  return queryClusterWorkerPublicKey(api, clusterId)
+})
+
 export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
@@ -48,6 +55,8 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     queryClientAtom,
     signerAtom,
   ]))
+  const data = useAtomValue(remotePubkeyAtom)
+  const remotePubkey = R.path([0,1,0], data) as string
   const systemContractId = useAtomValue(currentSystemContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
@@ -65,7 +74,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       console.log('contract', contract)
       const apiCopy = await api.clone().isReady
       const contractInstance = new ContractPromise(
-        (await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId})).api,
+        (await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey})).api,
         contract.metadata,
         contract.contractId
       )
@@ -144,7 +153,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       if (api && signer && account && systemContractId) {
         try {
           const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
-          const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId))
+          const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {
             const { sidevmQuery } = result
             const raw = await sidevmQuery('' as unknown as Bytes, cert)
