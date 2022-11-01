@@ -143,32 +143,32 @@ const ContractMethodGrid = () => {
     <>
       <SimpleGrid columns={3} spacing={8}>
         {messages.map((message, i) => (
-          <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800">
+          <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
+            <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
             <div tw="flex flex-row items-center justify-between">
-              <div tw="flex flex-row items-center">
-                <h4 tw="mr-2 font-mono text-lg">{message.label}</h4>
+              <div tw="flex flex-row gap-1 items-center">
                 {message.mutates ? (
                   <MethodTypeLabel>tx</MethodTypeLabel>
                 ) : (
                   <MethodTypeLabel>query</MethodTypeLabel>
                 )}
+                <Code>{message.selector}</Code>
               </div>
-              {message.args.length > 0 ? (
-                <button
-                  tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
-                  onClick={() => {
-                    setCurrentMethod(message)
-                    setArgsFormModalVisible(true)
-                  }}
-                >
-                  <TiMediaPlay tw="h-6 w-6 text-phala-500" />
-                </button>
-              ) : (
-                <InstaExecuteButton methodSpec={message} />
-              )}
-            </div>
-            <div tw="my-1">
-              <Code>{message.selector}</Code>
+              <div>
+                {message.args.length > 0 ? (
+                  <button
+                    tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                    onClick={() => {
+                      setCurrentMethod(message)
+                      setArgsFormModalVisible(true)
+                    }}
+                  >
+                    <TiMediaPlay tw="h-6 w-6 text-phala-500" />
+                  </button>
+                ) : (
+                  <InstaExecuteButton methodSpec={message} />
+                )}
+              </div>
             </div>
             <ReactMarkdown tw="text-gray-200" remarkPlugins={[remarkGfm]}>
               {message.docs.join("")}
