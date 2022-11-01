@@ -116,7 +116,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         i => {
           const value = inputs[i.label]
           if (i.type.type === 1 && typeof value === 'string') {
-            return [`"${value}"`]
+            return [value]
           }
           return value
         },
