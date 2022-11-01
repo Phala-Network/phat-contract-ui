@@ -8,9 +8,9 @@ import { ContractPromise } from '@polkadot/api-contract'
 import { hexToString } from '@polkadot/util'
 import * as R from 'ramda'
 
-import { create, createPruntimeApi } from '../../../sdk'
+import { create } from '../../../sdk'
 import createLogger from "@/functions/createLogger"
-import { blockBarrier } from '@/functions/polling'
+// import { blockBarrier } from '@/functions/polling'
 import signAndSend from '@/functions/signAndSend'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
@@ -112,10 +112,11 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         // @ts-ignore
         dispatch(r1.events)
         debug('result: ', r1)
+        // 2022-11-01: temporary disable block barrier since that's not required for all cases.
         // const prpc = await createPruntimeApi(pruntimeURL)
-        const prpc = createPruntimeApi(pruntimeURL)
-        console.log('prpc', prpc)
-        await blockBarrier(contractInstance.api, prpc)
+        // const prpc = createPruntimeApi(pruntimeURL)
+        // console.log('prpc', prpc)
+        // await blockBarrier(contractInstance.api, prpc)
       }
       // query
       else {
