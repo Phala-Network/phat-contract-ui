@@ -1,7 +1,8 @@
 import type {ApiPromise} from '@polkadot/api'
 import type {SubmittableExtrinsic} from '@polkadot/api/types'
-import type {Bytes} from '@polkadot/types-codec'
+import type {Bytes, u64, Compact} from '@polkadot/types-codec'
 import type {AccountId} from '@polkadot/types/interfaces'
+import type {Codec} from '@polkadot/types/types'
 import {
   hexAddPrefix,
   hexStripPrefix,
@@ -51,6 +52,19 @@ export type Command = (params: {
 export interface PhalaInstance {
   query: Query
   command: Command
+}
+
+export interface ContractExecResultWeightV2 extends Codec {
+  gasConsumedV2?: {
+    refTime: Compact<u64>
+    proofSize: Compact<u64>
+  }
+  gasConsumed?: u64
+  gasRequiredV2?: {
+    refTime: Compact<u64>
+    proofSize: Compact<u64>
+  }
+  gasRequired?: u64
 }
 
 type CreateFn = (options: {
@@ -259,14 +273,32 @@ export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey})
               .toHex(),
             origin
           ).then((data) => {
-            return api.createType(
-              'ContractExecResult',
-              (
-                api.createType('InkResponse', hexAddPrefix(data)).toJSON() as {
-                  result: {ok: {inkMessageReturn: string}}
-                }
-              ).result.ok.inkMessageReturn
-            )
+            try {
+              const result = api.createType(
+                'ContractExecResultV2',
+                (
+                  api.createType('InkResponse', hexAddPrefix(data)).toJSON() as {
+                    result: {ok: {inkMessageReturn: string}}
+                  }
+                ).result.ok.inkMessageReturn
+              ) as unknown as ContractExecResultWeightV2
+              if (result.gasConsumedV2) {
+                result.gasConsumed = result.gasConsumedV2.proofSize.unwrap()
+              }
+              if (result.gasRequiredV2) {
+                result.gasRequired = result.gasRequiredV2.proofSize.unwrap()
+              }
+              return result
+            } catch (err) {
+              return api.createType(
+                'ContractExecResult',
+                (
+                  api.createType('InkResponse', hexAddPrefix(data)).toJSON() as {
+                    result: {ok: {inkMessageReturn: string}}
+                  }
+                ).result.ok.inkMessageReturn
+              )
+            }
           })
         )
       },
