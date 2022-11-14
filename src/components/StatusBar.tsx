@@ -211,7 +211,7 @@ export default function StatusBar() {
       <div
         css={[
           tw`flex flex-row bg-black mx-auto w-full max-w-7xl transition-all`,
-          showEventList ? tw`h-[30vh]` : tw`h-0 overflow-hidden`,
+          showEventList ? tw`h-auto` : tw`h-0 overflow-hidden`,
         ]}
       >
         <Tabs tw="w-full" colorScheme="phalaDark" index={currentTab} onChange={i => setCurrentTab(i)}>
