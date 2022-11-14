@@ -74,6 +74,7 @@ const sortedAccounts = (acc: Readonly<InjectedAccountWithMetaAndName[]>) => {
 }
 
 const getAllAcountsForProvider = async (name: string, keyring: Keyring) => {
+  await new Promise(resolve => setTimeout(resolve, 2000))
   const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
   if(provider) {
     try {
