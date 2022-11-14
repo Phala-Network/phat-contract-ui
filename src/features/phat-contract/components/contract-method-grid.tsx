@@ -76,7 +76,10 @@ const SimpleArgsFormModal = () => {
     return null
   }
   return (
-    <Modal isOpen={visible} onClose={() => setVisible(false)}>
+    <Modal isOpen={visible} onClose={() => {
+      setVisible(false)
+      setInputs({})
+    }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
@@ -122,9 +125,22 @@ const SimpleArgsFormModal = () => {
         <ModalFooter>
           <ButtonGroup>
             <Suspense fallback={<Button colorScheme="phalaDark" isDisabled>Run</Button>}>
-              <ExecuteButton inputs={inputs} onFinish={() => setVisible(false)} />
+              <ExecuteButton
+                inputs={inputs}
+                onFinish={() => {
+                  setVisible(false)
+                  setInputs({})
+                }}
+              />
             </Suspense>
-            <Button onClick={() => setVisible(false)}>Close</Button>
+            <Button
+              onClick={() => {
+                setVisible(false)
+                setInputs({})
+              }}
+            >
+              Close
+            </Button>
           </ButtonGroup>
         </ModalFooter>
       </ModalContent>
