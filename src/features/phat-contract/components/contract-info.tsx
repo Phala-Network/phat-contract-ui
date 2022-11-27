@@ -59,7 +59,7 @@ const ContractInfo = () => {
               <StyledTd><Code>{contract.contractId}</Code></StyledTd>
             </Tr>
             <Tr>
-              <Th>Hash</Th>
+              <Th>Code Hash</Th>
               <StyledTd><Code>{contract.metadata.source.hash}</Code></StyledTd>
             </Tr>
             <Tr>
@@ -77,16 +77,8 @@ const ContractInfo = () => {
                   <StyledTd><Code>{query.deployer}</Code></StyledTd>
                 </Tr>
                 <Tr>
-                  <Th>Salt</Th>
-                  <StyledTd><Code>{query.salt}</Code></StyledTd>
-                </Tr>
-                <Tr>
                   <Th>ClusterId</Th>
-                  <StyledTd><Code>{query.clusterId}</Code></StyledTd>
-                </Tr>
-                <Tr>
-                  <Th>InstantiateData</Th>
-                  <StyledTd><Code>{query.instantiateData}</Code></StyledTd>
+                  <StyledTd><Code>{query.cluster}</Code></StyledTd>
                 </Tr>
               </>
             )}

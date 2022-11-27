@@ -7,13 +7,12 @@ interface ClusterInfo {
 }
 
 interface ContractInfo {
-  clusterId: string
+  cluster: string
   codeIndex: {
     wasmCode: string
   }
   deployer: AccountId
-  instantiateData: string
-  salt: string
+  pubkey: string
 }
 
 interface EndpointInfo {
