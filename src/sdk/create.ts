@@ -47,6 +47,7 @@ type CreateEncryptedData = (
 export type Command = (params: {
   contractId: string
   payload: string
+  deposit: number
 }) => SubmittableExtrinsic<'promise'>
 
 export interface PhalaInstance {
@@ -67,12 +68,19 @@ export interface ContractExecResultWeightV2 extends Codec {
   gasRequired?: u64
 }
 
-type CreateFn = (options: {
+export interface CreateFnOptions {
   api: ApiPromise
   baseURL: string
   contractId: string
   remotePubkey?: string
-}) => Promise<{api: ApiPromise; sidevmQuery: SidevmQuery}>
+  autoDeposit: boolean
+}
+
+export interface CreateFnResult {
+  api: ApiPromise
+  sidevmQuery: SidevmQuery
+  instantiate: SidevmQuery
+}
 
 export const createPruntimeApi = (baseURL: string) => {
   // Create a http client prepared for protobuf
@@ -109,7 +117,7 @@ export const createPruntimeApi = (baseURL: string) => {
   return pruntimeApi
 }
 
-export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey}) => {
+export async function create({api, baseURL, contractId, remotePubkey, autoDeposit = false}: CreateFnOptions): Promise<CreateFnResult> {
   await waitReady()
 
   const pruntimeApi = createPruntimeApi(baseURL)
@@ -148,6 +156,14 @@ export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey})
       pubkey: u8aToHex(pk),
       data: hexAddPrefix(encrypt(data, agreementKey, hexToU8a(iv))),
     }
+  }
+
+  let gasPrice = 0
+  if (autoDeposit) {
+    const contractInfo = await api.query.phalaFatContracts.contracts(contractId)
+    const cluster = contractInfo.unwrap().cluster
+    const clusterInfo = await api.query.phalaFatContracts.clusters(cluster)
+    gasPrice = clusterInfo.unwrap().gasPrice.toNumber()
   }
 
   const query: Query = async (encodedQuery, {certificate, pubkey, secret}) => {
@@ -197,27 +213,56 @@ export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey})
         .toHex(),
       certificateData
     )
+  
+  const instantiate: SidevmQuery = async (payload, certificateData) =>
+    query(
+      api
+        .createType('InkQuery', {
+          head: {
+            nonce: hexAddPrefix(randomHex(32)),
+            id: contractId,
+          },
+          data: {
+            InkInstantiate: payload,
+          },
+        })
+        .toHex(),
+      certificateData
+    )
 
-  const command: Command = ({contractId, payload}) => {
+  const command: Command = ({contractId, payload, deposit}) => {
     const encodedPayload = api
       .createType('CommandPayload', {
         encrypted: createEncryptedData(payload, commandAgreementKey),
       })
       .toHex()
 
-    return api.tx.phalaMq.pushMessage(
-      stringToHex(`phala/contract/${hexStripPrefix(contractId)}/command`),
-      encodedPayload
-    )
+    try {
+      return api.tx.phalaFatContracts.pushContractMessage(
+        contractId,
+        encodedPayload,
+        deposit
+      )
+    } catch (err) {
+      return api.tx.phalaMq.pushMessage(
+        stringToHex(`phala/contract/${hexStripPrefix(contractId)}/command`),
+        encodedPayload
+      )
+    }
   }
 
   const txContracts = (
     dest: AccountId,
-    value: unknown,
-    gas: unknown,
-    storageDepositLimit: unknown,
+    value: number,
+    gas: {refTime: number},
+    storageDepositLimit: number,
     encParams: Uint8Array
   ) => {
+    let deposit = 0
+    if (autoDeposit) {
+      const gasFee = gas.refTime * gasPrice
+      deposit = value + gasFee + (storageDepositLimit || 0)
+    }
     return command({
       contractId: dest.toHex(),
       payload: api
@@ -226,9 +271,13 @@ export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey})
             nonce: hexAddPrefix(randomHex(32)),
             // FIXME: unexpected u8a prefix
             message: api.createType('Vec<u8>', encParams).toHex(),
+            transfer: value,
+            gasLimit: gas.refTime,
+            storageDepositLimit,
           },
         })
         .toHex(),
+      deposit
     })
   }
 
@@ -293,5 +342,5 @@ export const create: CreateFn = async ({api, baseURL, contractId, remotePubkey})
     enumerable: true,
   })
 
-  return {api, sidevmQuery}
+  return {api, sidevmQuery, instantiate}
 }
