@@ -15,6 +15,7 @@ interface PinkLoggerMessageOutput {
   origin: string
   output: string
   type: "MessageOutput"
+  decoded?: string
 }
 
 type PinkLoggerRecord = PinkLoggerEvent | PinkLoggerMessageOutput
