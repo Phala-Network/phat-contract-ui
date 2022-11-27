@@ -60,9 +60,17 @@ export default function useUploadCodeAndInstantiate() {
       console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
       const result = await signAndSend(
         api.tx.utility.batchAll([
+          api.tx.phalaFatContracts.transferToCluster(
+              1e12,  // transfer 1 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
+              clusterId,
+              account.address,  // user's own account
+          ),
           api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
           api.tx.phalaFatContracts.instantiateContract(
-            { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId
+            { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId,
+            0,  // not transfer any token to the contract during initialization
+            1e12,  // a high enough gasLimit to satisfy most of the execution
+            null,  // don't put any storageDepositLimit
           ),
         ]),
         account.address,
@@ -103,6 +111,19 @@ export default function useUploadCodeAndInstantiate() {
         // Save contract metadata to local storage
         console.log('Save contract metadata to local storage.')
         saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
+
+        console.info('Auto staking to the contract...');
+        const stakeResult = await signAndSend(
+          api.tx.phalaFatTokenomic.adjustStake(
+            contractId,
+            1e10,  // stake 1 cent
+          ),
+          account.address,
+          signer
+        )
+        // @ts-ignore
+        dispatch(stakeResult.events)
+        console.log('Stake submitted', stakeResult)
   
         toast({
           title: 'Instantiate Requested.',

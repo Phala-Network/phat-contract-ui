@@ -62,6 +62,9 @@ const remotePubkeyAtom = atomWithQuery(get => {
   return queryClusterWorkerPublicKey(api, clusterId)
 })
 
+// pay 1 PHA as gas fee for each tx call. adhoc but works.
+const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
+
 export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
@@ -91,7 +94,11 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       console.log('contract', contract)
       const apiCopy = await api.clone().isReady
       const contractInstance = new ContractPromise(
-        (await create({api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey})).api,
+        (await create({
+          api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+          // enable autoDeposit to pay for gas fee
+          autoDeposit: true
+        })).api,
         contract.metadata,
         contract.contractId
       )
@@ -128,7 +135,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
         const r1 = await signAndSend(
-          contractInstance.tx[txMethods[methodSpec.label]]({}, ...args),
+          contractInstance.tx[txMethods[methodSpec.label]](defaultTxConf, ...args),
           account.address,
           signer
         )
