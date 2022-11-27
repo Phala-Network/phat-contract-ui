@@ -195,6 +195,16 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
             if (resp.result.Ok) {
               const response: PinkLoggerResposne = JSON.parse(resp.result.Ok.InkMessageReturn)
+              response.records.forEach(r => {
+                if (r.type == 'MessageOutput' && r.output.startsWith('0x')) {
+                  try {
+                    let decoded = api.createType('Result<ExecReturnValue, DispatchError>', r.output)
+                    r.decoded = JSON.stringify(decoded.toHuman())
+                  } catch {
+                    console.info('Failed to decode MessageOutput', r.output)
+                  }
+                }
+              })
               // console.log('response', response.records[0].output)
               // const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
               setLogs(R.reverse(response.records))

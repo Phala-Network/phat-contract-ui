@@ -190,7 +190,7 @@ const Logs = () => {
           <div key={i} tw="font-mono text-sm">
             <span tw="mr-1">MessageOutput</span>
             <span tw="mr-1">[#{log.blockNumber}]</span>
-            {log.output}
+            {log.output} {log.decoded && ` - (${log.decoded})`}
           </div>
         )
       })}
