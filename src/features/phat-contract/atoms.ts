@@ -104,6 +104,8 @@ export const contractCandidateAtom = atom('', (_, set, file: File) => {
   reader.readAsText(file, 'utf-8')
 })
 
+export const contractAttachTargetAtom = atom('')
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 // Contract Metadata

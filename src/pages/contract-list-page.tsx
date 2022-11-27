@@ -114,6 +114,9 @@ const ContractList = () => {
         <Link to="/contracts/add">
           <Button bg="black" borderRadius={0} as="span">Upload</Button>
         </Link>
+        <Link to="/contracts/attach">
+          <Button bg="black" borderRadius={0} as="span">Attach</Button>
+        </Link>
         <Button bg="black" borderRadius={0} as="label" tw="cursor-pointer">
           <input type="file" tw="hidden" onChange={contractImport} />
           Import
