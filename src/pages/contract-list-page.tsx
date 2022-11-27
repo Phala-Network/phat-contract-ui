@@ -6,7 +6,7 @@ import tw from 'twin.macro'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
 import { Link, useNavigate } from '@tanstack/react-location'
-import { AiOutlineReload, AiOutlinePlus, AiOutlineImport } from 'react-icons/ai'
+import { AiOutlineReload, AiOutlinePlus, AiOutlineImport, AiOutlineCloudUpload } from 'react-icons/ai'
 
 import { useShowAccountSelectModal } from '@/components/app-ui'
 import { currentAccountAtom } from '@/features/identity/atoms'
@@ -97,6 +97,14 @@ const ContractList = () => {
             <AiOutlinePlus tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
             {!!account ? 'Upload' : 'Sign In'}
           </PhalaButton>
+          {!!account && (
+            <Link to="/contracts/attach">
+              <PhalaButton tw="cursor-pointer">
+                <AiOutlineCloudUpload tw="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                Attach
+              </PhalaButton>
+            </Link>
+          )}
           {!!account && (
             <PhalaButton as="label" tw="cursor-pointer">
               <input type="file" tw="hidden" onChange={contractImport} />
