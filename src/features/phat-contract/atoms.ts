@@ -86,7 +86,8 @@ export const contractCandidateAtom = atom('', (_, set, file: File) => {
   reader.addEventListener('load', () => {
     try {
       const contract = JSON.parse(reader.result as string)
-      if (!contract || !contract.source || !contract.source.hash || !contract.source.wasm) {
+      // if (!contract || !contract.source || !contract.source.hash || !contract.source.wasm) {
+      if (!contract || !contract.source || !contract.source.hash) {
         set(contractParserErrorAtom, "Your contract file is invalid.")
         return
       }
@@ -103,6 +104,8 @@ export const contractCandidateAtom = atom('', (_, set, file: File) => {
   })
   reader.readAsText(file, 'utf-8')
 })
+
+export const contractAttachTargetAtom = atom('')
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
