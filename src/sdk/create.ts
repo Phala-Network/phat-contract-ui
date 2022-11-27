@@ -73,7 +73,7 @@ export interface CreateFnOptions {
   baseURL: string
   contractId: string
   remotePubkey?: string
-  autoDeposit: boolean
+  autoDeposit?: boolean
 }
 
 export interface CreateFnResult {
