@@ -61,7 +61,7 @@ export default function useUploadCodeAndInstantiate() {
       const result = await signAndSend(
         api.tx.utility.batchAll([
           api.tx.phalaFatContracts.transferToCluster(
-              1e12,  // transfer 1 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
+              2e12,  // transfer 1 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
               clusterId,
               account.address,  // user's own account
           ),

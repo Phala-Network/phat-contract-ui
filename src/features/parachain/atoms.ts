@@ -114,6 +114,12 @@ export const apiPromiseAtom = atom(async (get) => {
   }
 })
 
+export const isDevChainAtom = atom(async (get) => {
+  const api = get(apiPromiseAtom)
+  const type = await api.rpc.system.chainType()
+  return type.isDevelopment || type.isLocal
+})
+
 export const useAutoConnect = () => {
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => setIsMounted(true), [])
