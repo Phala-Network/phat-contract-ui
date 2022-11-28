@@ -7,11 +7,13 @@ import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
 import { Link, useNavigate } from '@tanstack/react-location'
 import { AiOutlineReload, AiOutlinePlus, AiOutlineImport, AiOutlineCloudUpload } from 'react-icons/ai'
+import { Keyring } from '@polkadot/keyring'
 
 import { useShowAccountSelectModal } from '@/components/app-ui'
 import { currentAccountAtom } from '@/features/identity/atoms'
 import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
+import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -161,6 +163,34 @@ const ReloadButton = () => {
   )
 }
 
+const GetTestPhaButton = () => {
+  const api = useAtomValue(apiPromiseAtom)
+  const isDevChain = useAtomValue(isDevChainAtom)
+  const account = useAtomValue(currentAccountAtom)
+  if (!account || !isDevChain) {
+    return null
+  }
+  const [loading, setLoading] = useState(false)
+  api.rpc.system.chainType
+  async function getTestCoin () {
+    setLoading(true)
+    const keyring = new Keyring({ type: 'sr25519' })
+    const pair = keyring.addFromUri('//Alice')
+    await api.tx.balances.transferKeepAlive(account?.address, '100000000000000')
+      .signAndSend(pair, { nonce: -1 })
+    setLoading(false)
+  }
+  return (
+    <Button
+      w="full"
+      isLoading={loading}
+      onClick={getTestCoin}
+    >
+      Get Test-PHA
+    </Button>
+  )
+}
+
 const ContractListPage = () => {
   return (
     <div tw="grid grid-cols-12 w-full gap-2">
@@ -174,6 +204,9 @@ const ContractListPage = () => {
           <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
             Oracle Workshop
           </Button>
+          <Suspense>
+            <GetTestPhaButton />
+          </Suspense>
         </div>
       </div>
       <div tw="col-span-9 order-1">
