@@ -167,11 +167,10 @@ const GetTestPhaButton = () => {
   const api = useAtomValue(apiPromiseAtom)
   const isDevChain = useAtomValue(isDevChainAtom)
   const account = useAtomValue(currentAccountAtom)
+  const [loading, setLoading] = useState(false)
   if (!account || !isDevChain) {
     return null
   }
-  const [loading, setLoading] = useState(false)
-  api.rpc.system.chainType
   async function getTestCoin () {
     setLoading(true)
     const keyring = new Keyring({ type: 'sr25519' })
