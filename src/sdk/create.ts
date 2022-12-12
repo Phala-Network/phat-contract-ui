@@ -9,6 +9,7 @@ import {
   hexToU8a,
   stringToHex,
   u8aToHex,
+  BN,
 } from '@polkadot/util'
 import {
   sr25519Agree,
@@ -23,7 +24,7 @@ import {decrypt, encrypt} from './lib/aes-256-gcm'
 import {randomHex} from './lib/hex'
 import {prpc, pruntime_rpc as pruntimeRpc} from './proto'
 
-export type Query = (
+export type QueryFn = (
   encodedQuery: string,
   certificateData: CertificateData
 ) => Promise<string>
@@ -44,15 +45,15 @@ type CreateEncryptedData = (
   agreementKey: Uint8Array
 ) => EncryptedData
 
-export type Command = (params: {
+export type CommandFn = (params: {
   contractId: string
   payload: string
-  deposit: number
+  deposit: BN
 }) => SubmittableExtrinsic<'promise'>
 
 export interface PhalaInstance {
-  query: Query
-  command: Command
+  query: QueryFn
+  command: CommandFn
 }
 
 export interface ContractExecResultWeightV2 extends Codec {
@@ -158,15 +159,15 @@ export async function create({api, baseURL, contractId, remotePubkey, autoDeposi
     }
   }
 
-  let gasPrice = 0
+  let gasPrice = new BN(0)
   if (autoDeposit) {
     const contractInfo = await api.query.phalaFatContracts.contracts(contractId)
     const cluster = contractInfo.unwrap().cluster
     const clusterInfo = await api.query.phalaFatContracts.clusters(cluster)
-    gasPrice = clusterInfo.unwrap().gasPrice.toNumber()
+    gasPrice = new BN(clusterInfo.unwrap().gasPrice)
   }
 
-  const query: Query = async (encodedQuery, {certificate, pubkey, secret}) => {
+  const query: QueryFn = async (encodedQuery, {certificate, pubkey, secret}) => {
     // Encrypt the ContractQuery.
     const encryptedData = createEncryptedData(encodedQuery, queryAgreementKey)
     const encodedEncryptedData = api
@@ -230,7 +231,7 @@ export async function create({api, baseURL, contractId, remotePubkey, autoDeposi
       certificateData
     )
 
-  const command: Command = ({contractId, payload, deposit}) => {
+  const command: CommandFn = ({contractId, payload, deposit}) => {
     const encodedPayload = api
       .createType('CommandPayload', {
         encrypted: createEncryptedData(payload, commandAgreementKey),
@@ -253,15 +254,15 @@ export async function create({api, baseURL, contractId, remotePubkey, autoDeposi
 
   const txContracts = (
     dest: AccountId,
-    value: number,
-    gas: {refTime: number},
-    storageDepositLimit: number,
+    value: BN,
+    gas: {refTime: BN},
+    storageDepositLimit: BN | undefined,
     encParams: Uint8Array
   ) => {
-    let deposit = 0
+    let deposit = new BN(0)
     if (autoDeposit) {
-      const gasFee = gas.refTime * gasPrice
-      deposit = value + gasFee + (storageDepositLimit || 0)
+      const gasFee = new BN(gas.refTime).mul(gasPrice)
+      deposit = new BN(value).add(gasFee).add(new BN(storageDepositLimit || 0))
     }
     return command({
       contractId: dest.toHex(),

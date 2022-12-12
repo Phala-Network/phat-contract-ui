@@ -5,11 +5,11 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
-import { hexToString } from '@polkadot/util'
+import { hexToString, stringToHex } from '@polkadot/util'
 import { Buffer } from 'buffer'
 import * as R from 'ramda'
 
-import { create } from '../../../sdk'
+import { CertificateData, create } from '../../../sdk'
 import createLogger from "@/functions/createLogger"
 // import { blockBarrier } from '@/functions/polling'
 import signAndSend from '@/functions/signAndSend'
@@ -40,20 +40,16 @@ interface InkResponse {
 
 const debug = createLogger('chain', 'debug')
 
-function hex(b: any) {
-  if (typeof b != "string") {
-      b = Buffer.from(b).toString('hex');
+async function estimateGas(contract: ContractPromise, method: string, cert: CertificateData, args: unknown[]) {
+  const { gasRequired, storageDeposit } = await contract.query[method](cert as any, {}, ...args)
+  console.log("gasRequired:", gasRequired.toJSON())
+  console.log("storageDeposit:", storageDeposit.asCharge.toJSON())
+  const options = {
+      // value: 0,
+      gasLimit: (gasRequired as any).refTime,
+      storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
   }
-  if (!b.startsWith('0x')) {
-      return '0x' + b;
-  } else {
-      return b;
-  }
-}
-
-function toBytes(s: string) {
-  let utf8Encode = new TextEncoder();
-  return utf8Encode.encode(s)
+  return options
 }
 
 const remotePubkeyAtom = atomWithQuery(get => {
@@ -131,11 +127,15 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       )
       debug('args built: ', args)
 
+      // The certificate is used in query and for gas estimation in tx.
+      const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
+
       // tx
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
+        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
         const r1 = await signAndSend(
-          contractInstance.tx[txMethods[methodSpec.label]](defaultTxConf, ...args),
+          contractInstance.tx[txMethods[methodSpec.label]](txConf, ...args),
           account.address,
           signer
         )
@@ -150,7 +150,6 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       }
       // query
       else {
-        const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
         const queryResult = await contractInstance.query[queryMethods[methodSpec.label]](
           // @FIXME this is a hack to make the ts compiler happy.
           cert as unknown as string,
@@ -190,8 +189,8 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
             const params = {
               action: 'GetLog',
               contract: contract.contractId,
-            } 
-            const raw = await sidevmQuery(hex(toBytes(JSON.stringify(params))) as unknown as Bytes, cert)
+            }
+            const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
             if (resp.result.Ok) {
               const response: PinkLoggerResposne = JSON.parse(resp.result.Ok.InkMessageReturn)
