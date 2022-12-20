@@ -42,10 +42,7 @@ const debug = createLogger('chain', 'debug')
 
 async function estimateGas(contract: ContractPromise, method: string, cert: CertificateData, args: unknown[]) {
   const { gasRequired, storageDeposit } = await contract.query[method](cert as any, {}, ...args)
-  console.log("gasRequired:", gasRequired.toJSON())
-  console.log("storageDeposit:", storageDeposit.asCharge.toJSON())
   const options = {
-      // value: 0,
       gasLimit: (gasRequired as any).refTime,
       storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
   }
