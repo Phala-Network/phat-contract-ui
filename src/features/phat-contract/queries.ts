@@ -67,12 +67,16 @@ export function queryClusterWorkerPublicKey(api: ApiPromise, clusterId?: string)
 export function queryEndpointList(api: ApiPromise, workerId?: string) {
   return {
     queryKey: ['phalaFatContracts.endpoints', workerId],
-    queryFn: async () => {
+    queryFn: async (ctx: QueryFunctionContext) => {
+      const { queryKey: [, workerId ]} = ctx as QueryFunctionContext<[string, string]>
       const result = await api.query.phalaRegistry.endpoints.entries()
       const transformed: Pairs<string, EndpointInfo>[] = result.map(([storageKey, value]) => {
         const keys = storageKey.toHuman() as string[]
         return [keys[0], value.unwrap().toHuman()]
       })
+      if (workerId) {
+        return R.filter(i =>i[0] === workerId, transformed)
+      }
       return transformed
     },
     staleTime: ms('5m'),
