@@ -172,6 +172,11 @@ export const currentClusterAtom = atom(get => {
 
 export const userSelectedWorkerIdAtom = atomWithStorage<Record<string, string>>('user-selected-worker', {})
 
+function shuffle<T>(lst: Readonly<T[]>) {
+  const idx = Math.floor(lst.length * Math.random())
+  return lst[idx]
+}
+
 export const currentWorkerIdAtom = atom(
   get => {
     const rec = get(userSelectedWorkerIdAtom)
@@ -180,7 +185,7 @@ export const currentWorkerIdAtom = atom(
       return rec[endpoint]
     }
     const workers = get(availableWorkerListAtom)
-    return R.head(workers)
+    return shuffle(workers)
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)

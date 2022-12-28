@@ -60,7 +60,7 @@ const Balance = () => {
         <BalanceMotionContainer initial={{ width: 0 }} animate={{ width: 'auto' }} exit={{ width: 0 }} tw="mx-0">
           <Button
             as="a"
-            href="https://docs.phala.world/geting-started/where-to-get-pha-khala-chain" 
+            href="https://discord.com/channels/697726436211163147/1052518183766073354" 
             target="_blank"
             rel="noopener noreferer"
             mr="1"
