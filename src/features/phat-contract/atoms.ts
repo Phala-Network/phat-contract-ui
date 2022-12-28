@@ -224,7 +224,7 @@ export const currentWorkerIdAtom = atom(
       }
       return rec[endpoint]
     }
-    return R.head(workers)
+    return shuffle(workers)
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)
