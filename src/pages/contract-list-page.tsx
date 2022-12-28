@@ -164,26 +164,16 @@ const ReloadButton = () => {
 }
 
 const GetTestPhaButton = () => {
-  const api = useAtomValue(apiPromiseAtom)
-  const isDevChain = useAtomValue(isDevChainAtom)
   const account = useAtomValue(currentAccountAtom)
-  const [loading, setLoading] = useState(false)
-  if (!account || !isDevChain) {
+  if (!account) {
     return null
-  }
-  async function getTestCoin () {
-    setLoading(true)
-    const keyring = new Keyring({ type: 'sr25519' })
-    const pair = keyring.addFromUri('//Alice')
-    await api.tx.balances.transferKeepAlive(account?.address, '100000000000000')
-      .signAndSend(pair, { nonce: -1 })
-    setLoading(false)
   }
   return (
     <Button
       w="full"
-      isLoading={loading}
-      onClick={getTestCoin}
+      as="a"
+      target="_blank"
+      href="https://discord.com/channels/697726436211163147/1052518183766073354"
     >
       Get Test-PHA
     </Button>
@@ -195,7 +185,7 @@ const ContractListPage = () => {
     <div tw="grid grid-cols-12 w-full gap-2">
       <div tw="col-span-3 order-2 pl-6">
         <div tw="flex flex-col gap-4">
-          <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
+          <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Wiki</Button>
           <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
           <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
             Awesome Phat Contract
