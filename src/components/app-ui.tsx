@@ -49,7 +49,7 @@ export const AppHeader: FC<{
             <h2 tw="text-2xl font-bold leading-7 text-white font-heading">
               <Link tw="text-phala-500 inline-flex relative" to="/" title={title}>
                 <Logo />
-                <small tw='absolute top-[-2px] right-[-4.4rem] text-white text-xs'>Close Beta</small>
+                <small tw='absolute top-[-2px] right-[-5.5rem] text-white text-sm'>Closed Beta</small>
               </Link>
             </h2>
           )}
