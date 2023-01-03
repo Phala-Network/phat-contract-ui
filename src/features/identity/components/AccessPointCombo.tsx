@@ -139,9 +139,9 @@ const CurrentAccountName = (props: Omit<ButtonProps, "as">) => {
 const StyledButtonGroup = styled.div`
   border-image-slice: 1;
   border-width: 1px;
-  border-image-source: linear-gradient(90deg, #2B481E 0%, #233A18 100%);
+  border-image-source: linear-gradient(90deg, #ADD69A 0%, #5F9F41 100%);
   border-radius: 2px;
-  background: #000;
+  ${tw`bg-brand-900`}
 `
 
 export interface AccessPointComboProps {
@@ -153,7 +153,7 @@ export default function AccessPointCombo({ onConnectionStatusClick, onAccountCli
   return (
     <ButtonGroup as={StyledButtonGroup}>
       <EndpointSwitchButton compact onClick={onConnectionStatusClick} />
-      <div tw="flex flex-row items-center bg-gray-900 h-full p-1 rounded-l-sm">
+      <div tw="flex flex-row items-center bg-brand-800 h-full p-1 rounded-l-sm">
         <CurrentBalance />
         <Suspense fallback={<DisconnectedAccountName onClick={onAccountClick} />}>
           <CurrentAccountName onClick={onAccountClick} />
