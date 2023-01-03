@@ -27,6 +27,7 @@ import {
   pinkLoggerResultAtom,
   currentSystemContractIdAtom,
   currentClusterIdAtom,
+  currentWorkerIdAtom,
 } from '../atoms'
 
 interface InkResponse {
@@ -68,8 +69,9 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     queryClientAtom,
     signerAtom,
   ]))
-  const data = useAtomValue(remotePubkeyAtom)
-  const remotePubkey = R.path([0,1,0], data) as string
+  const remotePubkey = useAtomValue(currentWorkerIdAtom)
+  // const data = useAtomValue(remotePubkeyAtom)
+  // const remotePubkey = R.path([0,1,0], data) as string
   const systemContractId = useAtomValue(currentSystemContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
