@@ -185,12 +185,15 @@ const ContractListPage = () => {
     <div tw="grid grid-cols-12 w-full gap-2">
       <div tw="col-span-3 order-2 pl-6">
         <div tw="flex flex-col gap-4">
-          <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Wiki</Button>
+          <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Getting Started</Button>
           <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
-          <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
+          <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-phat-contracts" target="_blank">
             Awesome Phat Contract
           </Button>
-          <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
+          <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-examples" target="_blank">
+            Phat Contract Examples
+          </Button>
+          <Button w="full" as="a" href="https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat" target="_blank">
             Oracle Workshop
           </Button>
           <Suspense>
