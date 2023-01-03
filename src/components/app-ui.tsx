@@ -42,13 +42,14 @@ export const AppHeader: FC<{
   const showAccountSelectModal = useShowAccountSelectModal()
   const setEndpointInfoVisible = useSetAtom(connectionDetailModalVisibleAtom)
   return (
-    <div tw="bg-black py-2">
+    <div tw="bg-brand-900 py-2">
       <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
         <div tw="flex-1 min-w-0">
           {left ? left : (
             <h2 tw="text-2xl font-bold leading-7 text-white font-heading">
-              <Link tw="text-phala-500" to="/" title={title}>
+              <Link tw="text-phala-500 inline-flex relative" to="/" title={title}>
                 <Logo />
+                <small tw='absolute top-[-2px] right-[-4.4rem] text-white text-xs'>Close Beta</small>
               </Link>
             </h2>
           )}
