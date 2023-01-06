@@ -11,11 +11,6 @@ type TCreateWatcher<T> = (get: Getter, api: ApiPromise, subject: Subject<T>) => 
 export function atomWithQuerySubscription<TData>(createWatcher: TCreateWatcher<TData>, initialValue?: TData) {
   let unscribe: Function | null = null
 
-  const options: { initialValue?: TData } = {}
-  if (initialValue !== undefined) {
-    options.initialValue = initialValue
-  }
-
   return atomWithObservable<TData>(
     (get) => {
       const api = get(apiPromiseAtom)
@@ -24,13 +19,15 @@ export function atomWithQuerySubscription<TData>(createWatcher: TCreateWatcher<T
         unscribe()
       }
       const thenable = createWatcher(get, api, subject)
+      if (initialValue !== undefined) {
+        subject.next(initialValue)
+      }
       if (thenable) {
         thenable.then((unsub) => (
           unscribe = unsub
         ))
       }
       return subject
-    },
-    options
+    }
   )
 }
