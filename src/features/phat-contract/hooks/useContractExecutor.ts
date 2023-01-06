@@ -5,8 +5,8 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
-import { hexToString, stringToHex } from '@polkadot/util'
-import { Buffer } from 'buffer'
+import { stringToHex } from '@polkadot/util'
+import { ApiPromise } from '@polkadot/api'
 import * as R from 'ramda'
 
 import { CertificateData, create } from '@phala/sdk'
@@ -87,10 +87,12 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         return
       }
       console.log('contract', contract)
-      const apiCopy = await api.clone().isReady
+      // @ts-ignore
+      const apiCopy = await ApiPromise.create({ ...api._options })
       const contractInstance = new ContractPromise(
         (await create({
-          api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+          api: apiCopy,
+          baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
           // enable autoDeposit to pay for gas fee
           autoDeposit: true
         })).api,
