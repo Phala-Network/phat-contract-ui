@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react'
+import React, { Suspense, useCallback } from 'react'
 import tw from 'twin.macro'
-import { useAtomValue } from 'jotai/utils'
+import { atom, useAtom, useAtomValue } from 'jotai'
 import {
   Box,
   Heading,
@@ -12,12 +12,52 @@ import {
   TableContainer,
   Tag,
   Button,
+  IconButton,
+  Input,
+  Editable,
+  EditableInput,
+  EditablePreview,
+  useEditableControls,
 } from "@chakra-ui/react";
+import { BiEdit } from 'react-icons/bi';
+import Decimal from 'decimal.js'
 
-import { currentContractAtom, phalaFatContractQueryAtom } from '../atoms'
+import signAndSend from '@/functions/signAndSend'
+import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription';
+import { apiPromiseAtom } from '@/features/parachain/atoms';
 import Code from '@/components/code'
 
-const StyledTd = tw(Td)`py-4`
+import { currentContractAtom, phalaFatContractQueryAtom } from '../atoms'
+import { currentAccountAtom, signerAtom } from '@/features/identity/atoms';
+
+const contractTotalStakesAtom = atomWithQuerySubscription<number>((get, api, subject) => {
+  const { contractId } = get(currentContractAtom)
+  if (contractId) {
+    const multiplier = new Decimal(10).pow(api.registry.chainDecimals[0])
+    return api.query.phalaFatTokenomic.contractTotalStakes(contractId, (stakes) => {
+      const value = new Decimal(stakes.toString()).div(multiplier)
+      subject.next(value.toNumber())
+    })
+  }
+})
+
+const isSavingAtom = atom(false)
+
+const contractStakingAtom = atom(
+  get => get(contractTotalStakesAtom),
+  async (get, set, value: string) => {
+    set(isSavingAtom, true)
+    const api = get(apiPromiseAtom)
+    const { contractId } = get(currentContractAtom)
+    const account = get(currentAccountAtom)
+    const signer = get(signerAtom)
+    const theNumber = new Decimal(value).mul(new Decimal(10).pow(api.registry.chainDecimals[0]))
+    if (account && signer) {
+      await signAndSend(api.tx.phalaFatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
+      set(isSavingAtom, false)
+    }
+  }
+)
 
 const useContractMetaExport = () => {
   const contract = useAtomValue(currentContractAtom)
@@ -33,6 +73,49 @@ const useContractMetaExport = () => {
     element.click();
     document.body.removeChild(element);
   }, [contract])
+}
+
+const StyledTd = tw(Td)`py-4`
+
+const StakeEditControls = () => {
+  const {
+    isEditing, getSubmitButtonProps, getCancelButtonProps, getEditButtonProps,
+  } = useEditableControls()
+  const isSaving = useAtomValue(isSavingAtom)
+  return isEditing ? (
+    <>
+      <Button size='sm' {...getSubmitButtonProps()}>OK</Button>
+      <Button size='sm' {...getCancelButtonProps()}>Cancel</Button>
+    </>
+  ) : (
+    <>
+      <IconButton
+        aria-label='Set Stakes'
+        size='sm'
+        isLoading={isSaving}
+        {...getEditButtonProps()}
+      >
+        <BiEdit tw='text-gray-400 text-lg' />
+      </IconButton>
+    </>
+  )
+}
+
+const StakingCell = () => {
+  const [stakes, setStakes] = useAtom(contractStakingAtom)
+  return (
+    <StyledTd>
+      <Editable
+        defaultValue={`${stakes}`}
+        onSubmit={async (val) => { await setStakes(val) }}
+        isPreviewFocusable={false} tw='flex flex-row gap-2 items-center'
+      >
+        <EditablePreview />
+        <Input as={EditableInput} size='sm' maxW='12rem' />
+        <StakeEditControls />
+      </Editable>
+    </StyledTd>
+  )
 }
 
 const ContractInfo = () => {
@@ -82,6 +165,12 @@ const ContractInfo = () => {
                 </Tr>
               </>
             )}
+            <Tr>
+              <Th>Stakes</Th>
+              <Suspense>
+                <StakingCell />
+              </Suspense>
+            </Tr>
           </Tbody>
         </Table>
       </TableContainer>
