@@ -187,6 +187,14 @@
       >
      }
 
+     phalaFatTokenomic: {
+      contractTotalStakes: AugmentedQueryAt<
+        ApiType,
+        (contractId?: string) => Observable<Balance>,
+        [string]
+      >
+     }
+
      phalaRegistry: {
       contractKeys: AugmentedQueryAt<
         ApiType,
@@ -318,7 +326,16 @@
            nftId: NftId
          ) => SubmittableExtrinsic<ApiType>
        >
-     }
+    }
+
+    phalaFatTokenomic: {
+      adjustStake: AugmentedSubmittable<
+        (
+          contractId: string,
+          stake: Balance | number | string,
+        ) => SubmittableExtrinsic<ApiType>
+      >
+    }
    }
  
    export interface SubmittableExtrinsics<ApiType extends ApiTypes>
