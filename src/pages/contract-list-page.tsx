@@ -14,6 +14,7 @@ import { currentAccountAtom } from '@/features/identity/atoms'
 import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
+import { getDisplayBlockNumber, useBlockNumber } from '@/features/block-authors/hooks/useHeader'
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -31,6 +32,9 @@ const PhalaButton = tw(Button)`
 `
 
 const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) => {
+  const blockNumber = useBlockNumber()
+  const displayBlockNumber = getDisplayBlockNumber(blockNumber)
+
   // convert timestamp savedAt to human readable datetime string
   let dateString = null
   if (savedAt) {
@@ -45,6 +49,7 @@ const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) 
             {contractId.substring(0, 6)}...{contractId.substring(contractId.length - 6)}
           </div>
           <header tw="flex flex-row items-center">
+            <h4 tw="text-lg mr-2">{displayBlockNumber}</h4>
             <h4 tw="text-lg">{metadata.contract.name}</h4>
             <div tw="mt-1 ml-2 text-sm text-gray-200">{metadata.contract.version}</div>
           </header>
