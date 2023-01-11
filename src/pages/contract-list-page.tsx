@@ -15,6 +15,8 @@ import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-co
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getDisplayBlockNumber, useBlockNumber } from '@/features/block-authors/hooks/useHeader'
+import Block from '@/features/block-authors/components/block'
+import BlockPanel from '@/components/BlockPanel'
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -120,6 +122,7 @@ const ContractList = () => {
             </PhalaButton>
           )}
         </div>
+        <BlockPanel />
       </div>
     )
   }
@@ -139,12 +142,16 @@ const ContractList = () => {
         <ReloadButton />
       </ButtonGroup>
       <div tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
+        <Block />
+      </div>
+      <div tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
         {contracts.map(([key, info]) => (
           <div key={key}>
             <ContractCell {...info} />
           </div>
         ))}
       </div>
+      <BlockPanel />
     </>
   )
 }
