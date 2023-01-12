@@ -2,13 +2,19 @@
  * @file 块相关的信息面板，https://www.notion.so/phalanetwork/a475b91c6a12455a8f7635dfc56bd2d3
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import { Center, Flex, Text, List, ListItem } from '@chakra-ui/react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Center, Flex, Text, List, ListItem, Spacer, AccordionItem, Accordion, AccordionButton, AccordionIcon, Box } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai';
 import { apiPromiseAtom } from '@/features/parachain/atoms';
-import { Moment } from '@polkadot/types/interfaces';
-import { BN, bnMin, BN_MAX_INTEGER, BN_ONE, BN_THOUSAND, BN_TWO, extractTime } from '@polkadot/util';
+import { BlockNumber, EventMetadataLatest, EventRecord, Moment } from '@polkadot/types/interfaces';
+import { BN, bnMin, BN_MAX_INTEGER, BN_THOUSAND, BN_TWO, extractTime, formatNumber, stringify, stringToU8a } from '@polkadot/util';
 import { Time } from '@polkadot/util/types';
+import { Vec } from '@polkadot/types';
+import { Codec } from '@polkadot/types-codec/types';
+import type { HeaderExtended } from '@polkadot/api-derive/types';
+import { ApiPromise } from '@polkadot/api';
+import { xxhashAsHex } from '@polkadot/util-crypto';
+import { UnsubscribePromise } from '@polkadot/api/types';
 
 const LOCAL_UPDATE_TIME = 100;
 
@@ -158,6 +164,36 @@ const calcTargetTimeInfo = (blockTime: BN): [number, string, Time] => {
   ]
 }
 
+const splitSingle = (value: string[], sep: string): string[] => {
+  return value.reduce((result: string[], value: string): string[] => {
+    return value.split(sep).reduce((result: string[], value: string) => result.concat(value), result);
+  }, []);
+}
+
+const splitParts = (value: string): string[] => {
+  return ['[', ']'].reduce((result: string[], sep) => splitSingle(result, sep), [value]);
+}
+
+const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNode] | null => {
+  if (!meta || !meta.docs.length) {
+    return null;
+  }
+
+  const strings = meta.docs.map((d) => d.toString().trim());
+  const firstEmpty = strings.findIndex((d) => !d.length);
+  const combined = (
+    firstEmpty === -1
+      ? strings
+      : strings.slice(0, firstEmpty)
+  ).join(' ').replace(/#(<weight>| <weight>).*<\/weight>/, '');
+  const parts = splitParts(combined.replace(/\\/g, '').replace(/`/g, ''));
+
+  return [
+    parts[0].split(/[.(]/)[0],
+    <>{parts.map((part, index) => index % 2 ? <em key={index}>[{part}]</em> : <span key={index}>{part}</span>)}&nbsp;</>
+  ];
+}
+
 // 块的目标创建时间
 const useBlockTargetTime = () => {
   const api = useAtomValue(apiPromiseAtom)
@@ -170,6 +206,220 @@ const useBlockTargetTime = () => {
     },
     [api]
   );
+}
+
+interface IndexedEvent {
+  indexes: number[];
+  record: EventRecord;
+}
+
+interface KeyedEvent extends IndexedEvent {
+  blockHash?: string;
+  blockNumber?: BlockNumber;
+  key: string;
+}
+
+interface EventInfos {
+  eventCount: number;
+  events: KeyedEvent[];
+}
+
+interface PrevHashes {
+  block: string | null;
+  event: string | null;
+}
+
+const DEFAULT_EVENT_INFOS: EventInfos = {
+  eventCount: 0,
+  events: [],
+}
+const MAX_EVENTS = 75;
+
+const manageEvents = async (api: ApiPromise, prev: PrevHashes, records: Vec<EventRecord>, setState: React.Dispatch<React.SetStateAction<EventInfos>>): Promise<void> => {
+  // 1. 整理出新的事件列表
+  const newEvents: IndexedEvent[] = records
+    .map((record, index) => ({ indexes: [index], record }))
+    // 过滤掉一些 record
+    .filter(({ record: { event: { method, section } } }) =>
+      section !== 'system' &&
+      (
+        !['balances', 'treasury'].includes(section) ||
+        !['Deposit', 'Withdraw'].includes(method)
+      ) &&
+      (
+        !['transactionPayment'].includes(section) ||
+        !['TransactionFeePaid'].includes(method)
+      ) &&
+      (
+        !['paraInclusion', 'parasInclusion', 'inclusion'].includes(section) ||
+        !['CandidateBacked', 'CandidateIncluded'].includes(method)
+      ) &&
+      (
+        !['relayChainInfo'].includes(section) ||
+        !['CurrentBlockNumbers'].includes(method)
+      )
+    )
+    // 将重复的 record 合并，并将索引放到 indexes 中去
+    .reduce((combined: IndexedEvent[], e): IndexedEvent[] => {
+      const prev = combined.find(({ record: { event: { method, section } } }) =>
+        e.record.event.section === section &&
+        e.record.event.method === method
+      );
+
+      if (prev) {
+        prev.indexes.push(...e.indexes);
+      } else {
+        combined.push(e);
+      }
+
+      return combined;
+    }, [])
+    // 倒序
+    .reverse();
+
+  // 2. 将事件列表 hash 一下，方便与之前的事件列表进行比较
+  const newEventHash = xxhashAsHex(stringToU8a(stringify(newEvents)));
+
+  // 3. 事件列表不为空数组且与之前的不同
+  if (newEventHash !== prev.event && newEvents.length) {
+    // 将现在的事件列表 hash 赋值给 prev 的标志
+    prev.event = newEventHash;
+
+    // retrieve the last header, this will map to the current state
+    const header = await api.rpc.chain.getHeader(records.createdAtHash);
+    const blockNumber = header.number.unwrap() as unknown as BlockNumber;
+    const blockHash = header.hash.toHex();
+
+    // 这次存储事件列表的块不在原来的块
+    if (blockHash !== prev.block) {
+      prev.block = blockHash;
+
+      setState(({ events }) => ({
+        // 更新事件数量
+        eventCount: records.length,
+        // 更新事件，保留不同块的之前的事件
+        events: [
+          ...newEvents.map(({ indexes, record }): KeyedEvent => ({
+            blockHash,
+            blockNumber,
+            indexes,
+            key: `${blockNumber.toNumber()}-${blockHash}-${indexes.join('.')}`,
+            record
+          })),
+          // remove all events for the previous same-height blockNumber
+          ...events.filter((p) => !p.blockNumber?.eq(blockNumber))
+        ].slice(0, MAX_EVENTS)
+      }));
+    }
+  } else {
+    // 4. 事件列表与之前的相同或为空数组
+    setState(({ events }) => ({
+      // 事件数量更新
+      eventCount: records.length,
+      // 事件保持原来的不变
+      events
+    }));
+  }
+}
+
+// 获取符合要求的事件
+const useEventInfos = () => {
+  const api = useAtomValue(apiPromiseAtom)
+  const [eventInfos, setEventInfos] = useState<EventInfos>(DEFAULT_EVENT_INFOS)
+  const prevHashes = useRef({ block: null, event: null })
+
+  useEffect(() => {
+    let subscriber: Promise<Codec>
+    const init = async () => {
+      await api.isReady
+      subscriber = api.query.system.events((records: Vec<EventRecord>) => {
+        if (records) {
+          manageEvents(api, prevHashes.current, records, setEventInfos)
+            .catch(console.error)
+        }
+      })
+    }
+    init()
+    return () => {
+      subscriber?.then(unsubscribe => (unsubscribe as unknown as Function)())
+    }
+  }, [api, prevHashes])
+
+  return eventInfos
+}
+
+// 获取最近的块列表
+interface HeaderExtendedWithMapping extends HeaderExtended {
+  authorFromMapping?: string;
+}
+interface Authors {
+  byAuthor: Record<string, string>;
+  eraPoints: Record<string, string>;
+  lastBlockAuthors: string[];
+  lastBlockNumber?: string;
+  lastHeader?: HeaderExtendedWithMapping;
+  lastHeaders: HeaderExtendedWithMapping[];
+}
+const byAuthor: Record<string, string> = {};
+const eraPoints: Record<string, string> = {};
+const MAX_HEADERS = 75;
+const useRecentBlocks = () => {
+  const api = useAtomValue(apiPromiseAtom)
+  const [recentBlocks, setRecentBlocks] = useState<Authors>({ byAuthor, eraPoints, lastBlockAuthors: [], lastHeaders: [] })
+
+  useEffect(() => {
+    let subscriber: UnsubscribePromise
+    const init = async () => {
+      await api.isReady
+
+      let lastHeaders: HeaderExtendedWithMapping[] = [];
+      let lastBlockAuthors: string[] = [];
+      let lastBlockNumber = '';
+
+      subscriber = api.derive.chain.subscribeNewHeads(lastHeader => {
+        if (lastHeader?.number) {
+          const blockNumber = lastHeader.number.unwrap()
+          let thisBlockAuthor = ''
+
+          if (lastHeader.author) {
+            thisBlockAuthor = lastHeader.author.toString()
+          }
+
+          const thisBlockNumber = formatNumber(blockNumber)
+
+          if (thisBlockAuthor) {
+            byAuthor[thisBlockAuthor] = thisBlockNumber;
+
+            if (thisBlockNumber !== lastBlockNumber) {
+              lastBlockNumber = thisBlockNumber;
+              lastBlockAuthors = [thisBlockAuthor];
+            } else {
+              lastBlockAuthors.push(thisBlockAuthor);
+            }
+          }
+
+          lastHeaders = lastHeaders
+            .filter((old, index) => index < MAX_HEADERS && old.number.unwrap().lt(blockNumber))
+            .reduce((next, header): HeaderExtendedWithMapping[] => {
+              next.push(header);
+
+              return next;
+            }, [lastHeader])
+            .sort((a, b) => b.number.unwrap().cmp(a.number.unwrap()));
+
+          setRecentBlocks({ byAuthor, eraPoints, lastBlockAuthors: lastBlockAuthors.slice(), lastBlockNumber, lastHeader, lastHeaders });
+        }
+      })
+    }
+
+    init()
+
+    return () => {
+      subscriber?.then(unsubscribe => (unsubscribe as unknown as Function)())
+    }
+  }, [api])
+
+  return recentBlocks
 }
 
 const BlockTargetTime = () => {
@@ -188,7 +438,12 @@ const BlockTargetTime = () => {
   )
 }
 
-const BlockPanelHeader = () => {
+interface BlockPanelHeaderProps {
+  eventCount: number
+}
+
+const BlockPanelHeader = (props: BlockPanelHeaderProps) => {
+  const { eventCount } = props;
   const localNow = useLocalNow()
   const lastBlockTime = useLastBlockTime()
   const lastBlockFromCreateToNowTime = getLastBlockFromCreateToNowTime(localNow, lastBlockTime)
@@ -205,29 +460,81 @@ const BlockPanelHeader = () => {
           <BlockTargetTime />
         </Text>
       </Center>
+      <Spacer />
+      <Center>
+        <Text>last events</Text>
+        <Text>{formatNumber(eventCount)}</Text>
+      </Center>
     </Flex>
   )
 }
 
-const BlockPanelMain = () => {
+interface BlockPanelMainProps {
+  events: KeyedEvent[]
+}
+
+const BlockPanelMain = (props: BlockPanelMainProps) => {
+  const { events } = props
+  const { lastHeaders } = useRecentBlocks()
+  const headers = lastHeaders.filter(header => !!header)
+
+  console.log('BlockPanelMain events', events)
+
   return (
     <Flex>
-      <List spacing={3}>
-        <ListItem>111</ListItem>
+      <List spacing={3} title="recent blocks">
+        {
+          headers.map(header => {
+            const hashHex = header.hash.toHex();
+            return (
+              <ListItem key={header.number.toString()}>
+                <Text>{formatNumber(header.number)}</Text>
+                <Text>{hashHex}</Text>
+              </ListItem>
+            )
+          })
+        }
       </List>
-      <List spacing={3}>
-        <ListItem>222</ListItem>
-      </List>
+      <Accordion title='recent events'>
+        {
+          events.map(event => {
+            const { blockNumber, indexes, key, record } = event
+            const eventName = `${record.event.section}.${record.event.method}`
+            const headerSubInfo = formatMeta(record.event.meta)
+            const displayIndexesLength = `${formatNumber(indexes.length)}x`
+            const displayBlockNumber = `${formatNumber(blockNumber)}-${indexes[0]}`
+
+            return (
+              <AccordionItem key={key}>
+                <Box as="span" flex='1' textAlign='left'>
+                  <Text>{eventName}</Text>
+                  { headerSubInfo && <Text>{headerSubInfo[0]}</Text>}
+                </Box>
+                <Text>
+                  {indexes.length !== 1 && <span>({displayIndexesLength}x)&nbsp;</span>}
+                  {displayBlockNumber}
+                </Text>
+                <AccordionButton>
+                  <AccordionIcon />
+                </AccordionButton>
+
+              </AccordionItem>
+            )
+          })
+        }
+      </Accordion>
     </Flex>
 
   )
 }
 
 const BlockPanel = () => {
+  const { eventCount, events } = useEventInfos()
+
   return (
     <div>
-      <BlockPanelHeader />
-      <BlockPanelMain />
+      <BlockPanelHeader eventCount={eventCount} />
+      <BlockPanelMain events={events} />
     </div>
   )
 }
