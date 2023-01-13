@@ -14,8 +14,6 @@ import { currentAccountAtom } from '@/features/identity/atoms'
 import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
-import { getDisplayBlockNumber, useBlockNumber } from '@/features/block-authors/hooks/useHeader'
-import Block from '@/features/block-authors/components/block'
 import BlockPanel from '@/components/BlockPanel'
 
 const ContractListSkeleton = () => (
@@ -34,9 +32,6 @@ const PhalaButton = tw(Button)`
 `
 
 const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) => {
-  const blockNumber = useBlockNumber()
-  const displayBlockNumber = getDisplayBlockNumber(blockNumber)
-
   // convert timestamp savedAt to human readable datetime string
   let dateString = null
   if (savedAt) {
@@ -51,7 +46,6 @@ const ContractCell: FC<LocalContractInfo> = ({ contractId, metadata, savedAt }) 
             {contractId.substring(0, 6)}...{contractId.substring(contractId.length - 6)}
           </div>
           <header tw="flex flex-row items-center">
-            <h4 tw="text-lg mr-2">{displayBlockNumber}</h4>
             <h4 tw="text-lg">{metadata.contract.name}</h4>
             <div tw="mt-1 ml-2 text-sm text-gray-200">{metadata.contract.version}</div>
           </header>
@@ -122,7 +116,6 @@ const ContractList = () => {
             </PhalaButton>
           )}
         </div>
-        <BlockPanel />
       </div>
     )
   }
@@ -142,16 +135,12 @@ const ContractList = () => {
         <ReloadButton />
       </ButtonGroup>
       <div tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
-        <Block />
-      </div>
-      <div tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
         {contracts.map(([key, info]) => (
           <div key={key}>
             <ContractCell {...info} />
           </div>
         ))}
       </div>
-      <BlockPanel />
     </>
   )
 }
@@ -204,6 +193,8 @@ const GetTestPhaButton = () => {
 
 const ContractListPage = () => {
   return (
+    <>
+    <BlockPanel />
     <div tw="grid grid-cols-12 w-full gap-2">
       <div tw="col-span-3 order-2 pl-6">
         <div tw="flex flex-col gap-4">
@@ -226,6 +217,7 @@ const ContractListPage = () => {
         </Suspense>
       </div>
     </div>
+    </>
   )
 }
 
