@@ -193,31 +193,33 @@ const GetTestPhaButton = () => {
 
 const ContractListPage = () => {
   return (
-    <>
-    <BlockPanel />
-    <div tw="grid grid-cols-12 w-full gap-2">
-      <div tw="col-span-3 order-2 pl-6">
-        <div tw="flex flex-col gap-4">
-          <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
-          <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
-          <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
-            Awesome Phat Contract
-          </Button>
-          <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
-            Oracle Workshop
-          </Button>
-          <Suspense>
-            <GetTestPhaButton />
+    <div tw="pl-5 pr-5">
+      <Suspense fallback={null}>
+        <BlockPanel />
+      </Suspense>
+      <div tw="grid grid-cols-12 w-full gap-2">
+        <div tw="col-span-3 order-2 pl-6">
+          <div tw="flex flex-col gap-4">
+            <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
+            <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
+            <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
+              Awesome Phat Contract
+            </Button>
+            <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
+              Oracle Workshop
+            </Button>
+            <Suspense>
+              <GetTestPhaButton />
+            </Suspense>
+          </div>
+        </div>
+        <div tw="col-span-9 order-1">
+          <Suspense fallback={<ContractListSkeleton />}>
+            <ContractList />
           </Suspense>
         </div>
       </div>
-      <div tw="col-span-9 order-1">
-        <Suspense fallback={<ContractListSkeleton />}>
-          <ContractList />
-        </Suspense>
-      </div>
     </div>
-    </>
   )
 }
 

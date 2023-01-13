@@ -3,10 +3,11 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Center, Flex, Text, List, ListItem, Spacer, AccordionItem, Accordion, AccordionButton, AccordionIcon, Box } from '@chakra-ui/react'
+import { Center, Flex, Text, List, ListItem, Spacer, AccordionItem, Accordion, AccordionButton, AccordionIcon, Box, Tooltip } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai';
+import tw from 'twin.macro'
 import { apiPromiseAtom } from '@/features/parachain/atoms';
-import { BlockNumber, EventMetadataLatest, EventRecord, Moment } from '@polkadot/types/interfaces';
+import { AccountId, AccountIndex, Address, BlockNumber, EventMetadataLatest, EventRecord, Moment } from '@polkadot/types/interfaces';
 import { BN, bnMin, BN_MAX_INTEGER, BN_THOUSAND, BN_TWO, extractTime, formatNumber, stringify, stringToU8a } from '@polkadot/util';
 import { Time } from '@polkadot/util/types';
 import { Vec } from '@polkadot/types';
@@ -15,6 +16,9 @@ import type { HeaderExtended } from '@polkadot/api-derive/types';
 import { ApiPromise } from '@polkadot/api';
 import { xxhashAsHex } from '@polkadot/util-crypto';
 import { UnsubscribePromise } from '@polkadot/api/types';
+import Identicon from '@polkadot/react-identicon'
+import { keyring } from '@polkadot/ui-keyring';
+import { KeyringJson, KeyringJson$Meta } from '@polkadot/ui-keyring/types';
 
 const LOCAL_UPDATE_TIME = 100;
 
@@ -450,22 +454,75 @@ const BlockPanelHeader = (props: BlockPanelHeaderProps) => {
 
   return (
     <Flex>
-      <Center>
-        <Text>last block</Text>
-        <Text>{lastBlockFromCreateToNowTime}</Text>
-      </Center>
-      <Center>
-        <Text>target</Text>
-        <Text>
+      <Box paddingRight={2}>
+        <Text align="right">last block</Text>
+        <Text align="right">{lastBlockFromCreateToNowTime}</Text>
+      </Box>
+      <Box>
+        <Text align="right">target</Text>
+        <Text align="right">
           <BlockTargetTime />
         </Text>
-      </Center>
+      </Box>
       <Spacer />
-      <Center>
-        <Text>last events</Text>
-        <Text>{formatNumber(eventCount)}</Text>
-      </Center>
+      <Box>
+        <Text align="right">last events</Text>
+        <Text align="right">{formatNumber(eventCount)}</Text>
+      </Box>
     </Flex>
+  )
+}
+
+const getAddressMeta = (address: string): KeyringJson$Meta => {
+  let meta: KeyringJson$Meta | undefined;
+
+  try {
+    const pair = keyring.getAddress(address, null);
+
+    meta = pair && pair.meta;
+  } catch (error) {
+    // we could pass invalid addresses, so it may throw
+  }
+
+  return meta || {};
+}
+
+const toShortAddress = (_address: string): string => {
+  const address = (_address || '').toString();
+
+  return (address.length > 13)
+    ? `${address.slice(0, 6)}…${address.slice(-6)}`
+    : address;
+}
+
+// isName, name
+const getAddressName = (address: string): [boolean, string] => {
+  const meta = getAddressMeta(address);
+
+  return meta.name
+    ? [false, meta.name.toUpperCase()]
+    : [true, toShortAddress(address)];
+}
+
+interface AccountNameProps {
+  value?: AccountId;
+}
+
+const AccountName = (props: AccountNameProps) => {
+  const { value } = props;
+  
+  if (!value) {
+    return null
+  }
+
+  const accountId = value.toString()
+  const [isAddressExtracted, displayName] = getAddressName(accountId)
+  const tip = `Name is ${isAddressExtracted ? 'Online' : 'Local'}: ${displayName}`
+
+  return (
+    <Tooltip label={tip}>
+      <Text noOfLines={1}>{displayName}</Text>
+    </Tooltip>
   )
 }
 
@@ -481,21 +538,33 @@ const BlockPanelMain = (props: BlockPanelMainProps) => {
   console.log('BlockPanelMain events', events)
 
   return (
-    <Flex>
-      <List spacing={3} title="recent blocks">
+    <Flex gap="10">
+      <List spacing={3} title="recent blocks" w="50%" padding={3} tw="bg-black">
         {
           headers.map(header => {
-            const hashHex = header.hash.toHex();
+            const hashHex = header.hash.toHex()
+            const author = header.author
+
             return (
               <ListItem key={header.number.toString()}>
-                <Text>{formatNumber(header.number)}</Text>
-                <Text>{hashHex}</Text>
+                <Flex>
+                  <Text marginRight={2}>{formatNumber(header.number)}</Text>
+                  <Tooltip label={hashHex}>
+                    <Text flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2}>{hashHex}</Text>
+                  </Tooltip>
+                  <Identicon
+                    size={24}
+                    value={author}
+                    tw="mr-2"
+                  />
+                  <AccountName value={author as unknown as AccountId} />
+                </Flex>
               </ListItem>
             )
           })
         }
       </List>
-      <Accordion title='recent events'>
+      <Accordion title="recent events" w="50%">
         {
           events.map(event => {
             const { blockNumber, indexes, key, record } = event
@@ -532,7 +601,7 @@ const BlockPanel = () => {
   const { eventCount, events } = useEventInfos()
 
   return (
-    <div>
+    <div tw="pb-5">
       <BlockPanelHeader eventCount={eventCount} />
       <BlockPanelMain events={events} />
     </div>
