@@ -3,14 +3,14 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Center, Flex, Text, List, ListItem, Spacer, AccordionItem, Accordion, AccordionButton, AccordionIcon, Box, Tooltip } from '@chakra-ui/react'
+import { Center, Flex, Text, List, ListItem, Spacer, AccordionItem, Accordion, AccordionButton, AccordionIcon, Box, Tooltip, AccordionPanel } from '@chakra-ui/react'
 import { useAtomValue } from 'jotai';
 import tw from 'twin.macro'
 import { apiPromiseAtom } from '@/features/parachain/atoms';
-import { AccountId, AccountIndex, Address, BlockNumber, EventMetadataLatest, EventRecord, Moment } from '@polkadot/types/interfaces';
+import { AccountId, AccountIndex, Address, BlockNumber, Event, EventMetadataLatest, EventRecord, Moment } from '@polkadot/types/interfaces';
 import { BN, bnMin, BN_MAX_INTEGER, BN_THOUSAND, BN_TWO, extractTime, formatNumber, stringify, stringToU8a } from '@polkadot/util';
 import { Time } from '@polkadot/util/types';
-import { Vec } from '@polkadot/types';
+import { Bytes, Vec } from '@polkadot/types';
 import { Codec } from '@polkadot/types-codec/types';
 import type { HeaderExtended } from '@polkadot/api-derive/types';
 import { ApiPromise } from '@polkadot/api';
@@ -18,25 +18,27 @@ import { xxhashAsHex } from '@polkadot/util-crypto';
 import { UnsubscribePromise } from '@polkadot/api/types';
 import Identicon from '@polkadot/react-identicon'
 import { keyring } from '@polkadot/ui-keyring';
-import { KeyringJson, KeyringJson$Meta } from '@polkadot/ui-keyring/types';
+import { KeyringItemType, KeyringJson, KeyringJson$Meta } from '@polkadot/ui-keyring/types';
+import { Abi } from '@polkadot/api-contract';
+import { DecodedEvent } from '@polkadot/api-contract/types';
 
 const LOCAL_UPDATE_TIME = 100;
 
-// 格式化时间，time 是毫秒的单位
+// 格式化时间，time 是秒的单位
 const formatTime = (time: number, type: 's' | 'min' | 'hr' = 's') => {
   let timeFormatted = time
   
   switch (type) {
     case 's':
-      timeFormatted = time / 1000
+      timeFormatted = time
       break
 
     case 'min':
-      timeFormatted = time / 1000 / 60
+      timeFormatted = time / 60
       break
   
     case 'hr':
-      timeFormatted = time / 1000 / 60 / 60
+      timeFormatted = time / 60 / 60
       break
 
     default:
@@ -44,7 +46,7 @@ const formatTime = (time: number, type: 's' | 'min' | 'hr' = 's') => {
 
   }
   
-  return timeFormatted.toFixed(4) + type
+  return timeFormatted.toFixed(1) + type
 }
 
 // 获取最后的块从创建到现在的时间，返回具有格式的字符串
@@ -473,11 +475,11 @@ const BlockPanelHeader = (props: BlockPanelHeaderProps) => {
   )
 }
 
-const getAddressMeta = (address: string): KeyringJson$Meta => {
+const getAddressMeta = (address: string, type: KeyringItemType | null = null): KeyringJson$Meta => {
   let meta: KeyringJson$Meta | undefined;
 
   try {
-    const pair = keyring.getAddress(address, null);
+    const pair = keyring.getAddress(address, type);
 
     meta = pair && pair.meta;
   } catch (error) {
@@ -526,6 +528,87 @@ const AccountName = (props: AccountNameProps) => {
   )
 }
 
+const getContractAbi = (api: ApiPromise, address: string | null): Abi | null => {
+  if (!address) {
+    return null;
+  }
+
+  let abi: Abi | undefined;
+  const meta = getAddressMeta(address, 'contract');
+
+  try {
+    const data = (meta.contract && JSON.parse(meta.contract.abi)) as string;
+
+    abi = new Abi(data, api.registry.getChainProperties());
+  } catch (error) {
+    console.error(error);
+  }
+
+  return abi || null;
+}
+
+interface EventDetailProps {
+  value: Event
+}
+
+interface Value {
+  isValid: boolean;
+  value: Codec;
+}
+
+interface AbiEvent extends DecodedEvent {
+  values: Value[];
+}
+
+const EventDetail = (props: EventDetailProps) => {
+  const { value } = props
+  const api = useAtomValue(apiPromiseAtom)
+
+  console.log('EventDetail value', value)
+
+  // if (!value.data.length) {
+  return <Text>TODO</Text>
+  // }
+
+  // const abiEvent = useMemo(
+  //   (): AbiEvent | null => {
+  //     // for contracts, we decode the actual event
+  //     if (value.section === 'contracts' && value.method === 'ContractExecution' && value.data.length === 2) {
+  //       // see if we have info for this contract
+  //       const [accountId, encoded] = value.data;
+
+  //       try {
+  //         const abi = getContractAbi(api, accountId.toString());
+
+  //         if (abi) {
+  //           const decoded = abi.decodeEvent(encoded as Bytes);
+
+  //           return {
+  //             ...decoded,
+  //             values: decoded.args.map((value) => ({ isValid: true, value }))
+  //           };
+  //         }
+  //       } catch (error) {
+  //         // ABI mismatch?
+  //         console.error(error);
+  //       }
+  //     }
+
+  //     return null;
+  //   },
+  //   [value]
+  // );
+
+  // console.log('abiEvent', abiEvent)
+
+  // return (
+  //   <Box>
+  //     <Text>{abiEvent?.event.identifier}</Text>
+  //     <Text>{JSON.stringify(abiEvent?.values)}</Text>
+  //   </Box>
+  // )
+}
+
 interface BlockPanelMainProps {
   events: KeyedEvent[]
 }
@@ -539,7 +622,10 @@ const BlockPanelMain = (props: BlockPanelMainProps) => {
 
   return (
     <Flex gap="10">
-      <List spacing={3} title="recent blocks" w="50%" padding={3} tw="bg-black">
+      <List spacing={3} title="recent blocks" w="50%" h="300" overflowY="auto" padding={3} tw="bg-black">
+        <ListItem key="recent-block-title">
+          <Text>Recent Blocks</Text>
+        </ListItem>
         {
           headers.map(header => {
             const hashHex = header.hash.toHex()
@@ -564,7 +650,8 @@ const BlockPanelMain = (props: BlockPanelMainProps) => {
           })
         }
       </List>
-      <Accordion title="recent events" w="50%">
+      <Accordion title="recent events" w="50%" h="300" gap={3} padding={3} overflowY="auto" allowMultiple tw="bg-black">
+        <p tw="pb-3">Recent Events</p>
         {
           events.map(event => {
             const { blockNumber, indexes, key, record } = event
@@ -575,18 +662,31 @@ const BlockPanelMain = (props: BlockPanelMainProps) => {
 
             return (
               <AccordionItem key={key}>
-                <Box as="span" flex='1' textAlign='left'>
-                  <Text>{eventName}</Text>
-                  { headerSubInfo && <Text>{headerSubInfo[0]}</Text>}
-                </Box>
-                <Text>
-                  {indexes.length !== 1 && <span>({displayIndexesLength}x)&nbsp;</span>}
-                  {displayBlockNumber}
-                </Text>
-                <AccordionButton>
-                  <AccordionIcon />
-                </AccordionButton>
-
+                <Flex>
+                  <Box as="span" flex='1' textAlign='left'>
+                    <Tooltip label={eventName}>
+                      <Text noOfLines={1} fontWeight="bold">{eventName}</Text>
+                    </Tooltip>
+                    { headerSubInfo && (
+                      <Tooltip label={headerSubInfo[0]}>
+                        <Text noOfLines={1}>{headerSubInfo[0]}</Text>
+                      </Tooltip>
+                    )}
+                  </Box>
+                  <AccordionButton w="auto" px="2">
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <Spacer />
+                  <Center>
+                    <Text noOfLines={1}>
+                      {indexes.length !== 1 && <span>({displayIndexesLength}x)&nbsp;</span>}
+                      {displayBlockNumber}
+                    </Text>
+                  </Center>
+                </Flex>
+                <AccordionPanel>
+                  <EventDetail value={record.event} />
+                </AccordionPanel>
               </AccordionItem>
             )
           })
