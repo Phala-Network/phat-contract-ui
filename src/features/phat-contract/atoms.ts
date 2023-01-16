@@ -181,10 +181,14 @@ export const currentWorkerIdAtom = atom(
   get => {
     const rec = get(userSelectedWorkerIdAtom)
     const endpoint = get(endpointAtom)
+    const workers = get(availableWorkerListAtom)
     if (rec[endpoint]) {
+      if (!R.includes(rec[endpoint], workers)) {
+        console.log('user selected worker is not available', rec[endpoint], workers)
+        return shuffle(workers)
+      }
       return rec[endpoint]
     }
-    const workers = get(availableWorkerListAtom)
     return shuffle(workers)
   },
   (get, set, value: string) => {
@@ -197,7 +201,15 @@ export const currentWorkerIdAtom = atom(
 export const availableWorkerListAtom = atom(get => {
   const clusterInfo = get(currentClusterAtom)
   if (clusterInfo) {
-    return clusterInfo.workers
+    // 2023-01-16: hotfix for workers down
+    return R.without(
+      [
+        "0x9e10f9be30e98a2a689c255f0780d6d58c6ca29dad1ea3f77ec94aaa8c9c174f",
+        "0x50cfa4b7a48893c8772cf348d7c2eb03071263a7f8ab4381a20e1df2a99dbc3a"
+      ],
+      clusterInfo.workers
+    )
+    // return clusterInfo.workers
   }
   return []
 })
