@@ -4,7 +4,7 @@ import type { LocalContractInfo } from '@/features/phat-contract/atoms'
 import React, { Suspense, useState, useCallback } from 'react'
 import tw from 'twin.macro'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
-import { Box, Button, ButtonGroup, Stack, Skeleton } from '@chakra-ui/react'
+import { Box, Button, ButtonGroup, Stack, Skeleton, VStack, Text } from '@chakra-ui/react'
 import { Link, useNavigate } from '@tanstack/react-location'
 import { AiOutlineReload, AiOutlinePlus, AiOutlineImport, AiOutlineCloudUpload } from 'react-icons/ai'
 import { Keyring } from '@polkadot/keyring'
@@ -14,7 +14,15 @@ import { currentAccountAtom } from '@/features/identity/atoms'
 import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
-import BlockPanel from '@/components/BlockPanel'
+import ChainSummary from '@/features/chain-info/components/ChainSummary'
+
+const Summary = () => {
+  return (
+    <VStack align="flex-start" padding={4} mb={4} borderWidth='1px' borderRadius='lg' tw="bg-black">
+      <ChainSummary />
+    </VStack>
+  )
+}
 
 const ContractListSkeleton = () => (
   <Stack tw="mt-2 mb-4 bg-black p-4 max-w-4xl min-w-full">
@@ -194,11 +202,11 @@ const GetTestPhaButton = () => {
 const ContractListPage = () => {
   return (
     <div tw="pl-5 pr-5">
-      <Suspense fallback={null}>
-        <BlockPanel />
-      </Suspense>
       <div tw="grid grid-cols-12 w-full gap-2">
         <div tw="col-span-3 order-2 pl-6">
+          <Suspense fallback={null}>
+            <Summary />
+          </Suspense>
           <div tw="flex flex-col gap-4">
             <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
             <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>

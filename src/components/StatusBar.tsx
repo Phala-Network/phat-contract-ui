@@ -13,6 +13,8 @@ import {
   TiArrowRepeat,
   TiMessageTyping,
   TiCogOutline,
+  TiCloudStorageOutline,
+  TiMessage,
 } from 'react-icons/ti'
 import {
   Badge,
@@ -21,11 +23,31 @@ import {
   TabPanels,
   Tab,
   TabPanel,
+  List,
+  ListItem,
+  Flex,
+  Text,
+  Tooltip,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionIcon,
+  Spacer,
+  Center,
+  Box,
+  AccordionPanel,
 } from '@chakra-ui/react'
 import * as R from 'ramda'
 
 import { eventsAtom } from '@/features/parachain/atoms'
 import { resultsAtom, pinkLoggerResultAtom } from '@/features/phat-contract/atoms'
+import { formatNumber } from '@polkadot/util'
+import Identicon from '@polkadot/react-identicon'
+import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
+import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
+import keyring from '@polkadot/ui-keyring'
+import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
+import { useSubscribeLastHeaders } from '@/features/chain-info/hooks/useSubscribeLastHeaders'
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
@@ -33,6 +55,8 @@ const currentTabAtom = atom<number>(0)
 const eventCountsAtom = atom(get => get(eventsAtom).length)
 const resultCountsAtom = atom(get => get(resultsAtom).length)
 const logCountsAtom = atom(get => get(pinkLoggerResultAtom).length)
+const recentBlockCountsAtom = atom(get => get(recentBlocksAtom).length)
+const keyedEventsCountsAtom = atom(get => get(keyedEventsAtom).length)
 
 const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
@@ -46,6 +70,21 @@ const CloseButton = () => {
   )
 }
 
+const RecentHeadersCounter = ({ onClick }: { onClick: () => void }) => {
+  const recentBlockCounts = useAtomValue(recentBlockCountsAtom)
+
+  useSubscribeLastHeaders()
+
+  return (
+    <CounterButton
+      onClick={onClick}
+    >
+      <TiCloudStorageOutline tw="text-base" />
+      <span tw="text-sm font-mono">{recentBlockCounts}</span>
+    </CounterButton>
+  )
+}
+
 const CounterButton = tw.button`
   flex gap-1 min-w-[2.5rem] justify-center items-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black
 `
@@ -56,6 +95,7 @@ const Counters = () => {
   const eventCounts = useAtomValue(eventCountsAtom)
   const resultCounts = useAtomValue(resultCountsAtom)
   const logCounts = useAtomValue(logCountsAtom)
+  const keyedEventsCounts = useAtomValue(keyedEventsCountsAtom)
   return (
     <div tw="flex flex-row gap-1">
       <CounterButton
@@ -84,6 +124,21 @@ const Counters = () => {
       >
         <TiCogOutline tw="text-base" />
         <span tw="text-sm font-mono">{logCounts}</span>
+      </CounterButton>
+      <Suspense>
+        <RecentHeadersCounter onClick={() => {
+          setShowEventList(true)
+          setCurrentTab(3)
+        }} />
+      </Suspense>
+      <CounterButton
+        onClick={() => {
+          setShowEventList(true)
+          setCurrentTab(4)
+        }}
+      >
+        <TiMessage tw="text-base" />
+        <span tw="text-sm font-mono">{keyedEventsCounts}</span>
       </CounterButton>
     </div>
   )
@@ -198,9 +253,173 @@ const Logs = () => {
   )
 }
 
+const getAddressMeta = (address: string, type: KeyringItemType | null = null): KeyringJson$Meta => {
+  let meta: KeyringJson$Meta | undefined;
+
+  try {
+    const pair = keyring.getAddress(address, type);
+
+    meta = pair && pair.meta;
+  } catch (error) {
+    // we could pass invalid addresses, so it may throw
+  }
+
+  return meta || {};
+}
+
+const toShortAddress = (_address: string): string => {
+  const address = (_address || '').toString();
+
+  return (address.length > 13)
+    ? `${address.slice(0, 6)}…${address.slice(-6)}`
+    : address;
+}
+
+// isName, name
+const getAddressName = (address: string): [boolean, string] => {
+  const meta = getAddressMeta(address);
+
+  return meta.name
+    ? [false, meta.name.toUpperCase()]
+    : [true, toShortAddress(address)];
+}
+
+interface AccountNameProps {
+  value?: AccountId;
+}
+
+const AccountName = (props: AccountNameProps) => {
+  const { value } = props;
+  
+  if (!value) {
+    return null
+  }
+
+  const accountId = value.toString()
+  const [isAddressExtracted, displayName] = getAddressName(accountId)
+  const tip = `Name is ${isAddressExtracted ? 'Online' : 'Local'}: ${displayName}`
+
+  return (
+    <Tooltip label={tip}>
+      <Text noOfLines={1}>{displayName}</Text>
+    </Tooltip>
+  )
+}
+
+const RecentBlocksPanel = () => {
+  const recentBlocks = useAtomValue(recentBlocksAtom)
+  return (
+    <List>
+      {
+        recentBlocks.map(header => {
+          const hashHex = header.hash.toHex()
+          const author = header.author
+
+          return (
+            <ListItem key={header.number.toString()}>
+              <Flex>
+                <Text marginRight={2}>{formatNumber(header.number)}</Text>
+                <Tooltip label={hashHex}>
+                  <Text flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2}>{hashHex}</Text>
+                </Tooltip>
+                <Identicon
+                  size={24}
+                  value={author}
+                  tw="mr-2"
+                />
+                <AccountName value={author as unknown as AccountId} />
+              </Flex>
+            </ListItem>
+          )
+        })
+      }
+    </List>
+  )
+}
+
+
+const splitSingle = (value: string[], sep: string): string[] => {
+  return value.reduce((result: string[], value: string): string[] => {
+    return value.split(sep).reduce((result: string[], value: string) => result.concat(value), result);
+  }, []);
+}
+
+const splitParts = (value: string): string[] => {
+  return ['[', ']'].reduce((result: string[], sep) => splitSingle(result, sep), [value]);
+}
+
+const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNode] | null => {
+  if (!meta || !meta.docs.length) {
+    return null;
+  }
+
+  const strings = meta.docs.map((d) => d.toString().trim());
+  const firstEmpty = strings.findIndex((d) => !d.length);
+  const combined = (
+    firstEmpty === -1
+      ? strings
+      : strings.slice(0, firstEmpty)
+  ).join(' ').replace(/#(<weight>| <weight>).*<\/weight>/, '');
+  const parts = splitParts(combined.replace(/\\/g, '').replace(/`/g, ''));
+
+  return [
+    parts[0].split(/[.(]/)[0],
+    <>{parts.map((part, index) => index % 2 ? <em key={index}>[{part}]</em> : <span key={index}>{part}</span>)}&nbsp;</>
+  ];
+}
+
+const RecentEventsPanel = () => {
+  const keyedEvents = useAtomValue(keyedEventsAtom)
+
+  return (
+    <Accordion gap={3} allowMultiple>
+      {
+        keyedEvents.map(event => {
+          const { blockNumber, indexes, key, record } = event
+          const eventName = `${record.event.section}.${record.event.method}`
+          const headerSubInfo = formatMeta(record.event.meta)
+          const displayIndexesLength = `${formatNumber(indexes.length)}x`
+          const displayBlockNumber = `${formatNumber(blockNumber)}-${indexes[0]}`
+
+          return (
+            <AccordionItem key={key}>
+              <Flex>
+                <Box as="span" flex='1' textAlign='left'>
+                  <Tooltip label={eventName}>
+                    <Text noOfLines={1} fontWeight="bold">{eventName}</Text>
+                  </Tooltip>
+                  { headerSubInfo && (
+                    <Tooltip label={headerSubInfo[0]}>
+                      <Text noOfLines={1}>{headerSubInfo[0]}</Text>
+                    </Tooltip>
+                  )}
+                </Box>
+                <AccordionButton w="auto" px="2">
+                  <AccordionIcon />
+                </AccordionButton>
+                <Spacer />
+                <Center>
+                  <Text noOfLines={1}>
+                    {indexes.length !== 1 && <span>({displayIndexesLength}x)&nbsp;</span>}
+                    {displayBlockNumber}
+                  </Text>
+                </Center>
+              </Flex>
+              <AccordionPanel>
+                <Text>Event Detail</Text>
+              </AccordionPanel>
+            </AccordionItem>
+          )
+        })
+      }
+    </Accordion>
+  )
+}
+
 export default function StatusBar() {
   const showEventList = useAtomValue(toggleEventListAtom)
   const [currentTab, setCurrentTab] = useAtom(currentTabAtom)
+
   return (
     <footer css={[tw`flex-shrink bg-black max-w-full px-4`]}>
       <div css={[showEventList ? tw`h-0 hidden` : tw`h-8`]}>
@@ -228,6 +447,14 @@ export default function StatusBar() {
               <TiCogOutline tw="text-gray-400 text-base mr-1" />
               Log
             </Tab>
+            <Tab>
+              <TiCloudStorageOutline tw="text-gray-400 text-base mr-1" />
+              Recent blocks
+            </Tab>
+            <Tab>
+              <TiMessage tw="text-gray-400 text-base mr-1" />
+              Recent events
+            </Tab>
             <CloseButton />
           </TabList>
           <TabPanels>
@@ -240,6 +467,18 @@ export default function StatusBar() {
             <TabPanel px="0">
               <div tw="overflow-y-scroll h-[26vh] px-6">
                 <Logs />
+              </div>
+            </TabPanel>
+            <TabPanel px="0">
+              <div tw="overflow-y-scroll h-[26vh] px-6">
+                <Suspense>
+                  <RecentBlocksPanel />
+                </Suspense>
+              </div>
+            </TabPanel>
+            <TabPanel px="0">
+              <div tw="overflow-y-scroll h-[26vh] px-6">
+                
               </div>
             </TabPanel>
           </TabPanels>
