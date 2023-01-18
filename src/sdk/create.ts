@@ -159,6 +159,8 @@ export async function create({api, baseURL, contractId, remotePubkey, autoDeposi
     }
   }
 
+  console.log('test-deploy-preview')
+
   let gasPrice = new BN(0)
   if (autoDeposit) {
     const contractInfo = await api.query.phalaFatContracts.contracts(contractId)
