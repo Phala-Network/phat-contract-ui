@@ -1266,14 +1266,15 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@phala/sdk@^0.3.5-beta.11":
-  version "0.3.5-beta.11"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.3.5-beta.11.tgz#03f4993a5b4717375e6487f99b6e5c03c7b9c7a2"
-  integrity sha512-DBjAsM3PEviOvG1W2GDmfEeQE0CQLv++vS12eIYBlDqwo1qUHLzJN7oiIUxNd5fc1gOoN/SwYMn1DnDSfgYB5w==
+"@phala/sdk@^0.3.5":
+  version "0.3.5"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.3.5.tgz#18bda7fa8f608762247ccbbf13d961216c0a487e"
+  integrity sha512-H6kaE8kHnRCM7gjq5/T/K0eqh+5QrvodSewUPMtPjHRzG1HLOcZtqrfwC1PHAqJ8sIbm3bM6GrzTDzgtMCECAg==
   dependencies:
     "@esbuild-plugins/node-modules-polyfill" "^0.1.4"
     "@phala/typedefs" "^0.2.32"
     "@polkadot/api" "^9.8.1"
+    "@polkadot/api-contract" "^9.8.1"
     "@polkadot/keyring" "^10.1.12"
     "@polkadot/util" "^10.1.12"
     "@polkadot/util-crypto" "^10.1.12"
