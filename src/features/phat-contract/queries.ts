@@ -6,7 +6,7 @@ import ms from 'ms'
 import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
-import { CertificateData, create } from "../../sdk"
+import { CertificateData, create } from "@phala/sdk"
 
 function toHuman(value: Codec): AnyJson {
   return value.toHuman()

@@ -5,7 +5,7 @@ import type {Signer as InjectedSigner} from '@polkadot/api/types'
 
 import type { QueryFunctionContext } from "@tanstack/query-core"
 
-import { signCertificate } from '../../sdk'
+import { signCertificate } from '@phala/sdk'
 
 const hexToUtf8 = (hex: string): string => {
   if (hex.startsWith('0x')) {
