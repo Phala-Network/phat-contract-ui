@@ -3,7 +3,6 @@ import { useAtomValue } from 'jotai';
 import { Box, Text, Tooltip } from '@chakra-ui/react'
 import { useLastBlock } from '../hooks/useLastBlock'
 import { useTarget } from '../hooks/useTarget';
-import { useSubscribeEvents } from '../hooks/useSubscribeEvents';
 import { lastEventsAtom } from '../atoms';
 
 const BlockTarget = () => {
@@ -25,8 +24,6 @@ const BlockTarget = () => {
 const ChainSummary = () => {
   const lastBlock = useLastBlock()
   const lastEvents = useAtomValue(lastEventsAtom)
-  
-  useSubscribeEvents()
 
   return (
     <Box>

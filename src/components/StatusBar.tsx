@@ -1,7 +1,7 @@
 import type { FC } from 'react'
 import type { ContractExecuteResult } from '@/features/phat-contract/atoms'
 
-import { Suspense } from 'react'
+import React, { Suspense } from 'react'
 import { Link } from "@tanstack/react-location"
 import tw from 'twin.macro'
 import { atom, useAtom } from 'jotai'
@@ -47,7 +47,6 @@ import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
 import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
 import keyring from '@polkadot/ui-keyring'
 import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
-import { useSubscribeLastHeaders } from '@/features/chain-info/hooks/useSubscribeLastHeaders'
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
@@ -72,8 +71,6 @@ const CloseButton = () => {
 
 const RecentHeadersCounter = ({ onClick }: { onClick: () => void }) => {
   const recentBlockCounts = useAtomValue(recentBlockCountsAtom)
-
-  useSubscribeLastHeaders()
 
   return (
     <CounterButton
@@ -253,18 +250,16 @@ const Logs = () => {
   )
 }
 
-const getAddressMeta = (address: string, type: KeyringItemType | null = null): KeyringJson$Meta => {
-  let meta: KeyringJson$Meta | undefined;
-
+const getAddressMeta = (address: string, type: KeyringItemType | null = null): KeyringJson$Meta | undefined => {
   try {
     const pair = keyring.getAddress(address, type);
 
-    meta = pair && pair.meta;
+    if (pair && pair.meta) {
+      return pair.meta
+    }
   } catch (error) {
     // we could pass invalid addresses, so it may throw
   }
-
-  return meta || {};
 }
 
 const toShortAddress = (_address: string): string => {
@@ -279,7 +274,7 @@ const toShortAddress = (_address: string): string => {
 const getAddressName = (address: string): [boolean, string] => {
   const meta = getAddressMeta(address);
 
-  return meta.name
+  return meta && meta.name
     ? [false, meta.name.toUpperCase()]
     : [true, toShortAddress(address)];
 }
@@ -288,9 +283,7 @@ interface AccountNameProps {
   value?: AccountId;
 }
 
-const AccountName = (props: AccountNameProps) => {
-  const { value } = props;
-  
+const AccountName = ({ value }: AccountNameProps) => {
   if (!value) {
     return null
   }
@@ -337,16 +330,10 @@ const RecentBlocksPanel = () => {
   )
 }
 
-
-const splitSingle = (value: string[], sep: string): string[] => {
-  return value.reduce((result: string[], value: string): string[] => {
-    return value.split(sep).reduce((result: string[], value: string) => result.concat(value), result);
-  }, []);
-}
-
-const splitParts = (value: string): string[] => {
-  return ['[', ']'].reduce((result: string[], sep) => splitSingle(result, sep), [value]);
-}
+// @example
+// input => 'This is amount [30]'
+// output => ['This is amount ', '30', '']
+const splitParts = R.split(/[\[\]]/g)
 
 const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNode] | null => {
   if (!meta || !meta.docs.length) {
@@ -382,8 +369,11 @@ const RecentEventsPanel = () => {
           const displayBlockNumber = `${formatNumber(blockNumber)}-${indexes[0]}`
 
           return (
-            <AccordionItem key={key}>
+            <AccordionItem py={3} key={key}>
               <Flex>
+                <AccordionButton w="auto" px="2">
+                  <AccordionIcon />
+                </AccordionButton>
                 <Box as="span" flex='1' textAlign='left'>
                   <Tooltip label={eventName}>
                     <Text noOfLines={1} fontWeight="bold">{eventName}</Text>
@@ -394,13 +384,10 @@ const RecentEventsPanel = () => {
                     </Tooltip>
                   )}
                 </Box>
-                <AccordionButton w="auto" px="2">
-                  <AccordionIcon />
-                </AccordionButton>
                 <Spacer />
                 <Center>
                   <Text noOfLines={1}>
-                    {indexes.length !== 1 && <span>({displayIndexesLength}x)&nbsp;</span>}
+                    {indexes.length !== 1 && <span>({displayIndexesLength})&nbsp;</span>}
                     {displayBlockNumber}
                   </Text>
                 </Center>
@@ -424,7 +411,9 @@ export default function StatusBar() {
     <footer css={[tw`flex-shrink bg-black max-w-full px-4`]}>
       <div css={[showEventList ? tw`h-0 hidden` : tw`h-8`]}>
         <div tw="mx-auto h-full w-full max-w-7xl transition-all flex items-center">
-          <Counters />
+          <Suspense>
+            <Counters />
+          </Suspense>
         </div>
       </div>
       <div
@@ -478,7 +467,9 @@ export default function StatusBar() {
             </TabPanel>
             <TabPanel px="0">
               <div tw="overflow-y-scroll h-[26vh] px-6">
-                
+                <Suspense>
+                  <RecentEventsPanel />
+                </Suspense>
               </div>
             </TabPanel>
           </TabPanels>
