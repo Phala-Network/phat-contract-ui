@@ -1,6 +1,5 @@
 import type { ContractPromise } from '@polkadot/api-contract'
 import type { AnyJson } from '@polkadot/types/types'
-import type { SidevmQuery } from '../../sdk'
 
 import { atom } from 'jotai'
 import { atomWithReset, atomWithStorage } from 'jotai/utils'

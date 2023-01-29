@@ -9,7 +9,7 @@ import { hexToString, stringToHex } from '@polkadot/util'
 import { Buffer } from 'buffer'
 import * as R from 'ramda'
 
-import { CertificateData, create } from '../../../sdk'
+import { CertificateData, create } from '@phala/sdk'
 import createLogger from "@/functions/createLogger"
 // import { blockBarrier } from '@/functions/polling'
 import signAndSend from '@/functions/signAndSend'

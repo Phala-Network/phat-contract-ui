@@ -1,6 +1,6 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { khala } from '@phala/typedefs'
-import { types as phalaSdkTypes } from '../../sdk'
+import { types as phalaSdkTypes } from '@phala/sdk'
 
 // types
 
