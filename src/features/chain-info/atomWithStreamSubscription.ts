@@ -1,4 +1,4 @@
-import { Getter } from 'jotai'
+import type { Getter } from 'jotai'
 import { atomWithObservable } from 'jotai/utils'
 import { Observable, Subject, fromEventPattern } from 'rxjs'
 import { NodeEventHandler } from 'rxjs/internal/observable/fromEvent'

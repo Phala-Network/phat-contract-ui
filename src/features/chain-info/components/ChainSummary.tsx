@@ -29,7 +29,7 @@ const ChainSummary = () => {
     <Box>
       <Tooltip label={`Last block: ${lastBlock}`}>
         <Text noOfLines={1}>
-          <span>Last block:&nbsp;</span>
+          <span tw="mr-1">Last block:</span>
           {lastBlock}
         </Text>
       </Tooltip>

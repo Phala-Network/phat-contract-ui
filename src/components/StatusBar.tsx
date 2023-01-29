@@ -47,6 +47,7 @@ import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
 import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
 import keyring from '@polkadot/ui-keyring'
 import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
+import { Text as TextType } from '@polkadot/types'
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
@@ -330,28 +331,68 @@ const RecentBlocksPanel = () => {
   )
 }
 
-// @example
-// input => 'This is amount [30]'
-// output => ['This is amount ', '30', '']
-const splitParts = R.split(/[\[\]]/g)
-
 const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNode] | null => {
   if (!meta || !meta.docs.length) {
     return null;
   }
 
-  const strings = meta.docs.map((d) => d.toString().trim());
-  const firstEmpty = strings.findIndex((d) => !d.length);
-  const combined = (
-    firstEmpty === -1
-      ? strings
-      : strings.slice(0, firstEmpty)
-  ).join(' ').replace(/#(<weight>| <weight>).*<\/weight>/, '');
-  const parts = splitParts(combined.replace(/\\/g, '').replace(/`/g, ''));
+  // @example ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+  //       => ['a b (ab)12.3', '123', '']
+  const parts = R.pipe(
+    // input: [TextType, TextType], TextType is an object like String that has a .toString method that can convert to string
+    // example, [Text, Text] => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+    R.map<TextType, string>(doc => R.trim(doc.toString())),
+    // example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+    //       => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
+    (strings: string[]): string[] => {
+      // find the first empty string index
+      const firstEmptyIndex = R.findIndex(R.isEmpty, strings)
+      // slice from the zeroth element to the previous element where the first is empty
+      return R.slice(
+        0,
+        firstEmptyIndex === -1 ? Infinity : firstEmptyIndex,
+        strings
+      )
+    },
+    // join a string array to a long string
+    // example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
+    //       => 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
+    R.join(' '),
+    // remove HTML tag, leave pure text
+    // @example 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
+    //       => 'a b (ab)12.3\[`123`\]'
+    R.replace(/#(<weight>| <weight>).*<\/weight>/, ''),
+    // remove special char
+    // @example 'a b (ab)12.3\[`123`\]'
+    //       => 'a b (ab)12.3[123]'
+    R.replace(/[\\\`]/g, ''),
+    // @example 'a b (ab)12.3[123]'
+    //       => ['a b (ab)12.3', '123', '']
+    R.split(/[\[\]]/g),
+  )(meta.docs.toArray())
+
+  const headerSubInfo = R.pipe(
+    // @example ['a b (ab)12.3', '123', '']
+    //       => 'a b (ab)12.3'
+    R.head<string>,
+    R.defaultTo(''),
+    // @example ['a b (ab)12.3', '123', ''] => ['a b ', 'ab)12.3']
+    R.split(/[.(]/),
+    // @example ['a b ', 'ab)12.3'] => 'a b '
+    R.head<string>,
+    R.defaultTo(''),
+  )(parts)
 
   return [
-    parts[0].split(/[.(]/)[0],
-    <>{parts.map((part, index) => index % 2 ? <em key={index}>[{part}]</em> : <span key={index}>{part}</span>)}&nbsp;</>
+    headerSubInfo,
+    <>
+      {parts.map((part, index) => (
+        index % 2
+          ? <em key={index}>[{part}]</em>
+          : <span key={index}>{part}</span>
+      ))}
+      &nbsp;
+    </>
   ];
 }
 
@@ -378,16 +419,16 @@ const RecentEventsPanel = () => {
                   <Tooltip label={eventName}>
                     <Text noOfLines={1} fontWeight="bold">{eventName}</Text>
                   </Tooltip>
-                  { headerSubInfo && (
+                  { headerSubInfo ? (
                     <Tooltip label={headerSubInfo[0]}>
                       <Text noOfLines={1}>{headerSubInfo[0]}</Text>
                     </Tooltip>
-                  )}
+                  ) : null}
                 </Box>
                 <Spacer />
                 <Center>
                   <Text noOfLines={1}>
-                    {indexes.length !== 1 && <span>({displayIndexesLength})&nbsp;</span>}
+                    {indexes.length !== 1 ? <span>({displayIndexesLength})&nbsp;</span> : null}
                     {displayBlockNumber}
                   </Text>
                 </Center>
