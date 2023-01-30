@@ -8,9 +8,7 @@ const THRESHOLD = BN_THOUSAND.div(BN_TWO);
 const DEFAULT_TIME = new BN(6_000);
 const A_DAY = new BN(24 * 60 * 60 * 1000);
 const calcTargetTime = (api: ApiPromise) => {
-  // 取最小的 big number
   return bnMin(
-    // 一天的时间
     A_DAY,
     (
       // Babe, e.g. Relay chains (Substrate defaults)
@@ -32,7 +30,7 @@ const calcTargetTime = (api: ApiPromise) => {
   ))
 }
 
-// 将目标时间转化成一个有结构的数组 [timestamp, string, Time]
+// convert block time to a string like '1 day', '2 days', '1 min' ...
 const formatTargetTime = (blockTime: BN): string => {
   // in the case of excessively large locks, limit to the max JS integer value
   const value = bnMin(BN_MAX_INTEGER, blockTime).toNumber();

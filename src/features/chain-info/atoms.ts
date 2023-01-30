@@ -47,10 +47,16 @@ const filterInEvents = ({
   keyedEvents: KeyedEvent[]
   header: Header
 }): KeyedEvent[] => {
-  // 1. 整理出新的事件列表
+  // filter some useless records, and merge the same records,
+  // and remember their indexes at the same time.
+  // @example [record1, record2, record1, uselessRecord] => [
+  //  { indexes: [0, 2], record: record1 },
+  //  { indexes: [1], record: record2 },
+  // ]
   const newEvents: IndexedEvent[] = records
+    // prepare indexes
     .map((record, index) => ({ indexes: [index], record }))
-    // 过滤掉一些 record
+    // filter useless records
     .filter(({ record: { event: { method, section } } }) =>
       section !== 'system' &&
       (
@@ -70,7 +76,7 @@ const filterInEvents = ({
         !['CurrentBlockNumbers'].includes(method)
       )
     )
-    // 将重复的 record 合并，并将索引放到 indexes 中去
+    // merge the same records, and remember their indexes at the same time.
     .reduce((combined: IndexedEvent[], e): IndexedEvent[] => {
       const prev = combined.find(({ record: { event: { method, section } } }) =>
         e.record.event.section === section &&
@@ -85,21 +91,20 @@ const filterInEvents = ({
 
       return combined
     }, [])
-    // 倒序
+    // from new to old
     .reverse()
 
-  // 2. 将事件列表 hash 一下，方便与之前的事件列表进行比较
+  // to compare with prev events
+  // do nothing when they are the same
   const newEventHash = xxhashAsHex(stringToU8a(stringify(newEvents)))
 
-  // 3. 事件列表不为空数组且与之前的不同
   if (newEventHash !== prev.event && newEvents.length) {
-    // 将现在的事件列表 hash 赋值给 prev 的标志
     prev.event = newEventHash;
 
     const blockNumber = header.number.unwrap() as unknown as BlockNumber;
     const blockHash = header.hash.toHex();
 
-    // 这次存储事件列表的块不在原来的块
+    // do nothing if block hash is the same
     if (blockHash !== prev.block) {
       prev.block = blockHash;
 
@@ -111,7 +116,7 @@ const filterInEvents = ({
           key: `${blockNumber.toNumber()}-${blockHash}-${indexes.join('.')}`,
           record
         })),
-        // remove all events for the previous same-height blockNumber
+        // remove all events for the previous same-height block number
         ...keyedEvents.filter((p) => !p.blockNumber?.eq(blockNumber))
       ].slice(0, MAX_EVENTS)
 
