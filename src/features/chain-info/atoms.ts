@@ -3,7 +3,7 @@ import type { HeaderExtended } from '@polkadot/api-derive/types'
 import { BlockNumber, EventRecord, Header } from '@polkadot/types/interfaces'
 import { Vec } from '@polkadot/types'
 import { xxhashAsHex } from '@polkadot/util-crypto'
-import { stringify, stringToU8a } from '@polkadot/util'
+import { stringify } from '@polkadot/util'
 import { switchMap, scan } from 'rxjs/operators'
 import { from, map } from 'rxjs'
 import { atomWithStreamSubscription } from './atomWithStreamSubscription'
@@ -96,7 +96,8 @@ const filterInEvents = ({
 
   // to compare with prev events
   // do nothing when they are the same
-  const newEventHash = xxhashAsHex(stringToU8a(stringify(newEvents)))
+  // prev: const newEventHash = xxhashAsHex(stringToU8a(stringify(newEvents)))
+  const newEventHash = xxhashAsHex(stringify(newEvents))
 
   if (newEventHash !== prev.event && newEvents.length) {
     prev.event = newEventHash;
