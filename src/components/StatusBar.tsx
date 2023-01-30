@@ -329,7 +329,7 @@ const RecentBlocksPanel = () => {
           return (
             <ListItem key={header.number.toString()}>
               <Flex>
-                <Text as="a" href={blockDetailHref} target="_blank" marginRight={2} cursor="pointer">{formatNumber(header.number)}</Text>
+                <Text as="a" href={blockDetailHref} target="_blank" tw="hover:opacity-80" marginRight={2} cursor="pointer">{formatNumber(header.number)}</Text>
                 <Tooltip label={hashHex}>
                   <Text flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2}>{hashHex}</Text>
                 </Tooltip>
@@ -415,49 +415,44 @@ const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNo
 
 const RecentEventsPanel = () => {
   const keyedEvents = useAtomValue(keyedEventsAtom)
+  const endpoint = useAtomValue(endpointAtom)
 
   return (
-    <Accordion gap={3} allowMultiple>
+    <List>
       {
         keyedEvents.map(event => {
-          const { blockNumber, indexes, key, record } = event
+          const { blockNumber, blockHash = '', indexes, key, record } = event
           const eventName = `${record.event.section}.${record.event.method}`
           const headerSubInfo = formatMeta(record.event.meta)
           const displayIndexesLength = `${formatNumber(indexes.length)}x`
           const displayBlockNumber = `${formatNumber(blockNumber)}-${indexes[0]}`
 
+          const blockNumberHref = `https://polkadot.js.org/apps/?rpc=${encodeURIComponent(endpoint)}#/explorer/query/${blockHash}`
+
           return (
-            <AccordionItem py={3} key={key}>
+            <ListItem py={1} key={key}>
               <Flex>
-                <AccordionButton w="auto" px="2">
-                  <AccordionIcon />
-                </AccordionButton>
                 <Box as="span" flex='1' textAlign='left'>
-                  <Tooltip label={eventName}>
-                    <Text noOfLines={1} fontWeight="bold">{eventName}</Text>
-                  </Tooltip>
+                  <Text noOfLines={1} fontSize="sm">{eventName}</Text>
                   { headerSubInfo ? (
                     <Tooltip label={headerSubInfo[0]}>
-                      <Text noOfLines={1}>{headerSubInfo[0]}</Text>
+                      <Text noOfLines={1} fontSize="xs" opacity="0.6">{headerSubInfo[0]}</Text>
                     </Tooltip>
                   ) : null}
                 </Box>
                 <Spacer />
                 <Center>
-                  <Text noOfLines={1}>
+                  <Text as="a" href={blockNumberHref} target="_blank" tw="font-mono hover:opacity-80" cursor="pointer" fontSize="sm" noOfLines={1}>
                     {indexes.length !== 1 ? <span>({displayIndexesLength})&nbsp;</span> : null}
                     {displayBlockNumber}
                   </Text>
                 </Center>
               </Flex>
-              <AccordionPanel>
-                <Text>Event Detail</Text>
-              </AccordionPanel>
-            </AccordionItem>
+            </ListItem>
           )
         })
       }
-    </Accordion>
+    </List>
   )
 }
 

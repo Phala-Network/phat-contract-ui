@@ -45,7 +45,7 @@ const ChainSummary = () => {
       <TableContainer>
         <Table variant="unstyled" size="sm">
           <Tbody>
-            <Tr onClick={openRecentBlocks} cursor="pointer">
+            <Tr onClick={openRecentBlocks} cursor="pointer" tw="hover:opacity-80">
               <Td tw="px-0 py-1 text-right w-0">Last block</Td>
               <Td tw="pl-3 py-1 font-mono">{lastBlock}</Td>
             </Tr>
@@ -55,7 +55,7 @@ const ChainSummary = () => {
                 <BlockTarget />
               </Td>
             </Tr>
-            <Tr onClick={openRecentEvents} cursor="pointer">
+            <Tr onClick={openRecentEvents} cursor="pointer" tw="hover:opacity-80">
               <Td tw="px-0 py-1 text-right w-0">Last events</Td>
               <Td tw="pl-3 py-1 font-mono">{lastEvents}</Td>
             </Tr>
