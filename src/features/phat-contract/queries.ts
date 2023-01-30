@@ -6,12 +6,7 @@ import { ApiPromise } from "@polkadot/api"
 import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
-<<<<<<< HEAD
 import { CertificateData, create } from "@phala/sdk"
-=======
-import type { CertificateData } from "../../sdk"
-import { create } from "../../sdk"
->>>>>>> a0e4ba8 (fix: api.clone() don't reuse connection and fix it temporarily for sdk)
 
 function toHuman(value: Codec): AnyJson {
   return value.toHuman()
