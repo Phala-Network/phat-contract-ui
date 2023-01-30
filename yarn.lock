@@ -1266,10 +1266,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@phala/sdk@^0.3.5":
-  version "0.3.5"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.3.5.tgz#18bda7fa8f608762247ccbbf13d961216c0a487e"
-  integrity sha512-H6kaE8kHnRCM7gjq5/T/K0eqh+5QrvodSewUPMtPjHRzG1HLOcZtqrfwC1PHAqJ8sIbm3bM6GrzTDzgtMCECAg==
+"@phala/sdk@^0.3.6":
+  version "0.3.6"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.3.6.tgz#7af4cafa7dd311e0841f07c54eb37214e318717b"
+  integrity sha512-G2iqCb09VtRJFt//V82y3G5HxS+ifjTqx2RCTCrdSk8UheMj6zMjWVAHELavIJyDqCS5EI/VAJL+JdQeYaceRg==
   dependencies:
     "@esbuild-plugins/node-modules-polyfill" "^0.1.4"
     "@phala/typedefs" "^0.2.32"
