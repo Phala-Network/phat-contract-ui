@@ -48,6 +48,15 @@ import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
 import keyring from '@polkadot/ui-keyring'
 import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
 import { Text as TextType } from '@polkadot/types'
+import { endpointAtom } from '@/atoms/endpointsAtom'
+
+export enum TabIndex {
+  Events,
+  Result,
+  Log,
+  RecentBlocks,
+  RecentEvents,
+}
 
 const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
@@ -57,6 +66,11 @@ const resultCountsAtom = atom(get => get(resultsAtom).length)
 const logCountsAtom = atom(get => get(pinkLoggerResultAtom).length)
 const recentBlockCountsAtom = atom(get => get(recentBlocksAtom).length)
 const keyedEventsCountsAtom = atom(get => get(keyedEventsAtom).length)
+
+export const dispatchOpenTabAtom = atom(null, (_, set, tabIndex: TabIndex) => {
+  set(toggleEventListAtom, true)
+  set(currentTabAtom, tabIndex)
+})
 
 const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
@@ -302,17 +316,20 @@ const AccountName = ({ value }: AccountNameProps) => {
 
 const RecentBlocksPanel = () => {
   const recentBlocks = useAtomValue(recentBlocksAtom)
+  const endpoint = useAtomValue(endpointAtom)
   return (
-    <List>
+    <List tw="font-mono">
       {
         recentBlocks.map(header => {
           const hashHex = header.hash.toHex()
           const author = header.author
 
+          const blockDetailHref = `https://polkadot.js.org/apps/?rpc=${encodeURIComponent(endpoint)}#/explorer/query/${hashHex}`
+
           return (
             <ListItem key={header.number.toString()}>
               <Flex>
-                <Text marginRight={2}>{formatNumber(header.number)}</Text>
+                <Text as="a" href={blockDetailHref} target="_blank" marginRight={2} cursor="pointer">{formatNumber(header.number)}</Text>
                 <Tooltip label={hashHex}>
                   <Text flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2}>{hashHex}</Text>
                 </Tooltip>
