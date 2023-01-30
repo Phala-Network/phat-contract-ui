@@ -205,7 +205,8 @@ export const availableWorkerListAtom = atom(get => {
     return R.without(
       [
         "0x9e10f9be30e98a2a689c255f0780d6d58c6ca29dad1ea3f77ec94aaa8c9c174f",
-        "0x50cfa4b7a48893c8772cf348d7c2eb03071263a7f8ab4381a20e1df2a99dbc3a"
+        "0x50cfa4b7a48893c8772cf348d7c2eb03071263a7f8ab4381a20e1df2a99dbc3a",
+        "0x56fba76655c52dcf00170374f4e3e18a980210b5af53b46260b9754636bfac76"
       ],
       clusterInfo.workers
     )
