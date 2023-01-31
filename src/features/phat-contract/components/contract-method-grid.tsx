@@ -1,4 +1,7 @@
-import React, { FC, Suspense, useState } from 'react'
+import type { FC } from 'react'
+import type { DepositSettings } from '../hooks/useContractExecutor'
+
+import React, { Suspense, useState } from 'react'
 import * as R from 'ramda'
 import tw from 'twin.macro'
 import {
@@ -14,6 +17,11 @@ import {
   Button,
   ButtonGroup,
   CircularProgress,
+  Spinner,
+  Checkbox,
+  FormControl,
+  FormLabel,
+  Input,
 } from '@chakra-ui/react'
 import { atom, useAtom, useSetAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
@@ -22,26 +30,82 @@ import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
 import Code from '@/components/code'
-import useContractExecutor, { ExecResult } from '../hooks/useContractExecutor'
+import useContractExecutor, { estimateGasAtom, inputsAtom, ExecResult } from '../hooks/useContractExecutor'
 import { currentMethodAtom, messagesAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
 // import { clearAtomsCache, currentArgsFormClearValidationAtom } from '../argumentsFormAtom'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
+type DepositSettingsValue = (Omit<DepositSettings, 'gasLimit' | 'storageDepositLimit'> & { autoDeposit: true }) | (DepositSettings & { autoDeposit: false })
+
 export const argsFormModalVisibleAtom = atom(false)
+
+const depositSettingsValueAtom = atom<DepositSettingsValue>({ autoDeposit: true })
+
+const depositSettingsFieldAtom = atom(
+  get => {
+    const estimate = get(estimateGasAtom)
+    const store = get(depositSettingsValueAtom)
+    if (store.autoDeposit) {
+      const value: DepositSettings = {
+        autoDeposit: true,
+        gasLimit: estimate.gasLimit.toNumber(),
+        storageDepositLimit: estimate.storageDepositLimit ? estimate.storageDepositLimit.toNumber() : 0,
+      }
+      return value
+    }
+    return store
+  },
+  (get, set, updates: Partial<Required<DepositSettings>>) => {
+    if (!updates.autoDeposit) {
+      const estimate = get(estimateGasAtom)
+      const prev = get(depositSettingsValueAtom)
+      let gasLimit: number | null | undefined = updates.gasLimit
+      let storageDepositLimit: number | null | undefined = updates.storageDepositLimit
+
+      if (gasLimit === undefined) {
+        if (!prev.autoDeposit && prev.gasLimit !== undefined) {
+          gasLimit = prev.gasLimit
+        } else if (estimate.gasLimit) {
+          gasLimit = estimate.gasLimit.toNumber()
+        }
+      }
+
+      if (storageDepositLimit === undefined) {
+        if (!prev.autoDeposit) {
+          if (prev.storageDepositLimit !== null) {
+            storageDepositLimit = prev.storageDepositLimit
+          }
+        }
+        if (estimate.storageDepositLimit) {
+          storageDepositLimit = estimate.storageDepositLimit.toNumber()
+        }
+      }
+      let value: DepositSettingsValue = {
+        autoDeposit: false,
+        gasLimit,
+        storageDepositLimit,
+      }
+      set(depositSettingsValueAtom, value)
+    } else {
+      set(depositSettingsValueAtom, { autoDeposit: true })
+    }
+  }
+)
 
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
   onFinish?: () => void
 }> = ({ onFinish }) => {
+  const depositSettings = useAtomValue(depositSettingsValueAtom)
   const [isRunning, runner] = useContractExecutor()
   return (
     <Button
       colorScheme="phalaDark"
       isLoading={isRunning}
       onClick={async () =>{
-        const result = await runner()
+        const result = await runner(depositSettings)
         if (result === ExecResult.Stop) {
           return
         }
@@ -62,15 +126,96 @@ const InstaExecuteButton: FC<{
     <button
       tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"
       disabled={isRunning}
-      onClick={() => runner(methodSpec)}
+      onClick={() => runner({autoDeposit: true}, methodSpec)}
     >
       {isRunning ? <CircularProgress isIndeterminate size="1.5rem" color="black" /> : <TiFlash tw="h-6 w-6 text-phala-200" />}
     </button>
   )
 }
 
+const AutoDepositInputGroup = () => {
+  const [value, update] = useAtom(depositSettingsFieldAtom)
+  if (value.autoDeposit) {
+    return (
+      <>
+        <Checkbox isChecked onChange={() => update({ autoDeposit: false })}>
+          Auto-deposit
+        </Checkbox>
+        <dl tw='text-xs flex flex-col gap-1 mt-2'>
+          <div tw='flex flex-row'>
+            <dt tw='text-gray-500 min-w-[6.5rem]'>Gas</dt>
+            <dd>{value.gasLimit || ''}</dd>
+          </div>
+          <div tw='flex flex-row'>
+            <dt tw='text-gray-500 min-w-[6.5rem]'>Storage Deposit</dt>
+            <dd>{value.storageDepositLimit || ''}</dd>
+          </div>
+        </dl>
+      </>
+    )
+  }
+  return (
+    <>
+      <Checkbox onChange={() => update({ autoDeposit: true })}>
+        Auto-deposit
+      </Checkbox>
+      <div tw='flex flex-col gap-2 mt-2'>
+        <FormControl>
+          <FormLabel tw='text-xs'>
+            Gas Limit
+          </FormLabel>
+          <Input
+            size="sm"
+            value={(value.gasLimit === null || value.gasLimit === undefined) ? '' : `${value.gasLimit}`}
+            onChange={({ target: { value } }) => {
+              update({ gasLimit: value === '' ? null : Number(value) })
+            }}
+          />
+        </FormControl>
+        <FormControl>
+          <FormLabel tw='text-xs'>
+            Storage Deposit Limit
+          </FormLabel>
+          <Input
+            size="sm"
+            value={(value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`}
+            onChange={({ target: { value } }) => {
+              update({ storageDepositLimit: value === '' ? null : Number(value) })
+            }}
+          />
+        </FormControl>
+      </div>
+    </>
+  )
+}
+
+const DepositSettingsField = () => {
+  return (
+    <div>
+      <FormControl mt={4}>
+        <FormLabel>
+          Gas Limit
+        </FormLabel>
+        <div tw="px-4 pb-4">
+          <Suspense fallback={
+            <Checkbox isReadOnly isChecked>
+              <span tw='flex flex-row gap-2 items-center'>
+                <span tw='text-gray-400'>Auto-deposit</span>
+                <Spinner size="xs" />
+              </span>
+            </Checkbox>
+          }>
+            <AutoDepositInputGroup />
+          </Suspense>
+        </div>
+      </FormControl>
+    </div>
+  )
+}
+
 const SimpleArgsFormModal = () => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
+  const setPreviewInputs = useSetAtom(inputsAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
   // const currentArgsFormClearValidation = useSetAtom(currentArgsFormClearValidationAtom)
 
@@ -98,6 +243,7 @@ const SimpleArgsFormModal = () => {
         </ModalHeader>
         <ModalBody>
           <ArgumentsForm />
+          {currentMethod.mutates ? <DepositSettingsField /> : null}
         </ModalBody>
         <ModalFooter>
           <ButtonGroup>
