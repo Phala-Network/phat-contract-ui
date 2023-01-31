@@ -17,6 +17,7 @@
    AugmentedQuery,
    AugmentedQueryAt,
  } from '@polkadot/api/types/storage'
+ import { BN } from '@polkadot/util';
  
  declare global {
    type PalletPhalaWorldStatusType = string & (
@@ -38,6 +39,18 @@
        legendaryOriginOfShellPrice: Balance
        secondsPerEra: u64
        iterLimit: u32
+     },
+     babe: {
+       expectedBlockTime: BN
+     },
+     difficulty: {
+       targetBlockTime: BN
+     },
+     subspace: {
+       expectedBlockTime: BN
+     },
+     timestamp: {
+       minimumPeriod: BN
      }
    }
  
