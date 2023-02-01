@@ -181,15 +181,14 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         }
       }
     } finally {
-      if (api && signer && account && systemContractId) {
+      if (api && signer && account && systemContractId && remotePubkey) {
         try {
           const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
           const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {
             const { sidevmQuery } = result
             const params = {
-              action: 'GetLog',
-              contract: contract.contractId,
+              action: 'GetLog',              contract: contract.contractId,
             }
             const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
