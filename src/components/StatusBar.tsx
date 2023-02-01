@@ -348,45 +348,50 @@ const RecentBlocksPanel = () => {
   )
 }
 
+// @example ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+//       => ['a b (ab)12.3', '123', '']
+export const formatMetaDocs = R.pipe(
+  // @example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+  //       => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
+  (strings: string[]): string[] => {
+    // find the first empty string index
+    const firstEmptyIndex = R.findIndex(R.isEmpty, strings)
+    // slice from the zeroth element to the previous element where the first is empty
+    return R.slice(
+      0,
+      firstEmptyIndex === -1 ? Infinity : firstEmptyIndex,
+      strings
+    )
+  },
+  // join a string array to a long string
+  // @example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
+  //       => 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
+  R.join(' '),
+  // remove HTML tag, leave pure text
+  // @example 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
+  //       => 'a b (ab)12.3\[`123`\]'
+  R.replace(/#(<weight>| <weight>).*<\/weight>/, ''),
+  // remove special char
+  // @example 'a b (ab)12.3\[`123`\]'
+  //       => 'a b (ab)12.3[123]'
+  R.replace(/[\\\`]/g, ''),
+  // @example 'a b (ab)12.3[123]'
+  //       => ['a b (ab)12.3', '123', '']
+  R.split(/[\[\]]/g),
+)
+
 const formatMeta = (meta?: EventMetadataLatest): [React.ReactNode, React.ReactNode] | null => {
   if (!meta || !meta.docs.length) {
     return null;
   }
 
-  // @example ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
-  //       => ['a b (ab)12.3', '123', '']
-  const parts = R.pipe(
-    // input: [TextType, TextType], TextType is an object like String that has a .toString method that can convert to string
-    // example, [Text, Text] => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
-    R.map<TextType, string>(doc => R.trim(doc.toString())),
-    // example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
-    //       => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
-    (strings: string[]): string[] => {
-      // find the first empty string index
-      const firstEmptyIndex = R.findIndex(R.isEmpty, strings)
-      // slice from the zeroth element to the previous element where the first is empty
-      return R.slice(
-        0,
-        firstEmptyIndex === -1 ? Infinity : firstEmptyIndex,
-        strings
-      )
-    },
-    // join a string array to a long string
-    // example, ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]']
-    //       => 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
-    R.join(' '),
-    // remove HTML tag, leave pure text
-    // @example 'a b (ab)12.3#<weight>456</weight>\[`123`\]'
-    //       => 'a b (ab)12.3\[`123`\]'
-    R.replace(/#(<weight>| <weight>).*<\/weight>/, ''),
-    // remove special char
-    // @example 'a b (ab)12.3\[`123`\]'
-    //       => 'a b (ab)12.3[123]'
-    R.replace(/[\\\`]/g, ''),
-    // @example 'a b (ab)12.3[123]'
-    //       => ['a b (ab)12.3', '123', '']
-    R.split(/[\[\]]/g),
-  )(meta.docs.toArray())
+  // Vec<Text> => [TextType, TextType]
+  // TextType is an object like String that has a .toString method that can convert to string
+  const originDocs = meta.docs.toArray()
+  // convert every Text to string
+  // @example, [Text, Text] => ['a', 'b', '(ab)12.3#<weight>456</weight>\[`123`\]', '', '', '789']
+  const docs = R.map<TextType, string>(doc => R.trim(doc.toString()), originDocs)
+  const parts = formatMetaDocs(docs)
 
   const headerSubInfo = R.pipe(
     // @example ['a b (ab)12.3', '123', '']
