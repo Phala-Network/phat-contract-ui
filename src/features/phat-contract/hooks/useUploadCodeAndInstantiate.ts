@@ -1,4 +1,5 @@
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types'
+import type { DepositSettingsValue } from '../atomsWithDepositSettings'
 
 import { useCallback } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -27,7 +28,7 @@ export default function useUploadCodeAndInstantiate() {
   const saveContract = useSetAtom(localContractsAtom)
   const chooseInitSelector = useAtomValue(contractSelectedInitSelectorAtom)
 
-  return useCallback(async (account: InjectedAccountWithMeta, contract:ContractMetadata, clusterId: string) => {
+  return useCallback(async (account: InjectedAccountWithMeta, contract:ContractMetadata, clusterId: string, depositSettings?: DepositSettingsValue) => {
     console.group('Instantiate Contract:', clusterId)
     try {
       if (!signer) {
@@ -55,6 +56,14 @@ export default function useUploadCodeAndInstantiate() {
       if (!initSelector) {
         throw new Error('No valid initSelector specified.')
       }
+
+      const [gasLimit, storageDepositLimit] = (() => {
+        if (!depositSettings || depositSettings.autoDeposit) {
+          return [1e12, null]
+        }
+        return [(depositSettings.gasLimit || 0) < 1e12 ? 1e12 : depositSettings.gasLimit, depositSettings.storageDepositLimit]
+      })()
+      console.log('transaction gasLimit & storageDepositLimit: ', gasLimit, storageDepositLimit, depositSettings)
   
       // Upload & instantiate contract
       console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
@@ -69,8 +78,10 @@ export default function useUploadCodeAndInstantiate() {
           api.tx.phalaFatContracts.instantiateContract(
             { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId,
             0,  // not transfer any token to the contract during initialization
-            1e12,  // a high enough gasLimit to satisfy most of the execution
-            null,  // don't put any storageDepositLimit
+            gasLimit,
+            storageDepositLimit,
+            // 1e12,  // a high enough gasLimit to satisfy most of the execution
+            // null,  // don't put any storageDepositLimit
             0
           ),
         ]),
