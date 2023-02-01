@@ -1,5 +1,8 @@
 import type {Bytes} from '@polkadot/types-codec'
 import type {ContractOptions} from '@polkadot/api-contract/types'
+import type { u64 } from '@polkadot/types'
+import type { BN } from '@polkadot/util'
+import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
@@ -34,6 +37,7 @@ import { singleInputsValidator } from '@/functions/argumentsValidator'
 import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFieldValue, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 // import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
 
+
 interface InkResponse {
   nonce: string
   result: {
@@ -43,17 +47,17 @@ interface InkResponse {
   }
 }
 
-export interface DepositSettings {
-  autoDeposit: boolean
-  gasLimit?: number | null
-  storageDepositLimit?: number | null
-}
-
 const debug = createLogger('chain', 'debug')
+
+
+interface EstimateGasResult {
+  gasLimit: u64
+  storageDepositLimit: BN | null
+}
 
 async function estimateGas(contract: ContractPromise, method: string, cert: CertificateData, args: unknown[]) {
   const { gasRequired, storageDeposit } = await contract.query[method](cert as any, {}, ...args)
-  const options = {
+  const options: EstimateGasResult = {
       gasLimit: (gasRequired as any).refTime,
       storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
   }
@@ -109,7 +113,6 @@ export const estimateGasAtom = atom(async get => {
     selectedMethodSpec!.args
   )
   const txConf = await estimateGas(contractInstance, txMethods[selectedMethodSpec!.label], cert, args);
-  console.log('useContractEstimeateGas', txConf.gasLimit.toHuman(), txConf.storageDepositLimit?.toHuman())
   return txConf
 })
 

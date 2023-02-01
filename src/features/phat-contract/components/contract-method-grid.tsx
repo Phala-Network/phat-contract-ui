@@ -1,5 +1,4 @@
 import type { FC } from 'react'
-import type { DepositSettings } from '../hooks/useContractExecutor'
 
 import React, { Suspense, useState } from 'react'
 import * as R from 'ramda'
@@ -35,63 +34,12 @@ import { currentMethodAtom, messagesAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
 // import { clearAtomsCache, currentArgsFormClearValidationAtom } from '../argumentsFormAtom'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
+import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
 
-type DepositSettingsValue = (Omit<DepositSettings, 'gasLimit' | 'storageDepositLimit'> & { autoDeposit: true }) | (DepositSettings & { autoDeposit: false })
+
+const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
 
 export const argsFormModalVisibleAtom = atom(false)
-
-const depositSettingsValueAtom = atom<DepositSettingsValue>({ autoDeposit: true })
-
-const depositSettingsFieldAtom = atom(
-  get => {
-    const estimate = get(estimateGasAtom)
-    const store = get(depositSettingsValueAtom)
-    if (store.autoDeposit) {
-      const value: DepositSettings = {
-        autoDeposit: true,
-        gasLimit: estimate.gasLimit.toNumber(),
-        storageDepositLimit: estimate.storageDepositLimit ? estimate.storageDepositLimit.toNumber() : 0,
-      }
-      return value
-    }
-    return store
-  },
-  (get, set, updates: Partial<Required<DepositSettings>>) => {
-    if (!updates.autoDeposit) {
-      const estimate = get(estimateGasAtom)
-      const prev = get(depositSettingsValueAtom)
-      let gasLimit: number | null | undefined = updates.gasLimit
-      let storageDepositLimit: number | null | undefined = updates.storageDepositLimit
-
-      if (gasLimit === undefined) {
-        if (!prev.autoDeposit && prev.gasLimit !== undefined) {
-          gasLimit = prev.gasLimit
-        } else if (estimate.gasLimit) {
-          gasLimit = estimate.gasLimit.toNumber()
-        }
-      }
-
-      if (storageDepositLimit === undefined) {
-        if (!prev.autoDeposit) {
-          if (prev.storageDepositLimit !== null) {
-            storageDepositLimit = prev.storageDepositLimit
-          }
-        }
-        if (estimate.storageDepositLimit) {
-          storageDepositLimit = estimate.storageDepositLimit.toNumber()
-        }
-      }
-      let value: DepositSettingsValue = {
-        autoDeposit: false,
-        gasLimit,
-        storageDepositLimit,
-      }
-      set(depositSettingsValueAtom, value)
-    } else {
-      set(depositSettingsValueAtom, { autoDeposit: true })
-    }
-  }
-)
 
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
