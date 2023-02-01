@@ -1,6 +1,7 @@
-import { FC, ReactNode, useEffect } from 'react'
+import type { FC, ReactNode } from 'react'
+import type { EstimateResultLike } from '../atomsWithDepositSettings'
 
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import tw from 'twin.macro'
 import {
   Button,
@@ -17,18 +18,81 @@ import {
   InputGroup,
   InputRightAddon,
   FormHelperText,
+  Checkbox,
 } from '@chakra-ui/react'
-import { useAtom, useAtomValue } from 'jotai'
+import { atom, useAtom, useAtomValue } from 'jotai'
 import { useResetAtom, waitForAll } from 'jotai/utils'
 import { useNavigate } from '@tanstack/react-location'
-import { find } from 'ramda'
+import { find, path } from 'ramda'
+import { create, signCertificate } from '@phala/sdk'
+import { Keyring } from '@polkadot/keyring'
+import { ApiPromise } from '@polkadot/api'
+import { BN } from '@polkadot/util'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom } from '@/features/identity/atoms'
-import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom, candidateAllowIndeterminismAtom } from '../atoms'
+import {
+  candidateAtom,
+  currentClusterIdAtom,
+  availableClusterOptionsAtom,
+  candidateFileInfoAtom,
+  pruntimeURLAtom,
+  instantiateTimeoutAtom,
+  currentWorkerIdAtom,
+  currentSystemContractIdAtom,
+  contractSelectedInitSelectorAtom,
+  candidateAllowIndeterminismAtom,
+} from '../atoms'
 import useUploadCodeAndInstantiate from '../hooks/useUploadCodeAndInstantiate'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
+import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
+import { apiPromiseAtom } from '../../parachain/atoms'
+
+
+const instantiateEstimateGasAtom = atom(async get => {
+  const apiPromise = get(apiPromiseAtom)
+  const pruntimeURL = get(pruntimeURLAtom)
+  const remotePubkey = get(currentWorkerIdAtom)
+  const systemContractId = get(currentSystemContractIdAtom)
+  const candidate = get(candidateAtom)
+  const initSelector = get(contractSelectedInitSelectorAtom)
+  if (!systemContractId || !candidate) {
+    return { gasLimit: new BN(0), storageDepositLimit: null } as EstimateResultLike
+  }
+  const { instantiate } = await create({
+    // api: await api.clone().isReady,
+    // @ts-ignore
+    api: await ApiPromise.create({ ...apiPromise._options }),
+    baseURL: pruntimeURL,
+    contractId: systemContractId,
+    remotePubkey: remotePubkey,
+  })
+  const keyring = new Keyring({ type: 'sr25519' })
+  const pair = keyring.addFromUri('//Alice')
+  const cert = await signCertificate({ api: apiPromise, pair })
+  const raw = await instantiate({
+    // @ts-ignore
+    codeHash: candidate.source.hash,
+    salt: '0x' + new Date().getTime(),
+    instantiateData: initSelector,
+    deposit: 0,
+    transfer: 0,
+  }, cert)
+  const response = apiPromise.createType('InkResponse', raw)
+  const rawReturns = path(['nonce', 'result', 'ok', 'inkMessageReturn'], response.toJSON())
+  const returns = apiPromise.createType('ContractInstantiateResult', rawReturns)
+  // @ts-ignore
+  const { gasRequired, storageDeposit } = returns
+  const options: EstimateResultLike = {
+    gasLimit: (gasRequired as any).refTime,
+    storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
+  }
+  return options
+})
+
+const [depositSettingsValueAtom, depositSettingsControlsAtom] = atomsWithDepositSettings(instantiateEstimateGasAtom)
+
 
 const ClusterIdSelect = () => {
   const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
@@ -90,6 +154,87 @@ const InstantiateTimeoutField = () => {
   )
 }
 
+const DepositSettingsFieldset = () => {
+  const [value, update] = useAtom(depositSettingsControlsAtom)
+  if (value.autoDeposit) {
+    return (
+      <>
+        <Checkbox isChecked onChange={() => update({ autoDeposit: false })}>
+          Auto-deposit
+        </Checkbox>
+        <dl tw='text-xs flex flex-col gap-1 mt-2'>
+          <div tw='flex flex-row'>
+            <dt tw='text-gray-500 min-w-[6.5rem]'>Gas</dt>
+            <dd>{value.gasLimit || '1000000000000'}</dd>
+          </div>
+          <div tw='flex flex-row'>
+            <dt tw='text-gray-500 min-w-[6.5rem]'>Storage Deposit</dt>
+            <dd>{value.storageDepositLimit || ''}</dd>
+          </div>
+        </dl>
+      </>
+    )
+  }
+  return (
+    <>
+      <Checkbox onChange={() => update({ autoDeposit: true })}>
+        Auto-deposit
+      </Checkbox>
+      <div tw='flex flex-col gap-2 mt-2'>
+        <FormControl>
+          <FormLabel tw='text-xs'>
+            Gas Limit
+          </FormLabel>
+          <Input
+            size="sm"
+            defaultValue={`${1e12}`}
+            value={(value.gasLimit === null || value.gasLimit === undefined || value.gasLimit === 0) ? undefined : `${value.gasLimit}`}
+            onChange={({ target: { value } }) => {
+              update({ gasLimit: value === '' ? null : Number(value) })
+            }}
+          />
+        </FormControl>
+        <FormControl>
+          <FormLabel tw='text-xs'>
+            Storage Deposit Limit
+          </FormLabel>
+          <Input
+            size="sm"
+            value={(value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`}
+            onChange={({ target: { value } }) => {
+              update({ storageDepositLimit: value === '' ? null : Number(value) })
+            }}
+          />
+        </FormControl>
+      </div>
+    </>
+  )
+}
+
+const DepositSettingsField = () => {
+  return (
+    <div>
+      <FormControl>
+        <FormLabel>
+          Gas Limit
+        </FormLabel>
+        <div tw="pb-4">
+          <Suspense fallback={
+            <Checkbox isReadOnly isChecked>
+              <span tw='flex flex-row gap-2 items-center'>
+                <span tw='text-gray-400'>Auto-deposit</span>
+                <Spinner size="xs" />
+              </span>
+            </Checkbox>
+          }>
+            <DepositSettingsFieldset />
+          </Suspense>
+        </div>
+      </FormControl>
+    </div>
+  )
+}
+
 const SubmitButton = () => {
   const [account, candidate, clusterId, pruntime] = useAtomValue(waitForAll([
     currentAccountAtom,
@@ -104,6 +249,7 @@ const SubmitButton = () => {
   const toast = useToast()
   const uploadCodeAndInstantiate = useUploadCodeAndInstantiate()
   const navigate = useNavigate()
+  const depositSettings = useAtomValue(depositSettingsValueAtom)
   
   const isDisabled = !(clusterId && pruntime && balance.gt(1))
   
@@ -129,7 +275,7 @@ const SubmitButton = () => {
         return
       }
       if (account && candidate) {
-        const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId)
+        const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId, depositSettings)
         resetContractFileInfo()
         resetAllowIndeterminismAtom()
         if (contractId) {        
@@ -163,6 +309,7 @@ const FatContractUploadForm = () => {
           <ClusterIdSelect />
         </SuspenseFormField>
         <InstantiateTimeoutField />
+        <DepositSettingsField/>
       </VStack>
       <div tw="mb-4 w-full flex justify-end">
         <Suspense fallback={<Button><Spinner /></Button>}>
