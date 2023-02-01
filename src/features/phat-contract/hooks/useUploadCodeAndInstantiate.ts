@@ -71,6 +71,7 @@ export default function useUploadCodeAndInstantiate() {
             0,  // not transfer any token to the contract during initialization
             1e12,  // a high enough gasLimit to satisfy most of the execution
             null,  // don't put any storageDepositLimit
+            0
           ),
         ]),
         account.address,

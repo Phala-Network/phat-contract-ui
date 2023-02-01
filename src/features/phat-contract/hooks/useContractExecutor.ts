@@ -5,8 +5,8 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
-import { hexToString, stringToHex } from '@polkadot/util'
-import { Buffer } from 'buffer'
+import { stringToHex } from '@polkadot/util'
+import { ApiPromise } from '@polkadot/api'
 import * as R from 'ramda'
 
 import { CertificateData, create } from '@phala/sdk'
@@ -27,6 +27,7 @@ import {
   pinkLoggerResultAtom,
   currentSystemContractIdAtom,
   currentClusterIdAtom,
+  currentWorkerIdAtom,
 } from '../atoms'
 
 interface InkResponse {
@@ -68,8 +69,9 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     queryClientAtom,
     signerAtom,
   ]))
-  const data = useAtomValue(remotePubkeyAtom)
-  const remotePubkey = R.path([0,1,0], data) as string
+  const remotePubkey = useAtomValue(currentWorkerIdAtom)
+  // const data = useAtomValue(remotePubkeyAtom)
+  // const remotePubkey = R.path([0,1,0], data) as string
   const systemContractId = useAtomValue(currentSystemContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
@@ -85,10 +87,12 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         return
       }
       console.log('contract', contract)
-      const apiCopy = await api.clone().isReady
+      // @ts-ignore
+      const apiCopy = await ApiPromise.create({ ...api._options })
       const contractInstance = new ContractPromise(
         (await create({
-          api: apiCopy, baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+          api: apiCopy,
+          baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
           // enable autoDeposit to pay for gas fee
           autoDeposit: true
         })).api,
@@ -177,15 +181,14 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         }
       }
     } finally {
-      if (api && signer && account && systemContractId) {
+      if (api && signer && account && systemContractId && remotePubkey) {
         try {
           const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
           const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {
             const { sidevmQuery } = result
             const params = {
-              action: 'GetLog',
-              contract: contract.contractId,
+              action: 'GetLog',              contract: contract.contractId,
             }
             const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse

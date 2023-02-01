@@ -12,14 +12,6 @@ import ContractListPage from '@/pages/contract-list-page'
 import ContractInfoPage from '@/pages/contract-info-page'
 import ComponentListPage from '@/pages/component-list-page'
 
-// const endpoint = 'wss://poc5.phala.network/ws';
-// const endpoint = 'ws://localhost:9944';
-// const endpoint = 'wss://rococo-canvas-rpc.polkadot.io';
-
-// const initialValues: FoundationProviderProps["initialValues"] = [
-//   [rpcEndpointAtom, endpoint],
-// ]
-
 export default function PhalaContractsUI() {
   return (
     <FoundationProvider

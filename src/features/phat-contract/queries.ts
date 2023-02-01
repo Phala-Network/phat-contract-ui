@@ -1,8 +1,8 @@
-import type { ApiPromise } from "@polkadot/api"
 import type { Codec, AnyJson } from '@polkadot/types-codec/types'
 
 import * as R from 'ramda'
 import ms from 'ms'
+import { ApiPromise } from "@polkadot/api"
 import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
@@ -87,7 +87,9 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
 async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string, remotePubkey: string) {
   return new ContractPromise(
     (await create({
-      api: await api.clone().isReady,
+      // @ts-ignore
+      api: await ApiPromise.create({ ...api._options }),
+      // api: await api.clone().isReady,
       baseURL: pruntime,
       contractId: contractId,
       remotePubkey: remotePubkey,
@@ -223,7 +225,7 @@ export function queryPinkLoggerContract(
     queryKey: ['pinkLoggerContract', pruntime, cert, systemContractId],
     queryFn: async () => {
       const systemContract = await createSystemContractPromise(
-        await api.clone().isReady,
+        api,
         pruntime,
         systemContractId,
         remotePubkey
@@ -237,7 +239,9 @@ export function queryPinkLoggerContract(
         return null
       }
       return await create({
-        api: await api.clone().isReady,
+        // api: await api.clone().isReady,
+        // @ts-ignore
+        api: await ApiPromise.create({ ...api._options }),
         baseURL: pruntime,
         contractId: loggerContractId,
         remotePubkey: remotePubkey,
