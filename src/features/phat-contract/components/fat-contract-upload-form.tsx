@@ -25,7 +25,7 @@ import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom } from '@/features/identity/atoms'
-import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom } from '../atoms'
+import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom, candidateAllowIndeterminismAtom } from '../atoms'
 import useUploadCodeAndInstantiate from '../hooks/useUploadCodeAndInstantiate'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
@@ -99,6 +99,7 @@ const SubmitButton = () => {
   ]))
   const balance = useAtomValue(currentAccountBalanceAtom)
   const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
+  const resetAllowIndeterminismAtom = useResetAtom(candidateAllowIndeterminismAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
   const uploadCodeAndInstantiate = useUploadCodeAndInstantiate()
@@ -130,6 +131,7 @@ const SubmitButton = () => {
       if (account && candidate) {
         const contractId = await uploadCodeAndInstantiate(account, candidate, clusterId)
         resetContractFileInfo()
+        resetAllowIndeterminismAtom()
         if (contractId) {        
           navigate({ to: `/contracts/view/${contractId}` })
         }

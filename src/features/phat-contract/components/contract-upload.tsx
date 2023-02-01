@@ -1,6 +1,6 @@
-import { useCallback } from 'react'
+import React, { useCallback } from 'react'
 import tw from 'twin.macro'
-import { FormControl, FormLabel, Button, Select } from '@chakra-ui/react'
+import { FormControl, FormLabel, Button, Select, Checkbox } from '@chakra-ui/react'
 import { IoCloudUploadOutline } from 'react-icons/io5'
 import { useDropzone } from 'react-dropzone'
 import { useAtom } from 'jotai'
@@ -10,18 +10,38 @@ import {
   contractCandidateAtom,
   candidateFileInfoAtom,
   contractParserErrorAtom,
+  candidateAllowIndeterminismAtom,
+  contractWASMInvalid,
 } from "../atoms";
 
 const HelpText = () => {
   const error = useAtomValue(contractParserErrorAtom)
-  return error ? (
-    <p tw="text-xs text-red-500">
-      {error}
-    </p>
-  ) : (
-    <p tw="text-xs text-gray-500">
-      The file name of Contract Bundle is ends with .contract
-    </p>
+  const WASMInvalid = useAtomValue(contractWASMInvalid)
+  const WASMInvalidSolution = WASMInvalid ? (
+    <a
+      tw="ml-1 text-blue-500 hover:cursor-pointer"
+      href="https://wiki.phala.network/en-us/build/support/faq/#phat-ui-reports-an-error-before-deploying-the-contract"
+    >
+      Go to see solution
+    </a>
+  ) : null
+
+  return (
+    <>
+      {   
+        error ? (
+          <p tw="text-xs text-red-500">
+            {error}
+            {WASMInvalidSolution}
+          </p>
+        ) : (
+          <p tw="text-xs text-gray-500">
+            The file name of Contract Bundle is ends with .contract
+            {WASMInvalidSolution}
+          </p>
+        )
+      }
+    </>
   )
 }
 
@@ -86,6 +106,8 @@ const CandidatePreview = () => {
 
 const ContractFileUpload = () => {
   const finfo = useAtomValue(candidateFileInfoAtom)
+  const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
+
   return (
     <FormControl>
       <FormLabel>Contract File</FormLabel>
@@ -94,6 +116,16 @@ const ContractFileUpload = () => {
       ) : (
         <Dropzone />
       )}
+      <Checkbox
+        mt={2}
+        size="sm"
+        isChecked={allowIndeterminismAtom}
+        onChange={() => {
+          setAllowIndeterminismAtom(!allowIndeterminismAtom);
+        }}
+      >
+        Allow indeterminism
+      </Checkbox>
     </FormControl>
   )
 }

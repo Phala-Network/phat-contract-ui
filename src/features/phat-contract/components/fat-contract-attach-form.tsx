@@ -22,7 +22,7 @@ import { useNavigate } from '@tanstack/react-location'
 import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
-import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom, contractAttachTargetAtom } from '../atoms'
+import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom, contractAttachTargetAtom, candidateAllowIndeterminismAtom } from '../atoms'
 import useAttachToContract from '../hooks/useAttachToContract'
 import ContractFileUpload from './contract-upload'
 
@@ -99,6 +99,7 @@ const SubmitButton = () => {
   ]))
   const contractId = useAtomValue(contractAttachTargetAtom)
   const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
+  const resetAllowIndeterminismAtom = useResetAtom(candidateAllowIndeterminismAtom)
   const [isLoading, setIsLoading] = useState(false)
   const toast = useToast()
   const attachToContract = useAttachToContract()
@@ -130,6 +131,7 @@ const SubmitButton = () => {
       if (candidate) {
         const succeeded = await attachToContract(candidate, clusterId, contractId)
         resetContractFileInfo()
+        resetAllowIndeterminismAtom()
         if (succeeded) {        
           navigate({ to: `/contracts/view/${contractId}` })
         }

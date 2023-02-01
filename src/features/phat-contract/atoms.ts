@@ -10,6 +10,8 @@ import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { queryClusterList, queryContractList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
+import { validateHex } from '@phala/ink-validator'
+
 export interface SelectorOption {
   value: string
   label: string
@@ -41,8 +43,10 @@ export interface ContractExecuteResult {
 export const candidateAtom = atom<ContractMetadata | null>(null)
 
 export const candidateFileInfoAtom = atomWithReset({ name: '', size: 0 })
+export const candidateAllowIndeterminismAtom = atomWithReset(false)
 
 export const contractParserErrorAtom = atom('')
+export const contractWASMInvalid = atom(false)
 
 export const contractAvailableSelectorAtom = atom(get => {
   const contract = get(candidateAtom)
@@ -79,9 +83,18 @@ export const contractFinalInitSelectorAtom = atom(get => {
   return ''
 })
 
-export const contractCandidateAtom = atom('', (_, set, file: File) => {
+export const contractCandidateAtom = atom('', (get, set, file: File) => {
+  // file size can't > 2MB
+  if (file?.size && file.size / 1024 / 1024 > 2) {
+  // // easy to debug
+  // if (file?.size && file.size > 2) {
+    set(contractParserErrorAtom, 'Your contract file size is over 2MB. Please change to another one.')
+    return
+  }
+
   const reader = new FileReader()
   set(contractParserErrorAtom, '')
+  set(contractWASMInvalid, false)
   reader.addEventListener('load', () => {
     try {
       const contract = JSON.parse(reader.result as string)
@@ -94,6 +107,19 @@ export const contractCandidateAtom = atom('', (_, set, file: File) => {
         set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
         return
       }
+
+      const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
+      // if valid pass, validResult is ''
+      // if valid failed, validResult is the failed error
+      const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
+
+      // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
+      if (validResult) {
+        set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
+        set(contractWASMInvalid, true)
+        return
+      }
+
       set(candidateFileInfoAtom, { name: file.name, size: file.size })
       set(candidateAtom, contract)
     } catch (e) {
