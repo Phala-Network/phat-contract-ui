@@ -4,7 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { Box, Text, Tooltip, Button, TableContainer, Table, Tbody, Tr, Td } from '@chakra-ui/react'
 import { useLastBlock } from '../hooks/useLastBlock'
 import { useTarget } from '../hooks/useTarget';
-import { lastEventsAtom } from '../atoms';
+import { bestNumberAtom, lastEventsAtom } from '../atoms';
 import { endpointAtom } from '@/atoms/endpointsAtom';
 import { dispatchOpenTabAtom, TabIndex } from '@/components/StatusBar';
 
@@ -28,6 +28,7 @@ const BlockTarget = () => {
 const ChainSummary = () => {
   const lastBlock = useLastBlock()
   const lastEvents = useAtomValue(lastEventsAtom)
+  const bestNumber = useAtomValue(bestNumberAtom)
   const endpoint = useAtomValue(endpointAtom)
   const dispatchOpenTab = useSetAtom(dispatchOpenTabAtom)
   const portalHref = `https://polkadot.js.org/apps/?rpc=${encodeURIComponent(endpoint)}`
@@ -58,6 +59,10 @@ const ChainSummary = () => {
             <Tr onClick={openRecentEvents} cursor="pointer" tw="hover:opacity-80">
               <Td tw="px-0 py-1 text-right w-0">Last events</Td>
               <Td tw="pl-3 py-1 font-mono">{lastEvents}</Td>
+            </Tr>
+            <Tr>
+              <Td tw="px-0 py-1 text-right w-0">Best</Td>
+              <Td tw="pl-3 py-1 font-mono">{bestNumber}</Td>
             </Tr>
           </Tbody>
         </Table>
