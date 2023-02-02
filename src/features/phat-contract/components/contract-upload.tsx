@@ -49,6 +49,7 @@ const HelpPanel = () => {
                 as="a"
                 href="https://wiki.phala.network/en-us/build/support/faq/#phat-ui-reports-an-error-before-deploying-the-contract"
                 target="_blank"
+                rel="noopener"
                 colorScheme="phalaDark"
                 variant="outline"
                 rightIcon={<IoArrowForward />}
