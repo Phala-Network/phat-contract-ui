@@ -1,7 +1,7 @@
-import { useCallback } from 'react'
+import React, { useCallback } from 'react'
 import tw from 'twin.macro'
-import { FormControl, FormLabel, Button, Select } from '@chakra-ui/react'
-import { IoCloudUploadOutline } from 'react-icons/io5'
+import { FormControl, FormLabel, Button, Select, Checkbox, Box, Text, Code, Flex } from '@chakra-ui/react'
+import { IoCloudUploadOutline, IoWarning, IoRefresh, IoArrowForward } from 'react-icons/io5'
 import { useDropzone } from 'react-dropzone'
 import { useAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
@@ -10,18 +10,57 @@ import {
   contractCandidateAtom,
   candidateFileInfoAtom,
   contractParserErrorAtom,
+  candidateAllowIndeterminismAtom,
+  contractWASMInvalid,
 } from "../atoms";
 
-const HelpText = () => {
-  const error = useAtomValue(contractParserErrorAtom)
-  return error ? (
-    <p tw="text-xs text-red-500">
-      {error}
-    </p>
-  ) : (
-    <p tw="text-xs text-gray-500">
-      The file name of Contract Bundle is ends with .contract
-    </p>
+const HelpPanel = () => {
+  const [error, setError] = useAtom(contractParserErrorAtom)
+  const WASMInvalid = useAtomValue(contractWASMInvalid)
+
+  const onRetry = () => {
+    setError('')
+  }
+
+  return (
+    <Flex
+      position="absolute"
+      top="0"
+      left="0"
+      w="full"
+      h="full"
+      bg="white"
+      alignItems="center"
+      justifyContent="center"
+      color="black"
+      display={error ? undefined : 'none'}
+    >
+      <Box pr={8} ml={-40}>
+        <IoWarning size={72} />
+      </Box>
+      <Box>
+        <Text fontSize="xl">Error</Text>
+        <Text fontSize="sm">{error}</Text>
+        <Flex gap={2} mt={4}>
+          <Button colorScheme="phalaDark" rightIcon={<IoRefresh />} onClick={onRetry}>Retry</Button>
+          {
+            WASMInvalid ? (
+              <Button
+                as="a"
+                href="https://wiki.phala.network/en-us/build/support/faq/#phat-ui-reports-an-error-before-deploying-the-contract"
+                target="_blank"
+                rel="noopener"
+                colorScheme="phalaDark"
+                variant="outline"
+                rightIcon={<IoArrowForward />}
+              >
+                Go to see solution
+              </Button>
+            ) : null
+          }
+        </Flex>
+      </Box>
+    </Flex>
   )
 }
 
@@ -36,28 +75,25 @@ const Dropzone = () => {
   }, [setCandidate])
   const {getRootProps, getInputProps, isDragActive} = useDropzone({ onDrop })
   return (
-    <div tw="mt-1">
+    <div tw="mt-1 relative">
       <div tw="flex justify-center px-6 pt-5 pb-6 bg-gray-300 rounded-sm">
-        <div {...getRootProps()} tw="space-y-1 w-full">
-          <IoCloudUploadOutline tw="h-8 w-8 text-black mx-auto mb-4" />
-          <label tw="flex text-sm justify-center text-gray-600 cursor-pointer">
-            <span
-              css={tw`
-              relative bg-white font-medium text-black px-2
-              hover:text-[#f2f2f2] hover:bg-black
-              focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500
-            `}
-            >
-              <span>Click to select</span>
-              <input {...getInputProps()} tw="sr-only" />
-            </span>
-            <p tw="pl-1">or drag and drop</p>
-          </label>
-          <div tw="w-full text-center">
-            <HelpText />
+        <Box
+          {...getRootProps()}
+          tw="w-full h-full p-6 border border-dashed border-gray-600 rounded-sm hover:cursor-pointer hover:bg-gray-100"
+          bg={isDragActive ? 'gray.100' : ''}
+        >
+          <div tw="space-y-1 w-full">
+            <IoCloudUploadOutline tw="h-8 w-8 text-black mx-auto mb-3" />
+            <Text textAlign="center" fontSize={16} color="black">
+              Click or drag file to this area to upload
+            </Text>
+            <Text textAlign="center" fontSize={12} color="gray.600">
+              The file name of Contract Bundle is ends with <Code color="gray.600">.contract</Code>
+            </Text>
           </div>
-        </div>
+        </Box>
       </div>
+      <HelpPanel />
     </div>
   );
 }
@@ -86,6 +122,8 @@ const CandidatePreview = () => {
 
 const ContractFileUpload = () => {
   const finfo = useAtomValue(candidateFileInfoAtom)
+  const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
+
   return (
     <FormControl>
       <FormLabel>Contract File</FormLabel>
@@ -94,6 +132,16 @@ const ContractFileUpload = () => {
       ) : (
         <Dropzone />
       )}
+      <Checkbox
+        mt={2}
+        size="sm"
+        isChecked={allowIndeterminismAtom}
+        onChange={() => {
+          setAllowIndeterminismAtom(!allowIndeterminismAtom);
+        }}
+      >
+        Allow indeterminism
+      </Checkbox>
     </FormControl>
   )
 }
