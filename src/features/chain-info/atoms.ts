@@ -3,7 +3,7 @@ import type { HeaderExtended } from '@polkadot/api-derive/types'
 import { BlockNumber, EventRecord, Header } from '@polkadot/types/interfaces'
 import { Vec } from '@polkadot/types'
 import { xxhashAsHex } from '@polkadot/util-crypto'
-import { stringify } from '@polkadot/util'
+import { formatNumber, stringify } from '@polkadot/util'
 import { switchMap, scan } from 'rxjs/operators'
 import { from, map } from 'rxjs'
 import { atomWithStreamSubscription } from './atomWithStreamSubscription'
@@ -202,3 +202,13 @@ export const systemEventsAtom = atomWithStreamSubscription<Vec<EventRecord>, Sys
 })
 export const keyedEventsAtom = atom(get => get(systemEventsAtom).keyedEvents)
 export const lastEventsAtom = atom(get => get(systemEventsAtom).lastEvents)
+
+export const bestNumberAtom = atomWithStreamSubscription<BlockNumber, string>({
+  createSubscriber: (api, get, handler) => api.derive.chain.bestNumberFinalized(handler),
+  createCombinedObservable: (api, get, sourceObservable) => sourceObservable.pipe(
+    map(number => formatNumber(number)),
+  ),
+  options: {
+    initialValue: '',
+  },
+})
