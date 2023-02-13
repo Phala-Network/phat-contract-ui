@@ -115,10 +115,11 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
       }
 
       if (isCheckWASM) {
-        const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
+        // const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
         // if valid pass, validResult is ''
         // if valid failed, validResult is the failed error
-        const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
+        // const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
+        const validResult = validateHex((contract.source?.wasm || '') as string, false)
         // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
         if (validResult) {
           set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
