@@ -10,7 +10,7 @@ import {
   contractCandidateAtom,
   candidateFileInfoAtom,
   contractParserErrorAtom,
-  candidateAllowIndeterminismAtom,
+  // candidateAllowIndeterminismAtom,
   contractWASMInvalid,
 } from "../atoms";
 
@@ -142,7 +142,7 @@ type ContractFileUploadProps = DropzoneProps
 
 const ContractFileUpload = ({ isCheckWASM } : ContractFileUploadProps) => {
   const finfo = useAtomValue(candidateFileInfoAtom)
-  const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
+  // const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
 
   return (
     <FormControl>
@@ -152,7 +152,7 @@ const ContractFileUpload = ({ isCheckWASM } : ContractFileUploadProps) => {
       ) : (
         <Dropzone isCheckWASM={isCheckWASM} />
       )}
-      {
+      {/* {
         isCheckWASM
           ? (
             <Checkbox
@@ -167,7 +167,7 @@ const ContractFileUpload = ({ isCheckWASM } : ContractFileUploadProps) => {
             </Checkbox>
           )
           : null
-      }
+      } */}
     </FormControl>
   )
 }
