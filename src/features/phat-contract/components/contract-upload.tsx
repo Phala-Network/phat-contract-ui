@@ -64,15 +64,22 @@ const HelpPanel = () => {
   )
 }
 
-const Dropzone = () => {
+interface DropzoneProps {
+  isCheckWASM: boolean
+}
+
+const Dropzone = ({ isCheckWASM = true }: DropzoneProps) => {
   const setCandidate = useUpdateAtom(contractCandidateAtom)
   const onDrop = useCallback((acceptedFiles: File[]) => {
     // Do something with the files
     // @FIXME also the path / name should ends with `.contract`
     if (acceptedFiles.length > 0 && acceptedFiles[0]) {
-      setCandidate(acceptedFiles[0])
+      setCandidate({
+        file: acceptedFiles[0],
+        isCheckWASM,
+      })
     }
-  }, [setCandidate])
+  }, [setCandidate, isCheckWASM])
   const {getRootProps, getInputProps, isDragActive} = useDropzone({ onDrop })
   return (
     <div tw="mt-1 relative">
@@ -88,7 +95,18 @@ const Dropzone = () => {
               Click or drag file to this area to upload
             </Text>
             <Text textAlign="center" fontSize={12} color="gray.600">
-              The file name of Contract Bundle is ends with <Code color="gray.600">.contract</Code>
+              {'The file name of Contract Bundle is ends with '}
+              {
+                isCheckWASM
+                  ? <Code color="gray.600">.contract</Code>
+                  : (
+                    <>
+                      <Code color="gray.600">.contract</Code>
+                      or
+                      <Code color="gray.600">.json</Code>
+                    </>
+                  )
+              }
             </Text>
           </div>
         </Box>
@@ -120,7 +138,9 @@ const CandidatePreview = () => {
   )
 }
 
-const ContractFileUpload = () => {
+type ContractFileUploadProps = DropzoneProps
+
+const ContractFileUpload = ({ isCheckWASM } : ContractFileUploadProps) => {
   const finfo = useAtomValue(candidateFileInfoAtom)
   const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
 
@@ -130,18 +150,24 @@ const ContractFileUpload = () => {
       {finfo.size ? (
         <CandidatePreview />
       ) : (
-        <Dropzone />
+        <Dropzone isCheckWASM={isCheckWASM} />
       )}
-      <Checkbox
-        mt={2}
-        size="sm"
-        isChecked={allowIndeterminismAtom}
-        onChange={() => {
-          setAllowIndeterminismAtom(!allowIndeterminismAtom);
-        }}
-      >
-        Allow indeterminism
-      </Checkbox>
+      {
+        isCheckWASM
+          ? (
+            <Checkbox
+              mt={2}
+              size="sm"
+              isChecked={allowIndeterminismAtom}
+              onChange={() => {
+                setAllowIndeterminismAtom(!allowIndeterminismAtom);
+              }}
+            >
+              Allow indeterminism
+            </Checkbox>
+          )
+          : null
+      }
     </FormControl>
   )
 }
