@@ -157,7 +157,7 @@ const FatContractUploadForm = () => {
         align="left"
         bg="gray.700"
       >
-        <ContractFileUpload />
+        <ContractFileUpload isCheckWASM={true} />
         <InitSelectorField />
         <SuspenseFormField label="Cluster ID">
           <ClusterIdSelect />
