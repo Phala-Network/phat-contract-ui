@@ -1,5 +1,6 @@
 import type {Bytes} from '@polkadot/types-codec'
 
+import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
@@ -60,6 +61,7 @@ const remotePubkeyAtom = atomWithQuery(get => {
 const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
 
 export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
+  const toast = useToast()
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
     pruntimeURLAtom,
@@ -158,7 +160,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           { value: 0, gasLimit: -1 },
           ...args
         )
-        // debug('query result: ', queryResult)
+        debug('query result: ', queryResult)
         // @TODO Error handling
         if (queryResult.result.isOk) {
           appendResult({
@@ -180,6 +182,14 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           })
         }
       }
+    } catch (error) {
+      debug('Execute error', error)
+      toast({
+        title: `Something error`,
+        description: `${error}`,
+        status: 'error',
+        isClosable: true,
+      })
     } finally {
       if (api && signer && account && systemContractId && remotePubkey) {
         try {
