@@ -12,7 +12,8 @@ import createLogger from '@/functions/createLogger'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { createWebsocketConnectionMachineConfig, createWebsocketConnectionMachineOptions } from './websocketConnectionMachine'
-import create from './create'
+import { createApiPromise } from './create'
+import { WsProvider } from '@polkadot/api'
 
 const debug = createLogger('parachain', 'debug')
 
@@ -40,13 +41,21 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
               send({ type: 'CONNECT_TIMEOUT', data: { error: new Error('Connect timeout.') } })
             }, 5 * 1000)
 
-            const [ws, api] = await create(ctx.endpoint)
-            debug('connected')
+            const { cryptoWaitReady } = await import('@polkadot/util-crypto')
+            await cryptoWaitReady()
+
+            const ws = new WsProvider(evt?.data?.endpoint || ctx.endpoint);
 
             ws.on('error', (err) => {
               // @TODO
               debug('setStatus -> error')
+
+              ws.disconnect();
             })
+
+            const api = await createApiPromise(ws);
+
+            debug('connected')
 
             api.on('connected', async () => {
               await api.isReady

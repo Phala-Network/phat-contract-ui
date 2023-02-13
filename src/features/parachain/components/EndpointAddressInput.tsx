@@ -46,7 +46,11 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
               onClick={() => {
                 const endpoint = PARACHAIN_ENDPOINT
                 setEndpoint(RESET)
-                send({ type: 'RECONNECT', data: { endpoint } })
+                if (machine.can('RECONNECT')) {
+                  send({ type: 'RECONNECT', data: { endpoint } })
+                } else {
+                  send({ type: 'CONNECT', data: { endpoint } })
+                }
                 setCookie('preferred_endpoint', endpoint, { maxAge: 60 * 60 * 24 * 30 })
               }}
             >
