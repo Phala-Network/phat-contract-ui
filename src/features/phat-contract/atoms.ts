@@ -83,7 +83,13 @@ export const contractFinalInitSelectorAtom = atom(get => {
   return ''
 })
 
-export const contractCandidateAtom = atom('', (get, set, file: File) => {
+interface FileInfo {
+  file: File
+  isCheckWASM: boolean
+}
+
+export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => {
+  const { file, isCheckWASM } = fileInfo
   // file size can't > 2MB
   if (file?.size && file.size / 1024 / 1024 > 2) {
   // // easy to debug
@@ -108,16 +114,18 @@ export const contractCandidateAtom = atom('', (get, set, file: File) => {
         return
       }
 
-      const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
-      // if valid pass, validResult is ''
-      // if valid failed, validResult is the failed error
-      const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
-
-      // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
-      if (validResult) {
-        set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
-        set(contractWASMInvalid, true)
-        return
+      if (isCheckWASM) {
+        // const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
+        // if valid pass, validResult is ''
+        // if valid failed, validResult is the failed error
+        // const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
+        const validResult = validateHex((contract.source?.wasm || '') as string, false)
+        // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
+        if (validResult) {
+          set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
+          set(contractWASMInvalid, true)
+          return
+        }
       }
 
       set(candidateFileInfoAtom, { name: file.name, size: file.size })
