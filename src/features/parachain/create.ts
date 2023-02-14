@@ -62,3 +62,11 @@ export default async function create(endpoint: string) {
   // console.log('WebSocket API is ready:', api.runtimeVersion)
   return [ws, api]
 }
+
+export async function createApiPromise (ws: WsProvider) {
+  const api = await ApiPromise.create({
+    provider: ws,
+    types: { ...khala, ...PhalaWorldTypes, ...phalaSdkTypes },
+  })
+  return api;
+}
