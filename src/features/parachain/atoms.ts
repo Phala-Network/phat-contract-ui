@@ -51,6 +51,13 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
               debug('setStatus -> error')
 
               ws.disconnect();
+
+              send({
+                type: 'CONNECT_FAILED',
+                data: {
+                  endpoint: ctx.endpoint,
+                }
+              })
             })
 
             const api = await createApiPromise(ws);

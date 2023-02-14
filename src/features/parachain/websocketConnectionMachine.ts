@@ -84,6 +84,14 @@ export function createWebsocketConnectionMachineConfig(ctx: WebsocketConnectionC
         },
       }, // END: disconnected
 
+      error: {
+        on: {
+          CONNECT: {
+            target: 'connecting'
+          }
+        }
+      },
+
       connecting: {
         invoke: {
           id: 'connecting',
@@ -97,7 +105,7 @@ export function createWebsocketConnectionMachineConfig(ctx: WebsocketConnectionC
             ]
           },
           CONNECT_TIMEOUT: {
-            target: 'disconnected',
+            target: 'error',
             actions: [
               'setError',
             ],
@@ -147,7 +155,7 @@ export function createWebsocketConnectionMachineConfig(ctx: WebsocketConnectionC
             target: 'disconnecting',
           },
           CONNECT_FAILED: {
-            target: 'disconnected',
+            target: 'error',
             actions: [
               'setError',
             ],

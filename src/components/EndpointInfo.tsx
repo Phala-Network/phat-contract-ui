@@ -21,6 +21,7 @@ import {
   InputGroup,
   Button,
   ButtonGroup,
+  FormErrorMessage,
 } from '@chakra-ui/react'
 import { atom, useAtomValue, useAtom } from 'jotai'
 
@@ -34,6 +35,7 @@ import {
   availableWorkerListAtom,
   availablePruntimeListAtom,
 } from '@/features/phat-contract/atoms'
+import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 
 export const connectionDetailModalVisibleAtom = atom(false)
 
@@ -117,6 +119,8 @@ const PruntimeEndpointSelect = () => {
 
 export default function ConnectionDetailModal() {
   const [visible, setVisible] = useAtom(connectionDetailModalVisibleAtom)
+  const [machine] = useAtom(websocketConnectionMachineAtom)
+  
   return (
     <Modal isOpen={visible} onClose={() => setVisible(false)}>
       <ModalOverlay />
@@ -125,16 +129,23 @@ export default function ConnectionDetailModal() {
         <ModalCloseButton />
           <ModalBody>
             <VStack>
-              <EndpointAddressInput label="RPC Endpoint" />
-              <SuspenseFormField label="Cluster ID">
-                <ClusterIdSelect />
-              </SuspenseFormField>
-              <SuspenseFormField label="Worker">
-                <WorkerSelect />
-              </SuspenseFormField>
-              <SuspenseFormField label="PRuntime">
-                <PruntimeEndpointSelect />
-              </SuspenseFormField>
+              <FormControl isInvalid={machine.value === 'error'}>
+                <EndpointAddressInput label="RPC Endpoint" />
+                {
+                  machine.value !== 'error' ? 
+                  <>
+                    <SuspenseFormField label="Cluster ID">
+                      <ClusterIdSelect />
+                    </SuspenseFormField>
+                    <SuspenseFormField label="Worker">
+                      <WorkerSelect />
+                    </SuspenseFormField>
+                    <SuspenseFormField label="PRuntime">
+                      <PruntimeEndpointSelect />
+                    </SuspenseFormField>
+                  </> : <FormErrorMessage>Connect error: the RPC Endpoint is wrong.</FormErrorMessage>
+                }
+              </FormControl>
             </VStack>
           </ModalBody>
         <ModalFooter></ModalFooter>
