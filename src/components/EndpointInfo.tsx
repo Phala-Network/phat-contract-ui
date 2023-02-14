@@ -119,7 +119,7 @@ const PruntimeEndpointSelect = () => {
 
 export default function ConnectionDetailModal() {
   const [visible, setVisible] = useAtom(connectionDetailModalVisibleAtom)
-  const [machine] = useAtom(websocketConnectionMachineAtom)
+  const machine = useAtomValue(websocketConnectionMachineAtom)
   
   return (
     <Modal isOpen={visible} onClose={() => setVisible(false)}>
