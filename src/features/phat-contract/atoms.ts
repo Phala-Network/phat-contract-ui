@@ -315,6 +315,8 @@ export const currentContractIdAtom = atom('')
 
 export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
 
+export const currentArgsErrorsAtom = atom<string[][]>([])
+
 export const currentContractAtom = atom(get => {
   const contractId = get(currentContractIdAtom)
   const contracts = get(localContractsAtom)

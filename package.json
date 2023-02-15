@@ -52,7 +52,8 @@
     "react-markdown": "^8.0.3",
     "react-query": "^3.39.1",
     "remark-gfm": "^3.0.1",
-    "xstate": "^4.33.6"
+    "xstate": "^4.33.6",
+    "zod": "^3.20.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",

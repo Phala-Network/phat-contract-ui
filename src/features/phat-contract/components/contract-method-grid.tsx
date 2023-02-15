@@ -17,6 +17,7 @@ import {
   Button,
   ButtonGroup,
   CircularProgress,
+  FormErrorMessage,
 } from '@chakra-ui/react'
 import { atom, useAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
@@ -25,8 +26,8 @@ import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
 import Code from '@/components/code'
-import useContractExecutor from '../hooks/useContractExecutor'
-import { currentMethodAtom, messagesAtom } from '../atoms'
+import useContractExecutor, { ExecResult } from '../hooks/useContractExecutor'
+import { currentArgsErrorsAtom, currentMethodAtom, messagesAtom } from '../atoms'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
 export const argsFormModalVisibleAtom = atom(false)
@@ -43,7 +44,10 @@ const ExecuteButton: FC<{
       colorScheme="phalaDark"
       isLoading={isRunning}
       onClick={async () =>{
-        await runner(inputs)
+        const result = await runner(inputs)
+        if (result === ExecResult.Stop) {
+          return
+        }
         onFinish && onFinish()
         // console.log('inputs: ', inputs)
       }}
@@ -72,6 +76,7 @@ const SimpleArgsFormModal = () => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const [inputs, setInputs] = useState({})
   const currentMethod = useAtomValue(currentMethodAtom)
+  const [currentArgsErrors, setCurrentArgsErrors] = useAtom(currentArgsErrorsAtom)
   if (!currentMethod) {
     return null
   }
@@ -79,6 +84,7 @@ const SimpleArgsFormModal = () => {
     <Modal isOpen={visible} onClose={() => {
       setVisible(false)
       setInputs({})
+      setCurrentArgsErrors([])
     }}>
       <ModalOverlay />
       <ModalContent>
@@ -94,7 +100,7 @@ const SimpleArgsFormModal = () => {
         <ModalBody>
           <Box>
             {currentMethod.args.map((arg, idx) => (
-              <FormControl key={idx}>
+              <FormControl key={idx} isInvalid={Boolean(currentArgsErrors[idx]?.length)}>
                 <FormLabel>
                   {arg.label}
                   <code tw="ml-2 text-xs text-gray-500 font-mono">{arg.type.displayName.join('::')}</code>
@@ -103,20 +109,34 @@ const SimpleArgsFormModal = () => {
                   <InputGroup>
                     <Input onChange={(evt) => {
                       const value = evt.target.value
-                      // console.log(`[${arg.label}] raw input`, value)
-                      try {
-                        // console.log(`For parsing: {"value": ${value}}`)
-                        let loaded = JSON.parse(`{"value": ${value}}`)
-                        if (arg.type.type === 6) {
-                          loaded = `${loaded.value}`
-                        }
-                        setInputs({...inputs, [arg.label]: loaded.value})
-                      } catch (err) {
-                        // console.log(`[${arg.label}] parse error:`, err)
-                        setInputs({...inputs, [arg.label]: value})
-                      }
+                      // console.log(`[${arg.label}] raw input`, value, typeof value)
+                      setInputs({ ...inputs, [arg.label]: value })
+                      // try {
+                      //   // console.log(`For parsing: {"value": ${value}}`)
+                      //   let loaded = JSON.parse(`{"value": ${value}}`)
+                      //   if (arg.type.type === 6) {
+                      //     loaded = `${loaded.value}`
+                      //   }
+                      //   setInputs({...inputs, [arg.label]: loaded.value})
+                      // } catch (err) {
+                      //   console.log(`[${arg.label}] parse error:`, err)
+                      //   setInputs({...inputs, [arg.label]: value})
+                      // }
                     }} />
                   </InputGroup>
+                  {
+                    currentArgsErrors[idx]?.length
+                      ? (
+                        <>
+                          {
+                            currentArgsErrors[idx].map((error, index) => (
+                              <FormErrorMessage key={index}>{error}</FormErrorMessage>
+                            ))
+                          }
+                        </>
+                      )
+                      : null
+                  }
                 </div>
               </FormControl>
             ))}
@@ -128,8 +148,13 @@ const SimpleArgsFormModal = () => {
               <ExecuteButton
                 inputs={inputs}
                 onFinish={() => {
+                  if (currentArgsErrors.length) {
+                    console.log('currentArgsErrors', currentArgsErrors)
+                    return
+                  }
                   setVisible(false)
                   setInputs({})
+                  setCurrentArgsErrors([])
                 }}
               />
             </Suspense>
@@ -137,6 +162,7 @@ const SimpleArgsFormModal = () => {
               onClick={() => {
                 setVisible(false)
                 setInputs({})
+                setCurrentArgsErrors([])
               }}
             >
               Close

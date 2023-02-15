@@ -29,7 +29,9 @@ import {
   currentSystemContractIdAtom,
   currentClusterIdAtom,
   currentWorkerIdAtom,
+  currentArgsErrorsAtom,
 } from '../atoms'
+import { singleInputsValidator } from '@/functions/argumentsValidator'
 
 interface InkResponse {
   nonce: string
@@ -60,7 +62,11 @@ const remotePubkeyAtom = atomWithQuery(get => {
 // pay 1 PHA as gas fee for each tx call. adhoc but works.
 const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
 
-export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
+export enum ExecResult {
+  Stop = 'stop',
+}
+
+export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
   const toast = useToast()
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
@@ -78,6 +84,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
+  const setCurrentArgsErrors = useSetAtom(currentArgsErrorsAtom)
   const [isLoading, setIsLoading] = useState(false)
 
   const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
@@ -102,6 +109,24 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         contract.contractId
       )
       debug('methodSpec', methodSpec)
+
+      // `abi` contains all messages and arguments' type
+      const abi = contractInstance.abi
+      const message = abi.messages.find(message => message.identifier === methodSpec.label)
+
+      debug('inputs', inputs)
+
+      const validates = singleInputsValidator(api.registry, message?.args || [], inputs)
+
+      debug('validates', validates)
+
+      const hasError = validates.some(validate => validate.errors?.length)
+      if (hasError) {
+        setCurrentArgsErrors(validates.map(_ => (_.errors || [])))
+        return ExecResult.Stop
+      }
+
+      const argsParsed = validates.map(_ => _.value)
 
       const queryMethods = R.fromPairs(R.map(
         i => [i.meta.identifier, i.meta.method],
@@ -136,7 +161,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       // tx
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
-        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, argsParsed);
         const r1 = await signAndSend(
           contractInstance.tx[txMethods[methodSpec.label]](txConf, ...args),
           account.address,
@@ -158,7 +183,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           cert as unknown as string,
           // querySignCache as unknown as string,
           { value: 0, gasLimit: -1 },
-          ...args
+          ...argsParsed
         )
         debug('query result: ', queryResult)
         // @TODO Error handling
