@@ -27,7 +27,7 @@ import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
 import Code from '@/components/code'
 import useContractExecutor, { ExecResult } from '../hooks/useContractExecutor'
-import { currentArgsErrorsAtom, currentMethodAtom, messagesAtom } from '../atoms'
+import { currentArgsAtom, currentArgsErrorsAtom, currentMethodAtom, messagesAtom } from '../atoms'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
 export const argsFormModalVisibleAtom = atom(false)
@@ -77,6 +77,8 @@ const SimpleArgsFormModal = () => {
   const [inputs, setInputs] = useState({})
   const currentMethod = useAtomValue(currentMethodAtom)
   const [currentArgsErrors, setCurrentArgsErrors] = useAtom(currentArgsErrorsAtom)
+  const currentArgs = useAtomValue(currentArgsAtom)
+
   if (!currentMethod) {
     return null
   }
@@ -99,47 +101,52 @@ const SimpleArgsFormModal = () => {
         </ModalHeader>
         <ModalBody>
           <Box>
-            {currentMethod.args.map((arg, idx) => (
-              <FormControl key={idx} isInvalid={Boolean(currentArgsErrors[idx]?.length)}>
-                <FormLabel>
-                  {arg.label}
-                  <code tw="ml-2 text-xs text-gray-500 font-mono">{arg.type.displayName.join('::')}</code>
-                </FormLabel>
-                <div tw="px-4 pb-4">
-                  <InputGroup>
-                    <Input onChange={(evt) => {
-                      const value = evt.target.value
-                      // console.log(`[${arg.label}] raw input`, value, typeof value)
-                      setInputs({ ...inputs, [arg.label]: value })
-                      // try {
-                      //   // console.log(`For parsing: {"value": ${value}}`)
-                      //   let loaded = JSON.parse(`{"value": ${value}}`)
-                      //   if (arg.type.type === 6) {
-                      //     loaded = `${loaded.value}`
-                      //   }
-                      //   setInputs({...inputs, [arg.label]: loaded.value})
-                      // } catch (err) {
-                      //   console.log(`[${arg.label}] parse error:`, err)
-                      //   setInputs({...inputs, [arg.label]: value})
-                      // }
-                    }} />
-                  </InputGroup>
-                  {
-                    currentArgsErrors[idx]?.length
-                      ? (
-                        <>
-                          {
-                            currentArgsErrors[idx].map((error, index) => (
-                              <FormErrorMessage key={index}>{error}</FormErrorMessage>
-                            ))
-                          }
-                        </>
-                      )
-                      : null
-                  }
-                </div>
-              </FormControl>
-            ))}
+            {currentMethod.args.map((arg, idx) => {
+              const label = arg.label
+              const argInAbi = currentArgs.find(argItem => argItem.name === label)
+              const typeName = argInAbi?.type?.type || arg.type.displayName.join('::')
+              return (
+                <FormControl key={idx} isInvalid={Boolean(currentArgsErrors[idx]?.length)}>
+                  <FormLabel>
+                    {arg.label}
+                    <code tw="ml-2 text-xs text-gray-500 font-mono">{typeName}</code>
+                  </FormLabel>
+                  <div tw="px-4 pb-4">
+                    <InputGroup>
+                      <Input onChange={(evt) => {
+                        const value = evt.target.value
+                        // console.log(`[${arg.label}] raw input`, value, typeof value)
+                        setInputs({ ...inputs, [arg.label]: value })
+                        // try {
+                        //   // console.log(`For parsing: {"value": ${value}}`)
+                        //   let loaded = JSON.parse(`{"value": ${value}}`)
+                        //   if (arg.type.type === 6) {
+                        //     loaded = `${loaded.value}`
+                        //   }
+                        //   setInputs({...inputs, [arg.label]: loaded.value})
+                        // } catch (err) {
+                        //   console.log(`[${arg.label}] parse error:`, err)
+                        //   setInputs({...inputs, [arg.label]: value})
+                        // }
+                      }} />
+                    </InputGroup>
+                    {
+                      currentArgsErrors[idx]?.length
+                        ? (
+                          <>
+                            {
+                              currentArgsErrors[idx].map((error, index) => (
+                                <FormErrorMessage key={index}>{error}</FormErrorMessage>
+                              ))
+                            }
+                          </>
+                        )
+                        : null
+                    }
+                  </div>
+                </FormControl>
+              )
+            })}
           </Box>
         </ModalBody>
         <ModalFooter>
