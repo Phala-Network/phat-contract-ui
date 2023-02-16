@@ -236,8 +236,7 @@ export const vecFixedLengthInvalidMessage = (inputValue: unknown) => createError
 // VecFixed, Vec
 export const vecInvalidMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
-  'Please give a value with a variant like `\'["A"]\'`, `["A"]`, or `A`, etc. ',
-  "Whether string, array depends on the length is 1."
+  'Please give an array value.',
 )
 
 /**
