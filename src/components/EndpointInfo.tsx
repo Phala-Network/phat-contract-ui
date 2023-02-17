@@ -131,21 +131,22 @@ export default function ConnectionDetailModal() {
             <VStack>
               <FormControl isInvalid={machine.value === 'error'}>
                 <EndpointAddressInput label="RPC Endpoint" />
-                {
-                  machine.value !== 'error' ? 
-                  <>
-                    <SuspenseFormField label="Cluster ID">
-                      <ClusterIdSelect />
-                    </SuspenseFormField>
-                    <SuspenseFormField label="Worker">
-                      <WorkerSelect />
-                    </SuspenseFormField>
-                    <SuspenseFormField label="PRuntime">
-                      <PruntimeEndpointSelect />
-                    </SuspenseFormField>
-                  </> : <FormErrorMessage>Connect error: the RPC Endpoint is wrong.</FormErrorMessage>
-                }
+                <FormErrorMessage>Connect error: the RPC Endpoint is wrong.</FormErrorMessage>
               </FormControl>
+              {
+                 machine.value !== 'error' ? 
+                 <>
+                   <SuspenseFormField label="Cluster ID">
+                     <ClusterIdSelect />
+                   </SuspenseFormField>
+                   <SuspenseFormField label="Worker">
+                     <WorkerSelect />
+                   </SuspenseFormField>
+                   <SuspenseFormField label="PRuntime">
+                     <PruntimeEndpointSelect />
+                   </SuspenseFormField>
+                 </> : null
+              }
             </VStack>
           </ModalBody>
         <ModalFooter></ModalFooter>
