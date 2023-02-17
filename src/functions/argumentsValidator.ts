@@ -119,7 +119,7 @@ const convertToBoolean = (value: string): boolean => {
 export const objectToEnum = (value: Record<string, unknown>): Record<string, unknown> => {
   // ["A"] is OK, [{ "A": '' }] is Failed, ["A", "B"] is Failed.
   if (Array.isArray(value) && value.length === 1 && R.is(String, value[0])) {
-    return { [value[0]]: undefined }
+    return { [value[0]]: null }
   } else if (R.is(Object, value)) {
     const keys = Object.keys(value)
     // { A: 1 } is OK, { A: 1, B: 2 } is Failed
@@ -140,7 +140,7 @@ export const convertToEnum = (value: unknown): Record<string, unknown> => {
       const object = JSON.parse(value)
       return objectToEnum(object)
     } catch (error) {
-      return { [value]: undefined }
+      return { [value]: null }
     }
   } else if (R.is(Object, value)) {
     return objectToEnum(value)
@@ -382,18 +382,20 @@ export const validateEnumType = (registry: Registry, typeDef: TypeDef, inputValu
     const variantValue = inputFormatted[variantName]
     const targetVariant = variants.find(variant => variant.name === variantName)
 
-    if (targetVariant?.type === 'Null' && variantValue) {
-      return enumVariantWithoutParamsMessage(inputValue)
-    } else if (targetVariant?.type !== 'Null' && variantValue === undefined) {
-      return enumVariantParamsMessage(inputValue)
-    }
-
     if (targetVariant) {
       if (targetVariant.type === 'Null') {
+        if (variantValue !== null) {
+          return enumVariantWithoutParamsMessage(inputValue)
+        }
+
         return createValueInfo({
           [variantName]: null,
         })
       } else {
+        if (variantValue === null) {
+          return enumVariantParamsMessage(inputValue)
+        }
+
         const subValidateInfo = singleInputValidator(registry, targetVariant, variantValue)
         return {
           value: { [variantName]: subValidateInfo.value },
