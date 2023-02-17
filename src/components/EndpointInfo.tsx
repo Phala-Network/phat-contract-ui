@@ -33,6 +33,7 @@ import {
   currentWorkerIdAtom,
   availableWorkerListAtom,
   availablePruntimeListAtom,
+  currentClusterAtom,
 } from '@/features/phat-contract/atoms'
 
 export const connectionDetailModalVisibleAtom = atom(false)
@@ -49,8 +50,9 @@ const RPCNotReadyAlert = () => {
 }
 
 const ClusterIdSelect = () => {
-  const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
+  const [currentCluster, setClusterId] = useAtom(currentClusterAtom)
   const options = useAtomValue(availableClusterOptionsAtom)
+  const clusterId = currentCluster?.id
   if (options.length === 0) {
     return <RPCNotReadyAlert />
   }
