@@ -8,7 +8,7 @@ export function getEnv(expected: string | undefined, fallback: string) {
   return fallback
 }
 
-export const PARACHAIN_ENDPOINT = 'wss://phat-beta.phala.network/khala/ws'
+export const PARACHAIN_ENDPOINT = 'wss://phat-beta-node.phala.network/khala/ws'
 // export const PARACHAIN_ENDPOINT = 'ws://127.0.0.1:9944'
 
 // export const PARACHAIN_ENDPOINT = getEnv(

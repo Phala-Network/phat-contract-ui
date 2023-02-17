@@ -1,4 +1,5 @@
 interface ClusterInfo {
+  id: string
   owner: AccountId,
   // @fixme
   permission: "Public" | string
