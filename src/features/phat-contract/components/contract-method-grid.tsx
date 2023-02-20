@@ -28,7 +28,9 @@ import { TiMediaPlay, TiFlash } from 'react-icons/ti'
 
 import Code from '@/components/code'
 import useContractExecutor, { ExecResult } from '../hooks/useContractExecutor'
-import { currentArgsAtom, currentArgsErrorsAtom, currentMethodAtom, messagesAtom } from '../atoms'
+import { currentAbiAtom, currentArgsAtom, currentArgsErrorsAtom, currentMethodAtom, messagesAtom } from '../atoms'
+import { singleInputValidator } from '@/functions/argumentsValidator'
+import { TypeDef } from '@polkadot/types/types'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
 export const argsFormModalVisibleAtom = atom(false)
@@ -89,6 +91,7 @@ const SimpleArgsFormModal = () => {
   const currentMethod = useAtomValue(currentMethodAtom)
   const [currentArgsErrors, setCurrentArgsErrors] = useAtom(currentArgsErrorsAtom)
   const currentArgs = useAtomValue(currentArgsAtom)
+  const currentAbi = useAtomValue(currentAbiAtom)
 
   if (!currentMethod) {
     return null
@@ -124,10 +127,38 @@ const SimpleArgsFormModal = () => {
                   </FormLabel>
                   <div tw="px-4 pb-4">
                     <InputGroup>
-                      <Input onChange={(evt) => {
-                        const value = evt.target.value
-                        setInputs({ ...inputs, [arg.label]: value })
-                      }} />
+                      <Input
+                        onChange={(evt) => {
+                          const value = evt.target.value
+                          setInputs({ ...inputs, [arg.label]: value })
+
+                          const errors = currentArgsErrors[idx]
+
+                          if (errors?.length) {
+                            const validateInfo = singleInputValidator(currentAbi.registry, argInAbi?.type as TypeDef, value)
+                            
+                            if (!validateInfo.errors.length) {
+                              setCurrentArgsErrors(state => {
+                                const stateCopy = [...state]
+                                stateCopy[idx] = []
+                                return stateCopy
+                              })
+                            }
+                          }
+                        }}
+                        onBlur={event => {
+                          const value = event.target.value
+                          const validateInfo = singleInputValidator(currentAbi.registry, argInAbi?.type as TypeDef, value)
+                          
+                          if (validateInfo.errors.length) {
+                            setCurrentArgsErrors(state => {
+                              const stateCopy = [...state]
+                              stateCopy[idx] = validateInfo.errors
+                              return stateCopy
+                            })
+                          }
+                        }}
+                      />
                     </InputGroup>
                     {
                       currentArgsErrors[idx]?.length
