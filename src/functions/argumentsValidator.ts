@@ -138,8 +138,12 @@ export const objectToEnum = (value: Record<string, unknown>): Record<string, unk
 export const convertToEnum = (value: unknown): Record<string, unknown> => {
   if (R.is(String, value)) {
     try {
-      const object = JSON.parse(value)
-      return objectToEnum(object)
+      const parsedValue = JSON.parse(value)
+      if (R.is(Object, parsedValue)) {
+        return objectToEnum(parsedValue)
+      } else {
+        return { [value]: null }
+      }
     } catch (error) {
       return { [value]: null }
     }
@@ -238,6 +242,10 @@ export const vecFixedLengthInvalidMessage = (inputValue: unknown) => createError
 export const vecInvalidMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
   'Please give an array value.',
+)
+// Struct
+export const structKeyNotExistMessage = (notExistKeys: string[]) => createErrors(
+  `The struct misses follow keys: ${notExistKeys.join(', ')}`
 )
 
 /**
@@ -420,6 +428,8 @@ export const validateStructInput = (inputValue: unknown) => {
   // Object is like { A: 1 }, etc.
   if (!R.either(R.is(String), R.is(Object))(inputValue)) {
     return inputTypeInvalidMessage(inputValue, ['String', 'Object'])
+  } else if (R.isEmpty(inputValue)) {
+    return inputCantBeEmpty()
   }
 }
 
@@ -440,12 +450,27 @@ export const validateStructType = (registry: Registry, typeDef: TypeDef, inputVa
   // Try to parse to a object.
   if (R.is(String, inputValue$1)) {
     try {
-      struct = JSON.parse(inputValue$1 as string)
+      const parsedValue = JSON.parse(inputValue$1 as string)
+
+      if (R.is(Object, parsedValue)) {
+        struct = parsedValue
+      } else {
+        return inputNotValidJSON(inputValue$1)
+      }
     } catch (error) {
       return inputNotValidJSON(inputValue$1)
     }
   } else {
     struct = inputValue$1
+  }
+
+  const keys = Object.keys(struct)
+  const notExistSubItems = subArray.filter((subItem) => {
+    return keys.findIndex(key => subItem.name === key) === -1
+  })
+
+  if (notExistSubItems.length) {
+    return structKeyNotExistMessage(notExistSubItems.map(subItem => subItem.name || '').filter(_ => _))
   }
 
   // Recursion and build sub value.
