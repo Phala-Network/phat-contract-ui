@@ -212,18 +212,18 @@ export const unsignedNumberEteZero = (inputValue: unknown) => createErrors(
 // Enum value
 export const enumInvalidMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
-  'Please give a value with a variant like `A`, `["A"]`, or `{ "A": ... }`, etc. ',
+  'Please give a value that format is `variantName`, `["variantName"]`, or `{ "variantName": <variantValue> }`',
   "Whether string, array or object depends on Enum variant has params."
 )
 export const enumVariantParamsMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
   'This Enum variant must have a param. ',
-  'Please give a value like `{ "A": <ParamTypeValue> }`'
+  'Please give a value that format is `{ "variantName": <variantValue> }`'
 )
 export const enumVariantWithoutParamsMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
   'This Enum variant must have no any param. ',
-  'Please give a value like `A`, or `["A"]`.'
+  'Please give a value that format is `variantName`, or `["variantName"]`.'
 )
 export const enumVariantNotExistMessage = (name: string, variantNames: string[]) => createErrors(
   `The variant named ${name} is not the variant of this Enum. `,

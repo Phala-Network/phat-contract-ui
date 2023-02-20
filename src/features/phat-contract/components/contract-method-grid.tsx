@@ -33,6 +33,16 @@ import { currentArgsAtom, currentArgsErrorsAtom, currentMethodAtom, messagesAtom
 
 export const argsFormModalVisibleAtom = atom(false)
 
+// In order to make the type name easier to understand,
+// some name conversions need to done.
+const formatTypeName = (typeName: string) => {
+  // Text => String
+  // Bytes => Vec<u8>, bytes can receive string format, only display to Vec<u8>
+  return typeName
+    .replace(/(?<![0-9a-zA-Z])Text(?![0-9a-zA-Z])/g, 'String')
+    .replace(/(?<![0-9a-zA-Z])Bytes(?![0-9a-zA-Z])/g, 'Vec<u8>')
+}
+
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
@@ -105,7 +115,7 @@ const SimpleArgsFormModal = () => {
             {currentMethod.args.map((arg, idx) => {
               const label = arg.label
               const argInAbi = currentArgs.find(argItem => argItem.name === camelize(label))
-              const typeName = argInAbi?.type?.type || arg.type.displayName.join('::')
+              const typeName = formatTypeName(argInAbi?.type?.type || arg.type.displayName.join('::'))
               return (
                 <FormControl key={idx} isInvalid={Boolean(currentArgsErrors[idx]?.length)}>
                   <FormLabel>
