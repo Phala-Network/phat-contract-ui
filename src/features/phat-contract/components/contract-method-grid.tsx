@@ -1,4 +1,5 @@
 import React, { FC, Suspense, useState } from 'react'
+import { camelize } from 'humps'
 import tw from 'twin.macro'
 import {
   Box,
@@ -103,7 +104,7 @@ const SimpleArgsFormModal = () => {
           <Box>
             {currentMethod.args.map((arg, idx) => {
               const label = arg.label
-              const argInAbi = currentArgs.find(argItem => argItem.name === label)
+              const argInAbi = currentArgs.find(argItem => argItem.name === camelize(label))
               const typeName = argInAbi?.type?.type || arg.type.displayName.join('::')
               return (
                 <FormControl key={idx} isInvalid={Boolean(currentArgsErrors[idx]?.length)}>

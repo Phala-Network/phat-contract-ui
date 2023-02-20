@@ -1,3 +1,4 @@
+import { camelizeKeys } from 'humps'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { TypeDefInfo } from '@polkadot/types'
 import { Registry, TypeDef } from '@polkadot/types/types'
@@ -583,7 +584,8 @@ export const singleInputsValidator = (
 ): ValidateInfo<unknown>[] => {
   const validateInfos = args.map(arg => {
     const { name, type } = arg
-    const inputValue = inputs[name]
+    const camelizeInputs = camelizeKeys(inputs) as Record<string, unknown>
+    const inputValue = camelizeInputs[name]
     return singleInputValidator(registry, type, inputValue)
   })
 

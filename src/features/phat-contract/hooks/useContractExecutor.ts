@@ -115,6 +115,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       const message = abi.messages.find(message => message.identifier === methodSpec.label)
 
       debug('inputs', inputs)
+      debug('message.args', message?.args)
 
       const validates = singleInputsValidator(api.registry, message?.args || [], inputs)
 
