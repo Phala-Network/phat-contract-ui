@@ -15,6 +15,7 @@ import * as R from 'ramda'
 const INFOS_MUST_HAVE_SUB = [
   TypeDefInfo.Enum, TypeDefInfo.Struct,
   TypeDefInfo.Vec, TypeDefInfo.VecFixed, 
+  TypeDefInfo.Tuple,
 ]
 
 // Convert input value to string and add `...` if too long
@@ -159,13 +160,17 @@ const convertToArray = (value: unknown): unknown[] => {
   // E.g. '[1, 2, 3]', '1111'
   if (R.is(String, value)) {
     try {
-      const object = JSON.parse(value)
-      if (Array.isArray(object)) {
-        return object
+      const parsedValue = JSON.parse(value)
+      if (Array.isArray(parsedValue)) {
+        return parsedValue
+      } else {
+        return [value]
       }
     } catch (error) {
       return [value]
     }
+  } else if (R.is(Number, value)) {
+    return [value]
   } else if (Array.isArray(value)) {
     return value
   }
@@ -239,7 +244,7 @@ export const vecFixedLengthInvalidMessage = (inputValue: unknown) => createError
   'Please check the value'
 )
 // VecFixed, Vec
-export const vecInvalidMessage = (inputValue: unknown) => createErrors(
+export const vecOrTupleInvalidMessage = (inputValue: unknown) => createErrors(
   `The value ${formatInput(inputValue)} is invalid. `,
   'Please give an array value.',
 )
@@ -494,6 +499,62 @@ export const validateStructType = (registry: Registry, typeDef: TypeDef, inputVa
   return validateInfo
 }
 
+// Tuple allow Number, String, Array
+// Tuple = (0), it can receive 0, "0", [0], ["0"], "[0]", "["0"]"
+// Tuple = (Option<u32>), it can receive 1, 0, [1], [0], "[1]", "[0]", '', [null], "[null]"
+export const validateTupleInput = (inputValue: unknown) => {
+  if (
+    !R.is(Number, inputValue) &&
+    !R.is(String, inputValue) &&
+    !Array.isArray(inputValue)
+  ) {
+    return inputTypeInvalidMessage(inputValue, ['Number', 'String', 'Array'])
+  }
+}
+
+// Make sure the input value is a valid value, and can convert to array.
+export const validateTupleType = (registry: Registry, typeDef: TypeDef, inputValue: unknown) => {
+  const { sub } = typeDef
+
+  const inputValidateInfo = validateTupleInput(inputValue)
+  if (inputValidateInfo) {
+    return inputValidateInfo
+  }
+
+  const subArray = subToArray(sub as TypeDef | TypeDef[])
+  const inputParsed = convertToArray(inputValue)
+
+  if (inputParsed.length) {
+    const subLength = subArray.length
+    if (inputParsed.length !== subLength) {
+      return vecFixedLengthInvalidMessage(inputParsed)
+    }
+
+    // Recursion and build sub value.
+    const initInfo: ValidateInfo<unknown[]> = { value: [], errors: [] }
+    const validateInfo = subArray.reduce((info, subItem, index) => {
+      const inputItem = inputParsed[index]
+      const subValidateInfo = singleInputValidator(registry, subItem, inputItem)
+      return {
+        value: [
+          ...(info.value || []),
+          subValidateInfo.value,
+        ].filter(_ => _ !== undefined),
+        errors: R.uniq([
+          ...(info.errors || []),
+          ...(subValidateInfo.errors || []),
+        ]),
+      }
+    }, initInfo)
+
+    return validateInfo
+  } else if (inputValue === '' && subArray.length === 1 && subArray[0].info === TypeDefInfo.Option) {
+    return createValueInfo([null])
+  } else {
+    return vecOrTupleInvalidMessage(inputValue)
+  }
+}
+
 // VecFixed and Vec value only allow String, Object
 // String is JSON like '[ "A" ]', etc.
 // Object is like [ "A" ], etc.
@@ -544,7 +605,7 @@ export const validateVecOrVecFixedType = (registry: Registry, typeDef: TypeDef, 
 
     return validateInfo
   } else {
-    return vecInvalidMessage(inputValue)
+    return vecOrTupleInvalidMessage(inputValue)
   }
 }
 
@@ -585,6 +646,9 @@ export const singleInputValidator = (
 
       case TypeDefInfo.Struct:
         return validateStructType(registry, typeDef, inputValue)
+
+      case TypeDefInfo.Tuple:
+        return validateTupleType(registry, typeDef, inputValue)
 
       case TypeDefInfo.VecFixed:
       case TypeDefInfo.Vec:

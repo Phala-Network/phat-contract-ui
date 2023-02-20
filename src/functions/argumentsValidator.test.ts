@@ -5,7 +5,7 @@ import {
   inputTypeInvalidMessage,
   singleInputsValidator,
   inputCantBeEmpty,
-  vecInvalidMessage,
+  vecOrTupleInvalidMessage,
   vecFixedLengthInvalidMessage,
   cantToNumberMessage,
   unsignedNumberEteZero,
@@ -531,7 +531,7 @@ describe('Tests of the function named singleInputValidator', () => {
 
     test('should reject a normal object', () => {
       const objectValueValidateInfo = singleInputValidator(registry, vecFixedArgumentTypeDef, objectValue)
-      const expectValidateInfo: ValidateInfo<unknown> = vecInvalidMessage(objectValue)
+      const expectValidateInfo: ValidateInfo<unknown> = vecOrTupleInvalidMessage(objectValue)
 
       expect(objectValueValidateInfo).toEqual(expectValidateInfo)
     })
