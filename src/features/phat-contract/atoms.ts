@@ -1,4 +1,5 @@
-import { Abi, ContractPromise } from '@polkadot/api-contract'
+import { Abi } from '@polkadot/api-contract'
+import type { ContractPromise } from '@polkadot/api-contract'
 import type { AnyJson } from '@polkadot/types/types'
 
 import { atom } from 'jotai'
@@ -315,7 +316,7 @@ export const currentContractIdAtom = atom('')
 
 export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
 
-export const currentArgsErrorsAtom = atom<string[][]>([])
+export const currentArgsErrorsAtom = atomWithReset<string[][]>([])
 
 export const currentContractAtom = atom(get => {
   const contractId = get(currentContractIdAtom)

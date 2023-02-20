@@ -21,7 +21,7 @@ import {
   FormErrorMessage,
 } from '@chakra-ui/react'
 import { atom, useAtom } from 'jotai'
-import { useUpdateAtom, useAtomValue } from 'jotai/utils'
+import { useUpdateAtom, useAtomValue, RESET } from 'jotai/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash } from 'react-icons/ti'
@@ -97,7 +97,7 @@ const SimpleArgsFormModal = () => {
     <Modal isOpen={visible} onClose={() => {
       setVisible(false)
       setInputs({})
-      setCurrentArgsErrors([])
+      setCurrentArgsErrors(RESET)
     }}>
       <ModalOverlay />
       <ModalContent>
@@ -126,19 +126,7 @@ const SimpleArgsFormModal = () => {
                     <InputGroup>
                       <Input onChange={(evt) => {
                         const value = evt.target.value
-                        // console.log(`[${arg.label}] raw input`, value, typeof value)
                         setInputs({ ...inputs, [arg.label]: value })
-                        // try {
-                        //   // console.log(`For parsing: {"value": ${value}}`)
-                        //   let loaded = JSON.parse(`{"value": ${value}}`)
-                        //   if (arg.type.type === 6) {
-                        //     loaded = `${loaded.value}`
-                        //   }
-                        //   setInputs({...inputs, [arg.label]: loaded.value})
-                        // } catch (err) {
-                        //   console.log(`[${arg.label}] parse error:`, err)
-                        //   setInputs({...inputs, [arg.label]: value})
-                        // }
                       }} />
                     </InputGroup>
                     {
@@ -172,7 +160,7 @@ const SimpleArgsFormModal = () => {
                   }
                   setVisible(false)
                   setInputs({})
-                  setCurrentArgsErrors([])
+                  setCurrentArgsErrors(RESET)
                 }}
               />
             </Suspense>
@@ -180,7 +168,7 @@ const SimpleArgsFormModal = () => {
               onClick={() => {
                 setVisible(false)
                 setInputs({})
-                setCurrentArgsErrors([])
+                setCurrentArgsErrors(RESET)
               }}
             >
               Close
