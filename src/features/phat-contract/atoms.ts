@@ -1,8 +1,9 @@
+import { Abi } from '@polkadot/api-contract'
 import type { ContractPromise } from '@polkadot/api-contract'
 import type { AnyJson } from '@polkadot/types/types'
 
 import { atom } from 'jotai'
-import { atomWithReset, atomWithStorage } from 'jotai/utils'
+import { atomWithReset, atomWithStorage, waitForAll } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
 
@@ -328,6 +329,23 @@ export const currentContractAtom = atom(get => {
   const contracts = get(localContractsAtom)
   return contracts[contractId]
 })
+
+export const currentAbiAtom = atom(get => {
+  const contract = get(currentContractAtom)
+  const abi = new Abi(contract.metadata)
+  return abi
+})
+
+export const currentArgsAtom = atom(get => {
+  const [abi, selectedMethodSpec] = get(waitForAll([
+    currentAbiAtom,
+    currentMethodAtom,
+  ]))
+  const message = abi.messages.find(message => message.identifier === selectedMethodSpec?.label)
+  return message?.args || []
+})
+
+export const currentArgsErrorsAtom = atomWithReset<string[][]>([])
 
 export const messagesAtom = atom(get => {
   const contract = get(currentContractAtom)

@@ -41,6 +41,7 @@
     "decimal.js": "^10.4.2",
     "fp-ts": "^2.12.3",
     "framer-motion": "^7.5.3",
+    "humps": "^2.0.1",
     "jotai": "^1.8.5",
     "protobufjs": "^6.11.3",
     "ramda": "^0.28.0",
@@ -52,7 +53,8 @@
     "react-markdown": "^8.0.3",
     "react-query": "^3.39.1",
     "remark-gfm": "^3.0.1",
-    "xstate": "^4.33.6"
+    "xstate": "^4.33.6",
+    "zod": "^3.20.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",
@@ -67,6 +69,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^14.4.3",
     "@types/bn.js": "^5.1.1",
+    "@types/humps": "^2.0.2",
     "@types/jest": "^29.4.0",
     "@types/ramda": "^0.28.16",
     "@types/react": "^18.0.1",

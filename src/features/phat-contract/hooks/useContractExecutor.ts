@@ -1,5 +1,6 @@
 import type {Bytes} from '@polkadot/types-codec'
 
+import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
 import { waitForAll } from "jotai/utils"
@@ -28,7 +29,9 @@ import {
   currentSystemContractIdAtom,
   currentClusterIdAtom,
   currentWorkerIdAtom,
+  currentArgsErrorsAtom,
 } from '../atoms'
+import { singleInputsValidator } from '@/functions/argumentsValidator'
 
 interface InkResponse {
   nonce: string
@@ -59,7 +62,12 @@ const remotePubkeyAtom = atomWithQuery(get => {
 // pay 1 PHA as gas fee for each tx call. adhoc but works.
 const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
 
-export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<void>] {
+export enum ExecResult {
+  Stop = 'stop',
+}
+
+export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
+  const toast = useToast()
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
     pruntimeURLAtom,
@@ -76,6 +84,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
+  const setCurrentArgsErrors = useSetAtom(currentArgsErrorsAtom)
   const [isLoading, setIsLoading] = useState(false)
 
   const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
@@ -100,6 +109,25 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         contract.contractId
       )
       debug('methodSpec', methodSpec)
+
+      // `abi` contains all messages and arguments' type
+      const abi = contractInstance.abi
+      const message = abi.messages.find(message => message.identifier === methodSpec.label)
+
+      debug('inputs', inputs)
+      debug('message.args', message?.args)
+
+      const validates = singleInputsValidator(api.registry, message?.args || [], inputs)
+
+      debug('validates', validates)
+
+      const hasError = validates.some(validate => validate.errors?.length)
+      if (hasError) {
+        setCurrentArgsErrors(validates.map(_ => (_.errors || [])))
+        return ExecResult.Stop
+      }
+
+      const argsParsed = validates.map(_ => _.value)
 
       const queryMethods = R.fromPairs(R.map(
         i => [i.meta.identifier, i.meta.method],
@@ -134,7 +162,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       // tx
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
-        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, argsParsed);
         const r1 = await signAndSend(
           contractInstance.tx[txMethods[methodSpec.label]](txConf, ...args),
           account.address,
@@ -156,9 +184,9 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           cert as unknown as string,
           // querySignCache as unknown as string,
           { value: 0, gasLimit: -1 },
-          ...args
+          ...argsParsed
         )
-        // debug('query result: ', queryResult)
+        debug('query result: ', queryResult)
         // @TODO Error handling
         if (queryResult.result.isOk) {
           appendResult({
@@ -180,6 +208,14 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           })
         }
       }
+    } catch (error) {
+      debug('Execute error', error)
+      toast({
+        title: `Something error`,
+        description: `${error}`,
+        status: 'error',
+        isClosable: true,
+      })
     } finally {
       if (api && signer && account && systemContractId && remotePubkey) {
         try {
