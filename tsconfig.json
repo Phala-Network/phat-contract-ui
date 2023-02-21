@@ -25,6 +25,7 @@
       "@/atoms/*": ["atoms/*"],
       "@/hooks/*": ["hooks/*"],
       "@/pages/*": ["pages/*"],
+      "@/*": ["*"]
     },
   },
   "include": ["src", "@types"],

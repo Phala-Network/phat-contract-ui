@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithStorage, RESET } from 'jotai/utils'
+import { isClosedBetaEnv } from '@/vite-env'
 
 export function getEnv(expected: string | undefined, fallback: string) {
   if (process.env.NODE_ENV !== 'production' && expected) {
@@ -8,7 +9,9 @@ export function getEnv(expected: string | undefined, fallback: string) {
   return fallback
 }
 
-export const PARACHAIN_ENDPOINT = 'wss://phat-beta-node.phala.network/khala/ws'
+export const PARACHAIN_ENDPOINT = isClosedBetaEnv
+  ? 'wss://phat-beta-node.phala.network/khala/ws'
+  : 'wss://poc5.phala.network/ws'
 // export const PARACHAIN_ENDPOINT = 'ws://127.0.0.1:9944'
 
 // export const PARACHAIN_ENDPOINT = getEnv(

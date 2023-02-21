@@ -8,6 +8,7 @@ import { ButtonGroup, Button, ButtonProps } from '@chakra-ui/react'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, currentProfileAtom, formatetedAccountBalanceAtom } from '../atoms'
+import { isClosedBetaEnv } from '@/vite-env'
 
 const ConnectStatusDot = styled(GoPrimitiveDot)<{
   connected?: string
@@ -55,12 +56,15 @@ const BalanceMotionContainer = tw(motion.div)`
 const Balance = () => {
   const [whole, fragction] = useAtomValue(formatetedAccountBalanceAtom)
   if ((whole === null || whole === '0') && fragction === null) {
+    const href = isClosedBetaEnv
+      ? 'https://discord.com/channels/697726436211163147/1052518183766073354'
+      : 'https://docs.phala.world/geting-started/where-to-get-pha-khala-chain'
     return (
       <div tw="hidden xl:block">
         <BalanceMotionContainer initial={{ width: 0 }} animate={{ width: 'auto' }} exit={{ width: 0 }} tw="mx-0">
           <Button
             as="a"
-            href="https://discord.com/channels/697726436211163147/1052518183766073354" 
+            href={href}
             target="_blank"
             rel="noopener noreferer"
             mr="1"
@@ -139,9 +143,11 @@ const CurrentAccountName = (props: Omit<ButtonProps, "as">) => {
 const StyledButtonGroup = styled.div`
   border-image-slice: 1;
   border-width: 1px;
-  border-image-source: linear-gradient(90deg, #ADD69A 0%, #5F9F41 100%);
+  border-image-source: linear-gradient(
+    ${isClosedBetaEnv ? '90deg, #ADD69A 0%, #5F9F41 100%' : '90deg, #2B481E 0%, #233A18 100%' }
+  );
   border-radius: 2px;
-  ${tw`bg-brand-900`}
+  ${isClosedBetaEnv ? tw`bg-brand-900` : 'background: #000;'}
 `
 
 export interface AccessPointComboProps {
@@ -150,10 +156,14 @@ export interface AccessPointComboProps {
 }
 
 export default function AccessPointCombo({ onConnectionStatusClick, onAccountClick }: AccessPointComboProps) {
+  const bgCss = isClosedBetaEnv
+    ? tw`flex flex-row items-center bg-brand-800 h-full p-1 rounded-l-sm`
+    : tw`flex flex-row items-center bg-gray-900 h-full p-1 rounded-l-sm`
+
   return (
     <ButtonGroup as={StyledButtonGroup}>
       <EndpointSwitchButton compact onClick={onConnectionStatusClick} />
-      <div tw="flex flex-row items-center bg-brand-800 h-full p-1 rounded-l-sm">
+      <div css={bgCss}>
         <CurrentBalance />
         <Suspense fallback={<DisconnectedAccountName onClick={onAccountClick} />}>
           <CurrentAccountName onClick={onAccountClick} />

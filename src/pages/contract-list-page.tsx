@@ -15,6 +15,7 @@ import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-co
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import ChainSummary from '@/features/chain-info/components/ChainSummary'
+import { isClosedBetaEnv } from '@/vite-env'
 
 const Summary = () => {
   return (
@@ -172,7 +173,34 @@ const ReloadButton = () => {
   )
 }
 
-const GetTestPhaButton = () => {
+const GetTestPhaButtonNormal = () => {
+  const api = useAtomValue(apiPromiseAtom)
+  const isDevChain = useAtomValue(isDevChainAtom)
+  const account = useAtomValue(currentAccountAtom)
+  const [loading, setLoading] = useState(false)
+  if (!account || !isDevChain) {
+    return null
+  }
+  async function getTestCoin () {
+    setLoading(true)
+    const keyring = new Keyring({ type: 'sr25519' })
+    const pair = keyring.addFromUri('//Alice')
+    await api.tx.balances.transferKeepAlive(account?.address, '100000000000000')
+      .signAndSend(pair, { nonce: -1 })
+    setLoading(false)
+  }
+  return (
+    <Button
+      w="full"
+      isLoading={loading}
+      onClick={getTestCoin}
+    >
+      Get Test-PHA
+    </Button>
+  )
+}
+
+const GetTestPhaButtonClosedBeta = () => {
   const account = useAtomValue(currentAccountAtom)
   if (!account) {
     return null
@@ -189,7 +217,15 @@ const GetTestPhaButton = () => {
   )
 }
 
+const GetTestPhaButton = isClosedBetaEnv ? GetTestPhaButtonClosedBeta : GetTestPhaButtonNormal
+
 const ContractListPage = () => {
+  const awesomeHref = isClosedBetaEnv
+    ? 'https://github.com/Phala-Network/awesome-phat-contracts'
+    : 'https://github.com/Phala-Network/awesome-fat-contracts'
+  const oracleHref = isClosedBetaEnv
+    ? 'https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat'
+    : 'https://github.com/Phala-Network/oracle-workshop'
   return (
     <div tw="pl-5 pr-5">
       <div tw="grid grid-cols-12 w-full gap-2">
@@ -198,15 +234,25 @@ const ContractListPage = () => {
             <Summary />
           </Suspense>
           <div tw="flex flex-col gap-4">
-            <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Getting Started</Button>
+            {
+              isClosedBetaEnv
+                ? <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Getting Started</Button>
+                : <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
+            }
             <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
-            <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-phat-contracts" target="_blank">
+            <Button w="full" as="a" href={awesomeHref} target="_blank">
               Awesome Phat Contract
             </Button>
-            <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-examples" target="_blank">
-              Phat Contract Examples
-            </Button>
-            <Button w="full" as="a" href="https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat" target="_blank">
+            {
+              isClosedBetaEnv
+                ? (
+                  <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-examples" target="_blank">
+                    Phat Contract Examples
+                  </Button>
+                )
+                : null
+            }
+            <Button w="full" as="a" href={oracleHref} target="_blank">
               Oracle Workshop
             </Button>
             <Suspense>

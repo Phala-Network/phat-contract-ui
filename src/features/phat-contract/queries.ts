@@ -7,6 +7,7 @@ import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
 import { CertificateData, create } from "@phala/sdk"
+import { isClosedBetaEnv } from '@/vite-env'
 
 function toHuman(value: Codec): AnyJson {
   return value.toHuman()
@@ -36,7 +37,9 @@ export function queryClusterList(api: ApiPromise) {
       const transformed: Pairs<string, ClusterInfo>[] = result.map(([storageKey, value]) => {
         const keys = storageKey.toHuman() as string[]
         const info = value.unwrap().toHuman()
-        info.id = keys[0]
+        if (isClosedBetaEnv) {
+          info.id = keys[0]
+        }
         return [keys[0], info]
       })
       return transformed

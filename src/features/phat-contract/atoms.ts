@@ -12,6 +12,7 @@ import { queryClusterList, queryContractList, queryEndpointList } from './querie
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { validateHex } from '@phala/ink-validator'
+import { isClosedBetaEnv } from '@/vite-env'
 
 export interface SelectorOption {
   value: string
@@ -182,24 +183,31 @@ export const registeredClusterListAtom = atomWithQuery(get => {
 })
 
 export const availableClusterOptionsAtom = atom(get => {
-  const endpoint = get(endpointAtom)
   const clusters = get(registeredClusterListAtom)
-  return clusters.map(([id, obj]) => {
+  const options = clusters.map(([id, obj]) => {
     const { permission } = obj
     return { label: `[${permission}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
-  }).filter(i => {
-    if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-        return false
-    }
-    return true
   })
+  
+  if (isClosedBetaEnv) {
+    const endpoint = get(endpointAtom)
+    const closedBetaOptions = options.filter(i => {
+      if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+          return false
+      }
+      return true
+    })
+    return closedBetaOptions
+  } else {
+    return options
+  }
 })
 
 export const currentClusterAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
   let currentClusterId = get(currentClusterIdAtom)
   const endpoint = get(endpointAtom)
-  if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && currentClusterId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+  if (isClosedBetaEnv && endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && currentClusterId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
     currentClusterId = '0x0000000000000000000000000000000000000000000000000000000000000001'
   }
   console.log('clusters', clusters, currentClusterId)
@@ -237,7 +245,12 @@ export const currentWorkerIdAtom = atom(
       }
       return rec[endpoint]
     }
-    return shuffle(workers)
+
+    if (isClosedBetaEnv) {
+      return shuffle(workers)
+    } else {
+      return R.head(workers)
+    }
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)
@@ -249,7 +262,15 @@ export const currentWorkerIdAtom = atom(
 export const availableWorkerListAtom = atom(get => {
   const clusterInfo = get(currentClusterAtom)
   if (clusterInfo) {
-    return clusterInfo.workers
+    // 2023-01-16: hotfix for workers down
+    return R.without(
+      [
+        "0x9e10f9be30e98a2a689c255f0780d6d58c6ca29dad1ea3f77ec94aaa8c9c174f",
+        "0x50cfa4b7a48893c8772cf348d7c2eb03071263a7f8ab4381a20e1df2a99dbc3a"
+      ],
+      clusterInfo.workers
+    )
+    // return clusterInfo.workers
   }
   return []
 })

@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
+    "dev:closed-beta": "vite --mode closed-beta",
     "build": "tsc && vite build",
+    "build:closed-beta": "tsc && vite build --mode closed-beta",
     "preview": "vite preview",
     "lint": "tsc --noemit",
     "test": "jest"
