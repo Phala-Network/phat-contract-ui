@@ -87,18 +87,17 @@ const toString = (value: unknown): string => {
 }
 
 // Convert a string or number like a number to a Big Number,
-// It doesn't contain NaN.
+// It doesn't contain NaN, Infinity
 const convertToBN = (value: string | number) => {
-  if (R.is(String, value)) {
-    // Like '123', '-123', '123.1', and '-123.1', etc.
-    const isNumberLike = /^(\-|\+)?\d+(\.\d*)?$/.test(value)
-    if (isNumberLike) {
-      return new BN(value)
+  if (R.is(String, value) && value !== '') {
+    const number = Number(value)
+    if (Number.isFinite(number)) {
+      return new BN(number)
     }
   } else if (R.is(Number, value)) {
     try {
-      // Filter out NaN.
-      const number = z.number().parse(value)
+      // Filter out NaN, Finite
+      const number = z.number().finite().parse(value)
       return new BN(number)
     } catch (error) {
       return null
