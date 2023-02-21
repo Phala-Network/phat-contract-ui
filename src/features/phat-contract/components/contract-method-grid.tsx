@@ -1,4 +1,5 @@
 import React, { FC, Suspense, useState } from 'react'
+import * as R from 'ramda'
 import { camelize } from 'humps'
 import tw from 'twin.macro'
 import {
@@ -185,8 +186,7 @@ const SimpleArgsFormModal = () => {
               <ExecuteButton
                 inputs={inputs}
                 onFinish={() => {
-                  if (currentArgsErrors.length) {
-                    console.log('currentArgsErrors', currentArgsErrors)
+                  if (R.flatten(currentArgsErrors).length) {
                     return
                   }
                   setVisible(false)
