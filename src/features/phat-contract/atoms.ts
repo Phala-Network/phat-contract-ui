@@ -12,6 +12,7 @@ import { queryClusterList, queryContractList, queryEndpointList } from './querie
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { validateHex } from '@phala/ink-validator'
+import { isClosedBetaEnv } from '@/vite-env'
 
 export interface SelectorOption {
   value: string
@@ -183,20 +184,40 @@ export const registeredClusterListAtom = atomWithQuery(get => {
 
 export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
-  return clusters.map(([id, obj]) => {
+  const options = clusters.map(([id, obj]) => {
     const { permission } = obj
     return { label: `[${permission}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
   })
+  
+  if (isClosedBetaEnv) {
+    const endpoint = get(endpointAtom)
+    const closedBetaOptions = options.filter(i => {
+      if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+          return false
+      }
+      return true
+    })
+    return closedBetaOptions
+  } else {
+    return options
+  }
 })
 
 export const currentClusterAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
-  const currentClusterId = get(currentClusterIdAtom)
+  let currentClusterId = get(currentClusterIdAtom)
+  const endpoint = get(endpointAtom)
+  if (isClosedBetaEnv && endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && currentClusterId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    currentClusterId = '0x0000000000000000000000000000000000000000000000000000000000000001'
+  }
+  console.log('clusters', clusters, currentClusterId)
   const found = R.find(([id]) => id === currentClusterId, clusters)
   if (found) {
     return found[1]
   }
   return null
+}, (_, set, value: string) => {
+  set(currentClusterIdAtom, value)
 })
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,7 +245,12 @@ export const currentWorkerIdAtom = atom(
       }
       return rec[endpoint]
     }
-    return R.head(workers)
+
+    if (isClosedBetaEnv) {
+      return shuffle(workers)
+    } else {
+      return R.head(workers)
+    }
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)

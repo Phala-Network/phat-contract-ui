@@ -7,6 +7,7 @@ import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
 import { CertificateData, create } from "@phala/sdk"
+import { isClosedBetaEnv } from '@/vite-env'
 
 function toHuman(value: Codec): AnyJson {
   return value.toHuman()
@@ -35,7 +36,11 @@ export function queryClusterList(api: ApiPromise) {
       const result = await api.query.phalaFatContracts.clusters.entries()
       const transformed: Pairs<string, ClusterInfo>[] = result.map(([storageKey, value]) => {
         const keys = storageKey.toHuman() as string[]
-        return [keys[0], value.unwrap().toHuman()]
+        const info = value.unwrap().toHuman()
+        if (isClosedBetaEnv) {
+          info.id = keys[0]
+        }
+        return [keys[0], info]
       })
       return transformed
     },

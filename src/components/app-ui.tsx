@@ -10,6 +10,7 @@ import AccessPointCombo from '@/features/identity/components/AccessPointCombo'
 import { WalletSelectModal, AccountSelectModal } from '@/features/identity/components/AccountSelectModal'
 import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
 import Logo from './Logo'
+import { isClosedBetaEnv } from '@/vite-env'
 
 export const walletSelectModalVisibleAtom = atom(false) 
 
@@ -41,13 +42,17 @@ export const AppHeader: FC<{
   useAutoConnect()
   const showAccountSelectModal = useShowAccountSelectModal()
   const setEndpointInfoVisible = useSetAtom(connectionDetailModalVisibleAtom)
+  const bgCss = isClosedBetaEnv ? tw`bg-brand-900 py-2` : tw`bg-black py-2`
+  const linkCss = isClosedBetaEnv
+    ? tw`text-phala-500 inline-flex relative`
+    : tw`text-phala-500`
   return (
-    <div tw="bg-black py-2">
+    <div css={bgCss}>
       <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
         <div tw="flex-1 min-w-0">
           {left ? left : (
             <h2 tw="text-2xl font-bold leading-7 text-white font-heading">
-              <Link tw="text-phala-500" to="/" title={title}>
+              <Link css={linkCss} to="/" title={title}>
                 <Logo />
               </Link>
             </h2>

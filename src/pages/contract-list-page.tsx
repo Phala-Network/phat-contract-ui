@@ -15,6 +15,7 @@ import { availableContractsAtom, onChainContractsAtom } from '@/features/phat-co
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import ChainSummary from '@/features/chain-info/components/ChainSummary'
+import { isClosedBetaEnv } from '@/vite-env'
 
 const Summary = () => {
   return (
@@ -172,7 +173,7 @@ const ReloadButton = () => {
   )
 }
 
-const GetTestPhaButton = () => {
+const GetTestPhaButtonNormal = () => {
   const api = useAtomValue(apiPromiseAtom)
   const isDevChain = useAtomValue(isDevChainAtom)
   const account = useAtomValue(currentAccountAtom)
@@ -199,7 +200,32 @@ const GetTestPhaButton = () => {
   )
 }
 
+const GetTestPhaButtonClosedBeta = () => {
+  const account = useAtomValue(currentAccountAtom)
+  if (!account) {
+    return null
+  }
+  return (
+    <Button
+      w="full"
+      as="a"
+      target="_blank"
+      href="https://discord.com/channels/697726436211163147/1052518183766073354"
+    >
+      Get Test-PHA
+    </Button>
+  )
+}
+
+const GetTestPhaButton = isClosedBetaEnv ? GetTestPhaButtonClosedBeta : GetTestPhaButtonNormal
+
 const ContractListPage = () => {
+  const awesomeHref = isClosedBetaEnv
+    ? 'https://github.com/Phala-Network/awesome-phat-contracts'
+    : 'https://github.com/Phala-Network/awesome-fat-contracts'
+  const oracleHref = isClosedBetaEnv
+    ? 'https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat'
+    : 'https://github.com/Phala-Network/oracle-workshop'
   return (
     <div tw="pl-5 pr-5">
       <div tw="grid grid-cols-12 w-full gap-2">
@@ -208,12 +234,25 @@ const ContractListPage = () => {
             <Summary />
           </Suspense>
           <div tw="flex flex-col gap-4">
-            <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
+            {
+              isClosedBetaEnv
+                ? <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Getting Started</Button>
+                : <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
+            }
             <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
-            <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-fat-contracts" target="_blank">
+            <Button w="full" as="a" href={awesomeHref} target="_blank">
               Awesome Phat Contract
             </Button>
-            <Button w="full" as="a" href="https://github.com/Phala-Network/oracle-workshop" target="_blank">
+            {
+              isClosedBetaEnv
+                ? (
+                  <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-examples" target="_blank">
+                    Phat Contract Examples
+                  </Button>
+                )
+                : null
+            }
+            <Button w="full" as="a" href={oracleHref} target="_blank">
               Oracle Workshop
             </Button>
             <Suspense>
