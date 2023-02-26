@@ -362,17 +362,6 @@ export const currentAbiAtom = atom(get => {
   return abi
 })
 
-export const currentArgsAtom = atom(get => {
-  const [abi, selectedMethodSpec] = get(waitForAll([
-    currentAbiAtom,
-    currentMethodAtom,
-  ]))
-  const message = abi.messages.find(message => message.identifier === selectedMethodSpec?.label)
-  return message?.args || []
-})
-
-export const currentArgsErrorsAtom = atomWithReset<string[][]>([])
-
 export const messagesAtom = atom(get => {
   const contract = get(currentContractAtom)
   if (!contract) {
