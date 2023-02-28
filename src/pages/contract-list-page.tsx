@@ -225,7 +225,7 @@ const ContractListPage = () => {
     : 'https://github.com/Phala-Network/awesome-fat-contracts'
   const oracleHref = isClosedBetaEnv
     ? 'https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat'
-    : 'https://github.com/Phala-Network/oracle-workshop'
+    : 'https://github.com/Phala-Network/phat-offchain-rollup/blob/main/phat/Sub0-Workshop.md'
   return (
     <div tw="pl-5 pr-5">
       <div tw="grid grid-cols-12 w-full gap-2">
