@@ -1,4 +1,3 @@
-import type { PrimitiveAtom, WritableAtom } from 'jotai'
 import { Registry, TypeDefInfo } from '@polkadot/types/types'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { decamelize } from 'humps'
@@ -10,6 +9,9 @@ import { selectAtom, waitForAll } from 'jotai/utils'
 import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
+import createLogger from '@/functions/createLogger'
+
+const debug = createLogger('contract arguments atom', 'debug')
 
 /**
  * ---------------------------------------------
@@ -98,7 +100,7 @@ export const formReducer = (prev: FormNormalized, action: FormAction): FormNorma
     }
 
     case FormActionType.RemoveSubField:
-      console.log('uid', uid)
+      debug('uid', uid)
       const removeUidList = collectRelativeUidList(prev.fieldDataSet, subUid as string)
       const removeSubField = R.pipe<[FormNormalized], FormNormalized, FormNormalized>(
         R.modifyPath<string[], string[]>(
@@ -111,7 +113,7 @@ export const formReducer = (prev: FormNormalized, action: FormAction): FormNorma
         )
       )
       const result = removeSubField(prev)
-      console.log('removeUidList', removeUidList, result)
+      debug('removeUidList', removeUidList, result)
       return result
 
     case FormActionType.SetForm:
@@ -163,7 +165,7 @@ const createStructTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTy
   return R.reduce((result, subItem) => {
     const { name } = subItem
 
-    console.log('struct name', name)
+    debug('struct name', name)
     
     if (name) {
       const { uid, fieldDataSet } = createFieldData(registry, subItem)
@@ -297,7 +299,7 @@ const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDat
       break
   }
 
-  console.log('fieldResult', fieldResult, uid)
+  debug('fieldResult', fieldResult, uid)
 
   return {
     uid,
@@ -378,7 +380,7 @@ export const currentArgsFormAtomInAtom = atom(get => {
     registry,
   }
 
-  console.log('form', form)
+  debug('form', form)
 
   const formAtom = atom(form)
 

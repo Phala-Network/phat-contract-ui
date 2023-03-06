@@ -100,7 +100,7 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
         debug('contractInstance or account is null')
         return
       }
-      console.log('contract', contract)
+      debug('contract', contract)
       // @ts-ignore
       const apiCopy = await ApiPromise.create({ ...api._options })
       const contractInstance = new ContractPromise(
