@@ -79,6 +79,8 @@ const NumberLikeTypeDataEntry = memo(({ dataEntryAtom }: {
   const [value, setValue] = useAtom(entityAtom)
   const [innerValue, setInnerValue] = useState(value?.toString() || '')
 
+  console.log('NumberLikeTypeDataEntry render: fieldData', entityAtom)
+
   useEffect(() => {
     setInnerValue(value?.toString() || '')
   }, [value])
@@ -129,6 +131,8 @@ const BoolTypeDataEntry = memo(({ dataEntryAtom }: {
   const [errors, setErrors] = useAtom(errorsAtom)
   const isInvalid = useMemo(() => errors.length > 0, [errors])
 
+  console.log('BoolTypeDataEntry render: fieldData', entityAtom)
+
   const [innerValue, setInnerValue] = useState('')
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -159,6 +163,8 @@ const PlainTypeDataEntry = memo(({ dataEntryAtom }: ArgumentDataEntryProps) => {
   const { typeDef } = useAtomValue(dataEntryAtom)
   const { type } = typeDef
 
+  console.log('PlainTypeDataEntry render: fieldData', dataEntryAtom)
+
   if (isNumberLikeType(type as PlainType)) {
     return <NumberLikeTypeDataEntry dataEntryAtom={dataEntryAtom} />
   } else if (isBoolType(type as PlainType)) {
@@ -175,6 +181,8 @@ const EnumTypeDataEntry = memo(({ dataEntryAtom }: {
   const [selectedVariantName, setSelectedVariantName] = useAtom(selectedVariantNameAtom as PrimitiveAtom<string | undefined>)
   const entity = useAtomValue(entityAtom)
   const [errors, setErrors] = useAtom(errorsAtom)
+
+  console.log('EnumTypeDataEntry render: fieldData', entityAtom)
 
   const { sub } = typeDef
 
@@ -251,6 +259,8 @@ const OptionTypeDataEntry = memo(({ dataEntryAtom }: {
     setEnableOption(checked)
   }
 
+  console.log('OptionTypeDataEntry render: fieldData', entityAtom)
+
   return (
     <>
       <Flex>
@@ -272,6 +282,8 @@ const StructTypeDataEntry = memo(({ dataEntryAtom }: {
   const { entityAtom } = useAtomValue(dataEntryAtom)
   const entity = useAtomValue(entityAtom)
   const entityKeys = Object.keys(entity)
+
+  console.log('StructTypeDataEntry render: fieldData', entityAtom)
 
   return (
     <Box
@@ -308,6 +320,8 @@ const TupleOrVecFixedTypeDataEntry = memo(({ dataEntryAtom }: {
   const { entityAtom } = useAtomValue(dataEntryAtom)
   const entity = useAtomValue(entityAtom)
 
+  console.log('TupleOrVecFixedTypeDataEntry render: fieldData', entityAtom)
+
   return (
     <Stack spacing={FIELD_GAP}>
       {
@@ -341,6 +355,8 @@ const VecTypeItemDataEntry = memo(({
 }) => {
   const entityItem = useAtomValue(entityItemAtom)
   const { id } = entityItem
+
+  console.log('VecTypeItemDataEntry render: fieldData', entityItemAtom)
 
   const removeItem = () => {
     removeEntity(id)
@@ -389,6 +405,8 @@ const VecTypeDataEntry = memo(({
   const addEntity = useSetAtom(addEntityAtom)
   const removeEntity = useSetAtom(removeEntityAtom)
 
+  console.log('VecTypeDataEntry render: fieldData', entityAtom)
+
   const removeDisabled = entity.length <= 1
 
   return (
@@ -427,6 +445,8 @@ const OtherTypeDataEntry = memo(({ dataEntryAtom }: {
 
   const [innerValue, setInnerValue] = useState('')
 
+  console.log('OtherTypeFieldData render: fieldData', entityAtom)
+
   useEffect(() => {
     if (!innerValue) {
       setValue(undefined)
@@ -456,6 +476,8 @@ const ArgumentDataEntry = memo(({
   dataEntryAtom,
 }: ArgumentDataEntryProps) => {
   const { typeDef: { info } } = useAtomValue(dataEntryAtom)
+
+  debug('[Top] ArgumentFieldData render', dataEntryAtom)
 
   switch (info) {
     case TypeDefInfo.Plain:
@@ -495,7 +517,7 @@ const ArgumentForm = memo(({
   const arg = useAtomValue(argAtom)
   const { abiParam, displayName, displayType, rootDataEntryAtom } = arg
 
-  debug('abiParam', abiParam)
+  debug('[Each] ArgumentForm render', arg)
 
   return (
     <FormControl>
@@ -511,6 +533,8 @@ const ArgumentForm = memo(({
 const ArgumentsForm = memo(() => {
   const currentArgsForm = useAtomValue(currentArgsFormAtom)
   const { args } = currentArgsForm
+
+  debug('[Total] ArgumentsForm render', currentArgsForm)
 
   return (
     <Stack spacing="16px">
