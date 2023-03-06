@@ -3,7 +3,7 @@ import type {Bytes} from '@polkadot/types-codec'
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
-import { waitForAll } from "jotai/utils"
+import { useReducerAtom, waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
 import { stringToHex } from '@polkadot/util'
@@ -31,7 +31,8 @@ import {
   currentWorkerIdAtom,
 } from '../atoms'
 import { singleInputsValidator } from '@/functions/argumentsValidator'
-import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
+import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFieldValue, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
+// import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
 
 interface InkResponse {
   nonce: string
@@ -84,9 +85,11 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
-  const currentArgsFormValueOf = useAtomValue(currentArgsFormValueOfAtom)
-  const currentArgsFormValidate = useSetAtom(currentArgsFormValidateAtom)
-  const currentArgsFormErrorsOf = useAtomValue(currentArgsFormErrorsOfAtom)
+  // const currentArgsFormValueOf = useAtomValue(currentArgsFormValueOfAtom)
+  // const currentArgsFormValidate = useSetAtom(currentArgsFormValidateAtom)
+  // const currentArgsFormErrorsOf = useAtomValue(currentArgsFormErrorsOfAtom)
+  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
+  const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
   const [isLoading, setIsLoading] = useState(false)
 
   const fn = useCallback(async (overrideMethodSpec?: ContractMetaMessage) => {
@@ -112,13 +115,20 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
       )
       debug('methodSpec', methodSpec)
 
-      const inputValues = currentArgsFormValueOf()
-      currentArgsFormValidate()
-      const errors = currentArgsFormErrorsOf()
+      const inputValues = getFormValue(currentArgsForm)
+      const checkedArgsForm = getCheckedForm(currentArgsForm)
+      const isInvalid = getFormIsInvalid(checkedArgsForm)
 
-      debug('inputValues & errors', inputValues, errors)
-
-      if (errors.length) {
+      dispatchForm({
+        type: FormActionType.SetForm,
+        payload: {
+          form: checkedArgsForm,
+        }
+      })
+      
+      debug('inputValues & errors', inputValues, isInvalid)
+      
+      if (isInvalid) {
         return ExecResult.Stop
       }
 
@@ -243,7 +253,7 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
     }
   }, [
     api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, setLogs, systemContractId
+    signer, setLogs, systemContractId, currentArgsForm
   ])
   return [isLoading, fn]
 }

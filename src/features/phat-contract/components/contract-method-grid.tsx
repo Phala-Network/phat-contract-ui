@@ -25,7 +25,7 @@ import Code from '@/components/code'
 import useContractExecutor, { ExecResult } from '../hooks/useContractExecutor'
 import { currentMethodAtom, messagesAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
-import { clearAtomsCache, currentArgsFormClearValidationAtom } from '../argumentsFormAtom'
+// import { clearAtomsCache, currentArgsFormClearValidationAtom } from '../argumentsFormAtom'
 // import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 
 export const argsFormModalVisibleAtom = atom(false)
@@ -72,12 +72,11 @@ const InstaExecuteButton: FC<{
 const SimpleArgsFormModal = () => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
-  const currentArgsFormClearValidation = useSetAtom(currentArgsFormClearValidationAtom)
+  // const currentArgsFormClearValidation = useSetAtom(currentArgsFormClearValidationAtom)
 
   const hideModal = () => {
     setVisible(false)
-    currentArgsFormClearValidation()
-    clearAtomsCache()
+    // currentArgsFormClearValidation()
   }
 
   if (!currentMethod) {

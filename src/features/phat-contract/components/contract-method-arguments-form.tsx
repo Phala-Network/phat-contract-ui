@@ -5,11 +5,12 @@ import tw from 'twin.macro'
 import { TypeDefInfo } from '@polkadot/types'
 import { Box, Button, Center, Flex, FormControl, FormErrorMessage, FormHelperText, FormLabel, Input, ListItem, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, Stack, Switch, Text, UnorderedList } from '@chakra-ui/react'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { PrimitiveAtom, useAtom, useAtomValue, useSetAtom, WritableAtom } from 'jotai'
+import { useAtomValue } from 'jotai'
 import { isNumberLikeType, isBoolType, subToArray, PlainType, validateNotUndefined, convertToBN, cantToNumberMessage } from '@/functions/argumentsValidator'
-import { ArgAtom, createUid, currentArgsFormAtom, DataEntryAtom, DataEntryErrorsAtom, EnumEntity, EnumValue, StructEntity, StructValue, VecEntity } from '../argumentsFormAtom'
-import BN from 'bn.js'
+import { currentArgsFormAtomInAtom, currentFieldDataSetReadOnlyAtom, dispatchErrors, dispatchValue, FieldData, FormAction, FormActionType, formReducer, ValueTypeNormalized } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
+import { selectAtom, useReducerAtom } from 'jotai/utils'
+import { v4 as uuidV4 } from 'uuid'
 
 const debug = createLogger('contract arguments', 'debug')
 
@@ -21,8 +22,14 @@ export interface ArgumentField {
   helpText: string
 }
 
-interface ArgumentDataEntryProps {
-  dataEntryAtom: DataEntryAtom
+interface FieldDataProps {
+  uid: string
+  dispatch: (action: FormAction) => void
+}
+
+interface EachFieldDataProps {
+  fieldData: FieldData<ValueTypeNormalized>
+  dispatch: (action: FormAction) => void
 }
 
 const FIELD_GAP = '8px'
@@ -32,13 +39,12 @@ const ArgumentHelpText = ({ helpText }: Partial<Pick<ArgumentField, 'helpText'>>
   : null
 
 const ArgumentErrors = memo(({
-  errorsAtom,
+  errors,
   helpText,
 }: {
-  errorsAtom: DataEntryErrorsAtom
+  errors: string[]
   helpText?: string
 }) => {
-  const errors = useAtomValue(errorsAtom)
   const hasErrors = errors.length > 0
 
   debug('render errors', errors, hasErrors)
@@ -65,19 +71,16 @@ const ArgumentErrors = memo(({
  */
 
 // A number input.
-const NumberLikeTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<BN | undefined, BN | undefined>
-}) => {
-  const { typeDef, entityAtom, errorsAtom } = useAtomValue(dataEntryAtom)
+const NumberLikeTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, typeDef, value, errors = [] } = fieldData
   const { type } = typeDef
   const isUnsignedNumber = type.startsWith('u')
   const min = isUnsignedNumber ? 0 : undefined
   const placeholder = `Input a number${isUnsignedNumber ? ' >= 0' : ''}`
-  const [errors, setErrors] = useAtom(errorsAtom)
   const isInvalid = useMemo(() => errors.length > 0, [errors])
-
-  const [value, setValue] = useAtom(entityAtom)
   const [innerValue, setInnerValue] = useState(value?.toString() || '')
+
+  console.log('NumberLikeTypeFieldData render: fieldData', fieldData)
 
   useEffect(() => {
     setInnerValue(value?.toString() || '')
@@ -86,18 +89,18 @@ const NumberLikeTypeDataEntry = memo(({ dataEntryAtom }: {
   const handleBlur = () => {
     debug('innerValue', innerValue)
     if (!innerValue) {
-      setValue(undefined)
+      dispatchValue(dispatch, uid, undefined)
       const errors = validateNotUndefined(undefined)
-      setErrors(errors)
+      dispatchErrors(dispatch, uid, errors)
     } else {
       const nextValue = convertToBN(innerValue)
       if (nextValue) {
-        setValue(nextValue)
-        setErrors([])
+        dispatchValue(dispatch, uid, nextValue)
+        dispatchErrors(dispatch, uid, [])
       } else {
-        setValue(undefined)
+        dispatchValue(dispatch, uid, undefined)
         const errors = cantToNumberMessage(innerValue).errors
-        setErrors(errors)
+        dispatchErrors(dispatch, uid, errors)
       }
     }
   }
@@ -116,20 +119,18 @@ const NumberLikeTypeDataEntry = memo(({ dataEntryAtom }: {
           <NumberDecrementStepper />
         </NumberInputStepper>
       </NumberInput>
-      <ArgumentErrors errorsAtom={errorsAtom} />
+      <ArgumentErrors errors={errors} />
     </FormControl>
   )
 })
 
-const BoolTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<boolean | undefined, boolean | undefined>
-}) => {
-  const { entityAtom, errorsAtom } = useAtomValue(dataEntryAtom)
-  const [value, setValue] = useAtom(entityAtom)
-  const [errors, setErrors] = useAtom(errorsAtom)
-  const isInvalid = useMemo(() => errors.length > 0, [errors])
+const BoolTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, errors = [] } = fieldData
+  const isInvalid = useMemo(() => errors && errors.length > 0, [errors])
 
   const [innerValue, setInnerValue] = useState('')
+
+  console.log('BoolTypeFieldData render: fieldData', fieldData)
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextInnerValue = event.target.value
@@ -139,9 +140,9 @@ const BoolTypeDataEntry = memo(({ dataEntryAtom }: {
     if (nextInnerValue) {
       nextValue = nextInnerValue === '1' ? true : false
     }
-    setValue(nextValue)
+    dispatchValue(dispatch, uid, nextValue)
     const errors = validateNotUndefined(nextValue)
-    setErrors(errors)
+    dispatchErrors(dispatch, uid, errors)
   }
 
   return (
@@ -150,31 +151,29 @@ const BoolTypeDataEntry = memo(({ dataEntryAtom }: {
         <option value="1">true</option>
         <option value="0">false</option>
       </Select>
-      <ArgumentErrors errorsAtom={errorsAtom} />
+      <ArgumentErrors errors={errors} />
     </FormControl>
   )
 })
 
-const PlainTypeDataEntry = memo(({ dataEntryAtom }: ArgumentDataEntryProps) => {
-  const { typeDef } = useAtomValue(dataEntryAtom)
-  const { type } = typeDef
+const PlainTypeFieldData = memo((props: EachFieldDataProps) => {
+  const { fieldData } = props
+  const { typeDef: { type } } = fieldData
 
   if (isNumberLikeType(type as PlainType)) {
-    return <NumberLikeTypeDataEntry dataEntryAtom={dataEntryAtom} />
+    return <NumberLikeTypeFieldData {...props} />
   } else if (isBoolType(type as PlainType)) {
-    return <BoolTypeDataEntry dataEntryAtom={dataEntryAtom} />
+    return <BoolTypeFieldData {...props} />
   }
 
-  return <OtherTypeDataEntry dataEntryAtom={dataEntryAtom} />
+  return <OtherTypeFieldData {...props} />
 })
 
-const EnumTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<EnumEntity, EnumValue>
-}) => {
-  const { typeDef, entityAtom, errorsAtom, selectedVariantNameAtom } = useAtomValue(dataEntryAtom)
-  const [selectedVariantName, setSelectedVariantName] = useAtom(selectedVariantNameAtom as PrimitiveAtom<string | undefined>)
-  const entity = useAtomValue(entityAtom)
-  const [errors, setErrors] = useAtom(errorsAtom)
+const EnumTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, typeDef, enumFields, errors = [] } = fieldData
+  const subFieldData = enumFields as string[]
+
+  const [selectedVariantName, setSelectedVariantName] = useState<string>()
 
   const { sub } = typeDef
 
@@ -193,16 +192,28 @@ const EnumTypeDataEntry = memo(({ dataEntryAtom }: {
     }
   }, [variants, variantIndex])
 
+  useEffect(() => {
+    if (variantIndex !== undefined && variant && selectedVariantName) {
+      let nextValue: Record<string, string | null> = { [selectedVariantName]: null }
+      if (variant.type !== 'Null') {
+        nextValue = { [selectedVariantName]: subFieldData[variantIndex] }
+      }
+      dispatchValue(dispatch, uid, nextValue)
+    } else {
+      dispatchValue(dispatch, uid, undefined)
+    }
+  }, [variant, variantIndex, selectedVariantName, subFieldData])
+
   const isInvalid = useMemo(() => errors.length > 0, [errors])
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value
     setSelectedVariantName(value)
     const errors = validateNotUndefined(value)
-    setErrors(errors)
+    dispatchErrors(dispatch, uid, errors)
   }
 
-  debug('variant', variant)
+  debug('EnumTypeFieldData render: variant, fieldData', variant, fieldData)
 
   return (
     <>
@@ -221,14 +232,14 @@ const EnumTypeDataEntry = memo(({ dataEntryAtom }: {
             })
           }
         </Select>
-        <ArgumentErrors errorsAtom={errorsAtom} />
+        <ArgumentErrors errors={errors} />
       </FormControl>
       {
-        variant && variant.type !== 'Null' && entity
+        variant && variant.type !== 'Null' && variantIndex !== undefined
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentDataEntry dataEntryAtom={entity[variantIndex as number]} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} dispatch={dispatch} />
             </>
           )
           : null
@@ -237,18 +248,17 @@ const EnumTypeDataEntry = memo(({ dataEntryAtom }: {
   )
 })
 
-const OptionTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<DataEntryAtom, unknown | null>
-}) => {
-  const { entityAtom, enableOptionAtom } = useAtomValue(dataEntryAtom)
-  const [enableOption, setEnableOption] = useAtom(enableOptionAtom as PrimitiveAtom<boolean>)
-  const entityItemAtom = useAtomValue(entityAtom)
+const OptionTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, value, optionField } = fieldData
 
-  const uid = createUid()
+  debug('OptionTypeFieldData render: fieldData', fieldData)
+
+  const enableOption = Boolean(value)
 
   const handleSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked
-    setEnableOption(checked)
+    const nextValue = checked ? optionField as string : null
+    dispatchValue(dispatch, uid, nextValue)
   }
 
   return (
@@ -259,19 +269,19 @@ const OptionTypeDataEntry = memo(({ dataEntryAtom }: {
       </Flex>
       {
         enableOption
-          ? <ArgumentDataEntry dataEntryAtom={entityItemAtom} />
+          ? <ArgumentFieldData uid={optionField as string} dispatch={dispatch} />
           : null
       }
     </>
   )
 })
 
-const StructTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<StructEntity, StructValue>
-}) => {
-  const { entityAtom } = useAtomValue(dataEntryAtom)
-  const entity = useAtomValue(entityAtom)
-  const entityKeys = Object.keys(entity)
+const StructTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { value } = fieldData
+  const structValue = value as Record<string, string>
+  const names = Object.keys(structValue)
+
+  debug('StructTypeFieldData render: fieldData', fieldData)
 
   return (
     <Box
@@ -283,15 +293,15 @@ const StructTypeDataEntry = memo(({ dataEntryAtom }: {
     >
       <Stack spacing={FIELD_GAP}>
         {
-          entityKeys.map((entityKey, index) => {
-            const id = createUid()
+          names.map((name, index) => {
+            const id = uuidV4()
             return (
               <Box key={index}>
                 <FormLabel htmlFor={id}>
-                  {entityKey}
+                  {name}
                 </FormLabel>
                 <Box id={id}>
-                  <ArgumentDataEntry dataEntryAtom={entity[entityKey]} />
+                  <ArgumentFieldData uid={structValue[name]} dispatch={dispatch} />
                 </Box>
               </Box>
             )}
@@ -302,23 +312,23 @@ const StructTypeDataEntry = memo(({ dataEntryAtom }: {
   )
 })
 
-const TupleOrVecFixedTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<VecEntity, unknown[]>
-}) => {
-  const { entityAtom } = useAtomValue(dataEntryAtom)
-  const entity = useAtomValue(entityAtom)
+const TupleOrVecFixedTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { value } = fieldData
+  const subFieldsUid = value as string[]
+
+  debug('TupleOrVecFixedTypeFieldData render: fieldData', fieldData)
 
   return (
     <Stack spacing={FIELD_GAP}>
       {
-        entity.map((entityItemAtom, index) => {
+        subFieldsUid.map((uid, index) => {
           return (
             <Flex key={index}>
               <Center w="40px" bgColor="whiteAlpha.200" borderRadius="md">
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentDataEntry dataEntryAtom={entityItemAtom} />
+                <ArgumentFieldData uid={uid} dispatch={dispatch} />
               </Box>
             </Flex>
           )
@@ -328,31 +338,30 @@ const TupleOrVecFixedTypeDataEntry = memo(({ dataEntryAtom }: {
   )
 })
 
-const VecTypeItemDataEntry = memo(({
-  entityItemAtom,
-  removeEntity,
+const VecTypeItemFieldData = memo(({
+  uid,
+  dispatch,
+  removeSubField,
   index,
   removeDisabled,
 }: {
-  entityItemAtom: DataEntryAtom
-  removeEntity: (id: string) => void
+  uid: string
   index: number
   removeDisabled: boolean
-}) => {
-  const entityItem = useAtomValue(entityItemAtom)
-  const { id } = entityItem
+  removeSubField: (uid: string) => void
+} & FieldDataProps) => {
 
-  const removeItem = () => {
-    removeEntity(id)
+  const handleRemove = () => {
+    removeSubField(uid)
   }
 
   return (
-    <Flex key={id}>
+    <Flex key={uid}>
       <Center w="40px" bgColor="whiteAlpha.200" borderRadius="md">
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentDataEntry dataEntryAtom={entityItemAtom} />
+        <ArgumentFieldData uid={uid} dispatch={dispatch} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -367,7 +376,7 @@ const VecTypeItemDataEntry = memo(({
         bgColor="whiteAlpha.200"
         borderRadius="md"
         display={removeDisabled ? 'none' : undefined}
-        onClick={removeItem}
+        onClick={handleRemove}
       >
         <IoRemove />
       </Center>
@@ -375,29 +384,39 @@ const VecTypeItemDataEntry = memo(({
   )
 })
 
-const VecTypeDataEntry = memo(({
-  dataEntryAtom,
-}: {
-  dataEntryAtom: DataEntryAtom<VecEntity, unknown[]>
-}) => {
-  const { typeDef, entityAtom, dispatches } = useAtomValue(dataEntryAtom)
-  const entity = useAtomValue(entityAtom)
-  const { addEntity: addEntityAtom, removeEntity: removeEntityAtom } = dispatches as {
-    addEntity: WritableAtom<null, unknown, void>
-    removeEntity: WritableAtom<null, string, void>
-  }
-  const addEntity = useSetAtom(addEntityAtom)
-  const removeEntity = useSetAtom(removeEntityAtom)
+const VecTypeDataEntry = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, typeDef: { sub }, value } = fieldData
+  const subFieldsUid = value as string[]
+  const subTypeDef = subToArray(sub)[0]
 
-  const removeDisabled = entity.length <= 1
+  debug('VecTypeDataEntry render: fieldData', fieldData)
+
+  const addSubField = () => dispatch({
+    type: FormActionType.AddSubField,
+    payload: {
+      uid,
+      typeDef: subTypeDef,
+    }
+  })
+
+  const removeSubField = (subUid: string) => dispatch({
+    type: FormActionType.RemoveSubField,
+    payload: {
+      uid,
+      subUid,
+    }
+  })
+
+  const removeDisabled = subFieldsUid.length <= 1
 
   return (
     <Stack spacing={FIELD_GAP}>
       {
-        entity.map((entityItemAtom, index) => (
-          <VecTypeItemDataEntry
-            entityItemAtom={entityItemAtom}
-            removeEntity={removeEntity}
+        subFieldsUid.map((subUid, index) => (
+          <VecTypeItemFieldData
+            uid={subUid}
+            dispatch={dispatch}
+            removeSubField={removeSubField}
             removeDisabled={removeDisabled}
             index={index}
             key={index}
@@ -408,7 +427,7 @@ const VecTypeDataEntry = memo(({
         <Button
           leftIcon={<IoAdd />}
           w="100%"
-          onClick={addEntity}
+          onClick={addSubField}
         >
           Add
         </Button>
@@ -417,21 +436,20 @@ const VecTypeDataEntry = memo(({
   )
 })
 
-const OtherTypeDataEntry = memo(({ dataEntryAtom }: {
-  dataEntryAtom: DataEntryAtom<string | undefined, string | undefined>
-}) => {
-  const { entityAtom, errorsAtom } = useAtomValue(dataEntryAtom)
-  const [value, setValue] = useAtom(entityAtom)
-  const [errors, setErrors] = useAtom(errorsAtom)
+const OtherTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+  const { uid, value, errors = [] } = fieldData
+
   const isInvalid = useMemo(() => errors.length > 0, [errors])
 
   const [innerValue, setInnerValue] = useState('')
 
+  console.log('OtherTypeFieldData render: fieldData', fieldData)
+
   useEffect(() => {
     if (!innerValue) {
-      setValue(undefined)
+      dispatchValue(dispatch, uid, undefined)
     } else {
-      setValue(innerValue)
+      dispatchValue(dispatch, uid, innerValue)
     }
   }, [innerValue])
 
@@ -441,86 +459,98 @@ const OtherTypeDataEntry = memo(({ dataEntryAtom }: {
 
   const handleBlur = () => {
     const errors = validateNotUndefined(value)
-    setErrors(errors)
+    dispatchErrors(dispatch, uid, errors)
   }
 
   return (
     <FormControl isInvalid={isInvalid}>
       <Input value={innerValue} onChange={handleChange} onBlur={handleBlur} placeholder="Input a string" />
-      <ArgumentErrors errorsAtom={errorsAtom} />
+      <ArgumentErrors errors={errors} />
     </FormControl>
   )
 })
 
-const ArgumentDataEntry = memo(({
-  dataEntryAtom,
-}: ArgumentDataEntryProps) => {
-  const { typeDef: { info } } = useAtomValue(dataEntryAtom)
+const ArgumentFieldData = memo(({ uid, dispatch }: FieldDataProps) => {
+  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
+  const fieldData = useAtomValue(fieldDataAtom)
+
+  const { typeDef: { info } } = fieldData
+
+  console.log('[Top] ArgumentFieldData render', fieldDataAtom, uid)
 
   switch (info) {
     case TypeDefInfo.Plain:
-      return <PlainTypeDataEntry dataEntryAtom={dataEntryAtom} />
-
-    case TypeDefInfo.Compact:
-      return <ArgumentDataEntry dataEntryAtom={dataEntryAtom} />
+      return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       
     case TypeDefInfo.Enum:
-      return <EnumTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} />
 
     case TypeDefInfo.Option:
-      return <OptionTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} />
     
     case TypeDefInfo.Struct:
-      return <StructTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <StructTypeFieldData fieldData={fieldData} dispatch={dispatch} />
     
     case TypeDefInfo.Tuple:
-      return <TupleOrVecFixedTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
 
     case TypeDefInfo.VecFixed:
-      return <TupleOrVecFixedTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
 
     case TypeDefInfo.Vec:
-      return <VecTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <VecTypeDataEntry fieldData={fieldData} dispatch={dispatch} />
   
     default:
-      return <OtherTypeDataEntry dataEntryAtom={dataEntryAtom} />
+      return <OtherTypeFieldData fieldData={fieldData} dispatch={dispatch} />
   }
 })
 
 const ArgumentForm = memo(({
-  argAtom,
+  name,
+  uid,
+  dispatch,
 }: {
-  argAtom: ArgAtom
-}) => {
-  const arg = useAtomValue(argAtom)
-  const { abiParam, displayName, displayType, rootDataEntryAtom } = arg
+  name: string
+} & FieldDataProps) => {
+  // If no useMemo, component will re-render always.
+  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
+  const { displayType = '', value  } = useAtomValue(fieldDataAtom)
 
-  debug('abiParam', abiParam)
+  debug('[Each] ArgumentForm render', fieldDataAtom, value, uid)
 
   return (
     <FormControl>
       <FormLabel>
-        {displayName}
+        {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentDataEntry dataEntryAtom={rootDataEntryAtom} />
+      <ArgumentFieldData uid={uid} dispatch={dispatch} />
     </FormControl>
   )
 })
 
 const ArgumentsForm = memo(() => {
-  const currentArgsForm = useAtomValue(currentArgsFormAtom)
-  const { args } = currentArgsForm
+  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
+  const [currentArgsForm, dispatch] = useReducerAtom(currentArgsFormAtom, formReducer)
+  const { formData } = currentArgsForm
+  const args = Object.keys(formData)
+
+  debug('[Total] ArgumentsForm render', currentArgsForm)
 
   return (
     <Stack spacing="16px">
       {
-        args.map((argAtom, index) => (
-          <ArgumentForm
-            key={index}
-            argAtom={argAtom}
-          />
-        ))
+        args.map((name, index) => {
+          const uid = formData[name]
+          return (
+            <ArgumentForm
+              key={index}
+              name={name}
+              uid={uid}
+              dispatch={dispatch}
+            />
+          )
+        })
       }
     </Stack>
   )

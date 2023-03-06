@@ -1,162 +1,193 @@
-import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai'
+import type { PrimitiveAtom, WritableAtom } from 'jotai'
 import { Registry, TypeDefInfo } from '@polkadot/types/types'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { decamelize } from 'humps'
 import { atom } from 'jotai'
+import * as R from 'ramda'
+import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
-import { waitForAll } from 'jotai/utils'
+import { selectAtom, waitForAll } from 'jotai/utils'
 import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
-
-/**
- * --------------------------------
- *              Utils
- * --------------------------------
- */
-
-// Simple Uid generation.
-export const createUid = () => String(new Date().getTime() * Math.random() * 100000)
-
-export type DataEntryErrorsAtom = WritableAtom<string[], string[], void>
-const createDataEntryErrorsAtom = (): DataEntryErrorsAtom => atom<string[]>([])
+import BN from 'bn.js'
 
 /**
  * ---------------------------------------------
- *              Data entry atom
+ *              Field data
  * ---------------------------------------------
  */
 
-export type EntityAtom<T> = PrimitiveAtom<T>
-export type DataEntryAtom<TEntity = any, TValue = any> = Atom<{
-  id: string
+export type PlainTypeEntityAndValue = string | BN | boolean
+export type ValueType = PlainTypeEntityAndValue | Record<string, FieldData | null> | FieldData[] | FieldData | undefined
+export type ValueTypeNormalized = PlainTypeEntityAndValue | Record<string, string | null> | string[] | null | undefined
+export interface FieldData<T = ValueType> {
+  uid: string
   typeDef: TypeDef
-  entityAtom: EntityAtom<TEntity>
-  errorsAtom: DataEntryErrorsAtom
-  execValidateAtom: WritableAtom<null, unknown, void>
-  clearErrorsAtom: WritableAtom<null, unknown, void>
-  valueOf: () => TValue
-  errorsOf: () => string[]
-  dispatches?: Record<string, WritableAtom<any, any, any>>
-  [key: string]: unknown
-}>
+  value?: T
+  errors?: string[]
+  displayName?: string
+  displayType?: string
+  enumFields?: (FieldData<T> | string)[]
+  optionField?: FieldData<T> | string
+}
+export type FieldDataNormalized = FieldData<ValueTypeNormalized>
+type EachTypeFieldData = Omit<FieldData<ValueTypeNormalized>, 'typeDef' | 'uid'>
+export type FieldDataSet = Record<string, FieldData<ValueTypeNormalized>>
 
-// Plain type
-export type PlainTypeEntityAndValue = string | number | boolean | undefined
-const createPlainTypeDataEntryAtom = (typeDef: TypeDef): DataEntryAtom<PlainTypeEntityAndValue, PlainTypeEntityAndValue> => {
-  const entityAtom = atom<PlainTypeEntityAndValue>(undefined)
-  const errorsAtom = createDataEntryErrorsAtom()
-  const execValidateAtom = atom(null, (get, set) => {
-    const entity = get(entityAtom)
-    const errors = validateNotUndefined(entity)
-    if (errors.length) {
-      set(errorsAtom, errors)
-    }
-  })
-  const clearErrorsAtom = atom(null, (_, set) => set(errorsAtom, []))
-  const baseDataEntryAtom = atom({
-    id: createUid(),
-    typeDef,
-    entityAtom,
-    errorsAtom,
-    execValidateAtom,
-    clearErrorsAtom,
-  })
-
-  return atom(get => {
-    const valueOf = () => get(entityAtom)
-    const errorsOf = () => get(errorsAtom)
-    const baseDataEntry = get(baseDataEntryAtom)
-    return {
-      ...baseDataEntry,
-      valueOf,
-      errorsOf,
-    }
-  })
+interface FieldDataResult {
+  uid: string
+  fieldDataSet: FieldDataSet
 }
 
+interface EachTypeFieldDataResult {
+  fieldData: EachTypeFieldData
+  fieldDataSet: FieldDataSet
+}
+
+const initEachTypeFieldDataResult = (): EachTypeFieldDataResult => ({
+  fieldData: {},
+  fieldDataSet: {}
+})
+
+
+export enum FormActionType {
+  SetValue = 'SetValue',
+  SetErrors = 'SetErrors',
+  AddSubField = 'AddSubField',
+  RemoveSubField = 'RemoveSubField',
+  SetForm = 'SetForm',
+}
+
+export interface PayloadType {
+  uid?: string,
+  value?: ValueTypeNormalized
+  errors?: string[]
+  typeDef?: TypeDef
+  subUid?: string
+  form?: FormNormalized
+}
+
+export interface FormAction {
+  type: FormActionType
+  payload?: PayloadType
+}
+
+export const formReducer = (prev: FormNormalized, action: FormAction): FormNormalized => {
+  const { type, payload = {} } = action
+  const { uid = '', subUid, value, errors, typeDef, form } = payload
+  switch (type) {
+    case FormActionType.SetValue:
+      return R.assocPath(['fieldDataSet', uid, 'value'], value, prev)
+
+    case FormActionType.SetErrors:
+      return R.assocPath(['fieldDataSet', uid, 'errors'], errors, prev)
+
+    case FormActionType.AddSubField: {
+      const { uid: subUid, fieldDataSet } = createFieldData(prev.registry, typeDef as TypeDef)
+      const addSubField = R.pipe<[FormNormalized], FormNormalized, FormNormalized>(
+        R.modifyPath<string[], string[]>(
+          ['fieldDataSet', uid, 'value'],
+          R.append(subUid),
+        ),
+        R.modifyPath<FieldDataSet, FieldDataSet>(
+          ['fieldDataSet'],
+          R.mergeLeft(fieldDataSet)
+        )
+      )
+      return addSubField(prev)
+    }
+
+    case FormActionType.RemoveSubField:
+      console.log('uid', uid)
+      const removeUidList = collectRelativeUidList(prev.fieldDataSet, subUid as string)
+      const removeSubField = R.pipe<[FormNormalized], FormNormalized, FormNormalized>(
+        R.modifyPath<string[], string[]>(
+          ['fieldDataSet', uid, 'value'],
+          R.filter(item => item !== subUid)
+        ),
+        R.modifyPath<FieldDataSet, FieldDataSet>(
+          ['fieldDataSet'],
+          R.omit(removeUidList)
+        )
+      )
+      const result = removeSubField(prev)
+      console.log('removeUidList', removeUidList, result)
+      return result
+
+    case FormActionType.SetForm:
+      return form as FormNormalized
+  
+    default:
+      return prev
+  }
+}
+
+export const dispatchValue = (dispatch: (action: FormAction) => void, uid: string, value?: ValueTypeNormalized) => dispatch({
+  type: FormActionType.SetValue,
+  payload: {
+    uid,
+    value,
+  }
+})
+
+export const dispatchErrors = (dispatch: (action: FormAction) => void, uid: string, errors?: string[]) => dispatch({
+  type: FormActionType.SetErrors,
+  payload: {
+    uid,
+    errors,
+  }
+})
+
+const HAS_SUB_FIELD_DATA_TYPE = [
+  TypeDefInfo.Struct,
+  TypeDefInfo.VecFixed,
+  TypeDefInfo.Vec,
+  TypeDefInfo.Tuple,
+  TypeDefInfo.Enum,
+  TypeDefInfo.Option,
+]
+
+const HAVE_NO_ERRORS_FIELD_DATA_TYPE = [
+  TypeDefInfo.Struct,
+  TypeDefInfo.VecFixed,
+  TypeDefInfo.Vec,
+  TypeDefInfo.Tuple,
+]
+
 // Struct type
-export type StructEntity = Record<string, DataEntryAtom>
-export type StructValue = Record<string, unknown>
-const createStructTypeDataEntryAtom = (registry: Registry, typeDef: TypeDef): DataEntryAtom<StructEntity, StructValue> => {
+const createStructTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTypeFieldDataResult => {
   const { sub } = typeDef
   const subArray = subToArray(sub)
+  const initResult = initEachTypeFieldDataResult()
 
-  // Atom<{ [key]: DataEntryAtom }>
-  const entityAtom: EntityAtom<StructEntity> = atom(subArray.reduce((entity, subItem) => {
+  return R.reduce((result, subItem) => {
     const { name } = subItem
 
+    console.log('struct name', name)
+    
     if (name) {
+      const { uid, fieldDataSet } = createFieldData(registry, subItem)
       return {
-        ...entity,
-        [name]: createDataEntryAtom(registry, subItem)
+        fieldData: {
+          ...result.fieldData,
+          value: {
+            ...(result.fieldData.value as Record<string, string> || {}),
+            [name]: uid,
+          },
+        },
+        fieldDataSet: {
+          ...result.fieldDataSet,
+          ...fieldDataSet,
+        }
       }
     } else {
-      return entity
+      return result
     }
-
-  }, {}))
-  const execValidateAtom = atom(null, (get, set) => {
-    const entity = get(entityAtom)
-
-    Object.keys(entity).forEach(key => {
-      const entityItemAtom = entity[key]
-      const entityItem = get(entityItemAtom)
-      const { execValidateAtom: subExecValidateAtom } = entityItem
-      set(subExecValidateAtom)
-    })
-  })
-  const clearErrorsAtom = atom(null, (get, set) => {
-    const entity = get(entityAtom)
-
-    Object.keys(entity).forEach(key => {
-      const entityItemAtom = entity[key]
-      const entityItem = get(entityItemAtom)
-      const { clearErrorsAtom: subClearErrorsAtom } = entityItem
-      set(subClearErrorsAtom)
-    })
-  })
-  const baseDataEntryAtom = atom({
-    id: createUid(),
-    typeDef,
-    entityAtom,
-    execValidateAtom,
-    errorsAtom: createDataEntryErrorsAtom(),
-    clearErrorsAtom,
-  })
-
-  return atom(get => {
-    const valueOf = () => {
-      const entity = get(entityAtom)
-      return Object.keys(entity).reduce((result, key) => {
-        const entityValueAtom = entity[key]
-        const entityValue = get(entityValueAtom).valueOf()
-        return {
-          ...result,
-          [key]: entityValue,
-        }
-      }, {})
-    }
-    const errorsOf = () => {
-      const entity = get(entityAtom)
-      return Object.keys(entity).reduce((result, key) => {
-        const entityValueAtom = entity[key]
-        const errors = get(entityValueAtom).errorsOf()
-        return result.concat(errors)
-      }, [] as string[])
-    }
-    const baseDataEntry = get(baseDataEntryAtom)
-
-    return {
-      ...baseDataEntry,
-      valueOf,
-      errorsOf,
-    }
-  })
+  }, initResult, subArray)
 }
 
 // Vec or VecFixed or Tuple type
-export type VecEntity = DataEntryAtom[]
-const createArrayTypeDataEntryAtom = (registry: Registry, typeDef: TypeDef): DataEntryAtom<VecEntity, unknown[]> => {
+const createArrayTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTypeFieldDataResult => {
   const { sub, info, length } = typeDef
   let subArray = subToArray(sub)
 
@@ -164,285 +195,121 @@ const createArrayTypeDataEntryAtom = (registry: Registry, typeDef: TypeDef): Dat
     subArray = new Array(length).fill(sub as TypeDef)
   }
 
-  // Atom<[DataEntryAtom]>
-  const entityAtom: EntityAtom<VecEntity> = atom(
-    subArray.map(subItem => createDataEntryAtom(registry, subItem))
-  )
-  const execValidateAtom = atom(null, (get, set) => {
-    const entity = get(entityAtom)
+  const initResult = initEachTypeFieldDataResult()
 
-    entity.forEach(entityItemAtom => {
-      const entityItem = get(entityItemAtom)
-      const { execValidateAtom: subExecValidateAtom } = entityItem
-      set(subExecValidateAtom)
-    })
-  })
-  const clearErrorsAtom = atom(null, (get, set) => {
-    const entity = get(entityAtom)
-
-    entity.forEach(entityItemAtom => {
-      const entityItem = get(entityItemAtom)
-      const { clearErrorsAtom: subClearErrorsAtom } = entityItem
-      set(subClearErrorsAtom)
-    })
-  })
-  const baseDataEntryAtom = atom({
-    id: createUid(),
-    typeDef,
-    entityAtom,
-    execValidateAtom,
-    clearErrorsAtom,
-    errorsAtom: createDataEntryErrorsAtom(),
-  })
-
-  // Only Vec type has follow method
-  const addEntity = atom(null, (get, set) => {
-    const entity = get(entityAtom)
-    set(entityAtom, entity.concat([
-      createDataEntryAtom(registry, sub as TypeDef)
-    ]))
-  })
-  const removeEntity = atom(null, (get, set, id: string) => {
-    const entity = get(entityAtom)
-    set(entityAtom, entity.filter(entityItemAtom => {
-      const entityItem = get(entityItemAtom)
-      return entityItem.id !== id
-    }))
-  })
-
-  return atom(get => {
-    const valueOf = () => {
-      const entity = get(entityAtom)
-      return entity.map(itemAtom => {
-        const item = get(itemAtom)
-        return item.valueOf()
-      })
-    }
-    const errorsOf = () => {
-      const entity = get(entityAtom)
-      return entity.reduce((result, itemAtom) => {
-        const item = get(itemAtom)
-        return result.concat(item.errorsOf())
-      }, [] as string[])
-    }
-    const baseDataEntry = get(baseDataEntryAtom)
-
+  return R.reduce((result, subItem) => {
+    const { uid, fieldDataSet } = createFieldData(registry, subItem)
     return {
-      ...baseDataEntry,
-      valueOf,
-      errorsOf,
-      dispatches: info !== TypeDefInfo.Vec ? undefined : {
-        addEntity,
-        removeEntity,
+      fieldData: {
+        ...result.fieldData,
+        value: [...(result.fieldData.value as string[] || []), uid]
+      },
+      fieldDataSet: {
+        ...result.fieldDataSet,
+        ...fieldDataSet,
       }
     }
-  })
+  }, initResult, subArray)
 }
 
 // Enum type
-export type EnumEntity = VecEntity
-export type EnumValue = Record<string, unknown | null> | undefined
-const createEnumTypeDataEntryAtom = (registry: Registry, typeDef: TypeDef): DataEntryAtom<EnumEntity, EnumValue> => {
+const createEnumTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTypeFieldDataResult => {
   const { sub } = typeDef
 
   const variants = subToArray(sub)
-
-  const selectedVariantNameAtom = atom<string | undefined>(undefined)
-  const entityAtom: EntityAtom<VecEntity> = atom(
-    variants
+  const enums = variants
       .filter(subItem => subItem.type !== 'Null')
-      .map(subItem => createDataEntryAtom(registry, subItem))
-  )
-  const errorsAtom = createDataEntryErrorsAtom()
-  const execValidateAtom = atom(null, (get, set) => {
-    const selectedVariantName = get(selectedVariantNameAtom)
-    const nameErrors = validateNotUndefined(selectedVariantName)
 
-    if (nameErrors.length) {
-      set(errorsAtom, nameErrors)
-    } else {
-      const variantIndex = variants.findIndex(item => item.name === selectedVariantName)
-      const entity = get(entityAtom)
-      // Clear all entityItem errors except target variantIndex
-      entity.forEach((entityItemAtom, index) => {
-        const entityItem = get(entityItemAtom)
-        const { execValidateAtom: subExecValidateAtom, clearErrorsAtom: subClearErrorsAtom } = entityItem
-        if (index === variantIndex) {
-          set(subExecValidateAtom)
-        } else {
-          set(subClearErrorsAtom)
-        }
-      })
-    }
-  })
-  const clearErrorsAtom = atom(null, (get, set) => {
-    set(errorsAtom, [])
-    const entity = get(entityAtom)
-    entity.forEach((entityItemAtom) => {
-      const entityItem = get(entityItemAtom)
-      const { clearErrorsAtom: subClearErrorsAtom } = entityItem
-      set(subClearErrorsAtom)
-    })
-  })
-  const baseDataEntryAtom = atom({
-    id: createUid(),
-    typeDef,
-    selectedVariantNameAtom,
-    entityAtom,
-    errorsAtom,
-    execValidateAtom,
-    clearErrorsAtom,
-  })
+  const initResult = initEachTypeFieldDataResult()
 
-  const selectAVariant = atom(null, (_, set, variantName: string) => {
-    set(selectedVariantNameAtom, variantName)
-  })
-
-  return atom(get => {
-    const valueOf = () => {
-      const selectedVariantName = get(selectedVariantNameAtom)
-      if (!selectedVariantName) {
-        return undefined
-      } else {
-        const variantIndex = variants.findIndex(item => item.name === selectedVariantName)
-        const variant = variants[variantIndex]
-        if (variant.type === 'Null') {
-          return {
-            [selectedVariantName]: null
-          }
-        } else {
-          const entity = get(entityAtom)
-          const targetEntityItemAtom = entity[variantIndex]
-          const targetEntityItem = get(targetEntityItemAtom)
-          return {
-            [selectedVariantName]: targetEntityItem.valueOf()
-          }
-        }
-      }
-    }
-    const errorsOf = () => {
-      const errors = get(errorsAtom)
-      const selectedVariantName = get(selectedVariantNameAtom)
-      if (!selectedVariantName) {
-        return errors
-      } else {
-        const variantIndex = variants.findIndex(item => item.name === selectedVariantName)
-        const variant = variants[variantIndex]
-        if (variant.type === 'Null') {
-          return errors
-        } else {
-          const entity = get(entityAtom)
-          const targetEntityItemAtom = entity[variantIndex]
-          const targetEntityItem = get(targetEntityItemAtom)
-          return errors.concat(targetEntityItem.errorsOf())
-        }
-      }
-    }
-    const baseDataEntry = get(baseDataEntryAtom)
-
+  return R.reduce((result, subItem) => {
+    const { uid, fieldDataSet } = createFieldData(registry, subItem)
     return {
-      ...baseDataEntry,
-      valueOf,
-      errorsOf,
-      dispatches: {
-        selectAVariant,
+      fieldData: {
+        ...result.fieldData,
+        enumFields: [...(result.fieldData.enumFields || []), uid]
       },
+      fieldDataSet: {
+        ...result.fieldDataSet,
+        ...fieldDataSet,
+      }
     }
-  })
+  }, initResult, enums)
 }
 
 // Option type
-const createOptionTypeDataEntryAtom = (registry: Registry, typeDef: TypeDef): DataEntryAtom<DataEntryAtom, unknown | null> => {
+const createOptionTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTypeFieldDataResult => {
   const { sub } = typeDef
 
-  const enableOptionAtom = atom<boolean>(false)
-  const entityAtom = atom(createDataEntryAtom(registry, sub as TypeDef))
-  const errorsAtom = createDataEntryErrorsAtom()
-  const execValidateAtom = atom(null, (get, set) => {
-    const enableOption = get(enableOptionAtom)
-    const { execValidateAtom: subExecValidateAtom, clearErrorsAtom: subClearErrorsAtom } = get(get(entityAtom))
-    if (enableOption) {
-      set(subExecValidateAtom)
-    } else {
-      set(subClearErrorsAtom)
-    }
-  })
-  const clearErrorsAtom = atom(null, (get, set) => {
-    const { clearErrorsAtom: subClearErrorsAtom } = get(get(entityAtom))
-    set(subClearErrorsAtom)
-  })
-  const baseDataEntryAtom = atom({
-    id: createUid(),
-    typeDef,
-    enableOptionAtom,
-    entityAtom,
-    errorsAtom,
-    execValidateAtom,
-    clearErrorsAtom,
-  })
+  const { uid, fieldDataSet } = createFieldData(registry, sub as TypeDef)
 
-  return atom(get => {
-    const valueOf = () => {
-      const enableOption = get(enableOptionAtom)
-      if (enableOption) {
-        const entity = get(entityAtom)
-        const entityItem = get(entity)
-        return entityItem.valueOf()
-      } else {
-        return null
-      }
-    }
-    const errorsOf = () => {
-      const enableOption = get(enableOptionAtom)
-      if (enableOption) {
-        const entity = get(entityAtom)
-        const entityItem = get(entity)
-        return entityItem.errorsOf()
-      } else {
-        return []
-      }
-    }
-    const baseDataEntry = get(baseDataEntryAtom)
-
-    return {
-      ...baseDataEntry,
-      valueOf,
-      errorsOf,
-    }
-  })
+  return {
+    fieldData: {
+      value: null,
+      optionField: uid,
+    },
+    fieldDataSet,
+  }
 }
 
-const createDataEntryAtom = (registry: Registry, typeDef: TypeDef): DataEntryAtom => {
+export interface FieldDataOptions {
+  isDisplayType?: boolean
+}
+const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDataOptions = {}): FieldDataResult => {
   const { info, sub, type } = typeDef
 
   validateSub(typeDef)
 
-  switch (info) {
-    case TypeDefInfo.Plain:
-      return createPlainTypeDataEntryAtom(typeDef)
+  
+  let fieldResult: EachTypeFieldDataResult = {
+    fieldData: {},
+    fieldDataSet: {},
+  }
 
+  const uid = v4()
+
+  switch (info) {
     case TypeDefInfo.Struct:
-      return createStructTypeDataEntryAtom(registry, typeDef)
+      fieldResult = createStructTypeFieldData(registry, typeDef)
+      break
 
     case TypeDefInfo.VecFixed:
     case TypeDefInfo.Vec:
     case TypeDefInfo.Tuple:
-      return createArrayTypeDataEntryAtom(registry, typeDef)
+      fieldResult = createArrayTypeFieldData(registry, typeDef)
+      break
 
     case TypeDefInfo.Enum:
-      return createEnumTypeDataEntryAtom(registry, typeDef)
+      fieldResult = createEnumTypeFieldData(registry, typeDef)
+      break
   
     case TypeDefInfo.Option:
-      return createOptionTypeDataEntryAtom(registry, typeDef)
+      fieldResult = createOptionTypeFieldData(registry, typeDef)
+      break
 
     case TypeDefInfo.Compact:
-      return createDataEntryAtom(registry, sub as TypeDef)
+      return createFieldData(registry, sub as TypeDef)
 
     case TypeDefInfo.Si:
-      return createDataEntryAtom(registry, registry.lookup.getTypeDef(type))
+      return createFieldData(registry, registry.lookup.getTypeDef(type))
   
     default:
-      return createPlainTypeDataEntryAtom(typeDef)
+      break
+  }
+
+  console.log('fieldResult', fieldResult, uid)
+
+  return {
+    uid,
+    fieldDataSet: {
+      ...fieldResult.fieldDataSet,
+      [uid]: {
+        uid,
+        typeDef,
+        displayType: options.isDisplayType ? formatTypeName(typeDef.type) : undefined,
+        ...fieldResult.fieldData,
+      }
+    }
   }
 }
 
@@ -455,119 +322,198 @@ export const formatTypeName = (typeName: string) => {
     .replace(/(?<![0-9a-zA-Z])Text(?![0-9a-zA-Z])/g, 'String')
     .replace(/(?<![0-9a-zA-Z])Bytes(?![0-9a-zA-Z])/g, 'Vec<u8>')
 }
-interface IArg {
-  abiParam: AbiParam
-  displayName: string
-  displayType: string
-  rootDataEntryAtom: DataEntryAtom
-}
-export type ArgAtom = PrimitiveAtom<IArg>
-const createArgAtom = (registry: Registry, abiParam: AbiParam): ArgAtom => {
-  const { name, type } = abiParam
-  const displayName = decamelize(name)
-  const displayType = formatTypeName(type.type)
-  // - Each argument should have an argument info area and a data entry area.
-  // - Each data entry area should have a sub data entry area and
-  //   an error messages area.
-  // - Each data entry created by TypeDef.
-  return atom({
-    abiParam,
-    displayName,
-    displayType,
-    rootDataEntryAtom: createDataEntryAtom(registry, type),
-  })
+
+interface FormNormalizedBuild {
+  formData: Record<string, string>
+  fieldDataSet: FieldDataSet
 }
 
-// There is a cache for remember atom when call the same atom at the same time in different places.
-let argsAtomsCache: Record<string, ArgAtom[]> = {}
-export const clearAtomsCache = () => {
-  argsAtomsCache = {}
+interface FormNormalized extends FormNormalizedBuild {
+  registry: Registry
 }
-const createArgsAtoms = (registry: Registry, id: string, abiParams: AbiParam[]): ArgAtom[] => {
-  const atomCached = argsAtomsCache[id]
-  if (atomCached) {
-    return atomCached
-  } else {
-    const argsAtoms = abiParams.map(abiParam => createArgAtom(registry, abiParam))
-    // Only cache a message args atoms at the same time
-    argsAtomsCache = { [id]: argsAtoms }
-    return argsAtoms
-  }
+
+
+const createFormData = (registry: Registry, id: string, abiParams: AbiParam[]): FormNormalizedBuild => {
+  const initResult: FormNormalizedBuild = { formData: {}, fieldDataSet: {} }
+
+
+  return R.reduce((result, abiParam) => {
+    const { name, type } = abiParam
+    const displayName = decamelize(name)
+    const { uid, fieldDataSet } = createFieldData(registry, type, { isDisplayType: true })
+
+    return {
+      formData: {
+        ...result.formData,
+        [displayName]: uid,
+      },
+      fieldDataSet: {
+        ...result.fieldDataSet,
+        ...fieldDataSet,
+      }
+    }
+  }, initResult, abiParams)
 }
 
 // Use an object represent the form.
-export const currentArgsFormAtom = atom(get => {
+export const currentArgsFormAtomInAtom = atom(get => {
   const [{ registry, messages }, selectedMethodSpec] = get(waitForAll([
     currentAbiAtom,
     currentMethodAtom,
   ]))
   const message = messages.find(message => message.identifier === selectedMethodSpec?.label)
 
-  let args: ArgAtom[] = []
-  if (message) {
-    const { args: abiParams, identifier: id } = message
-    args = createArgsAtoms(registry, id, abiParams)
+  let formBuild: FormNormalizedBuild = {
+    formData: {},
+    fieldDataSet: {},
   }
 
-  return { args }
+  if (message) {
+    const { args: abiParams, identifier: id } = message
+    formBuild = createFormData(registry, id, abiParams)
+  }
+  
+  const form: FormNormalized = {
+    ...formBuild,
+    registry,
+  }
+
+  console.log('form', form)
+
+  const formAtom = atom(form)
+
+  return formAtom
 })
 
-// Get all arguments' values function.
-export const currentArgsFormValueOfAtom = atom(get => {
-  const currentArgsForm = get(currentArgsFormAtom)
-  const { args } = currentArgsForm
-  
-  return () => args.reduce((result, argAtom) => {
-    const arg = get(argAtom)
-    const { displayName, rootDataEntryAtom } = arg
-    const rootDataEntry = get(rootDataEntryAtom)
+export const currentArgsFormAtom = atom(get => get(get(currentArgsFormAtomInAtom)), (get, set, update: FormNormalized) => {
+  const currentArgsFormAtom = get(currentArgsFormAtomInAtom)
+  set(currentArgsFormAtom, update)
+})
+export const currentFieldDataSetReadOnlyAtom = selectAtom(currentArgsFormAtom, form => form.fieldDataSet)
 
+export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
+  const fieldData = fieldDataSet[uid]
+  const { typeDef: { info }, value } = fieldData
+
+  if (HAS_SUB_FIELD_DATA_TYPE.indexOf(info) > -1) {
+    if (typeof value === 'string') {
+      return getFieldValue(fieldDataSet, value)
+    } else if (Array.isArray(value)) {
+      return value.map(uid => getFieldValue(fieldDataSet, uid))
+    } else if (R.is(Object, value)) {
+      return R.reduce((result, key) => {
+        const uid = (value as Record<string, string | null>)[key]
+        return {
+          ...result,
+          [key]: uid && getFieldValue(fieldDataSet, uid)
+        }
+      }, {} as Record<string, unknown>, Object.keys(value as Record<string, string | null>))
+    }
+  }
+
+  return value
+}
+
+export const getFormValue = (form: FormNormalized) => {
+  const { formData, fieldDataSet } = form
+
+  return R.reduce((result, key) => {
+    const fieldUid = formData[key]
+    const value = getFieldValue(fieldDataSet, fieldUid)
     return {
       ...result,
-      [displayName]: rootDataEntry.valueOf(),
+      [key]: value,
     }
-  }, {} as Record<string, unknown>)
-})
+    
+  }, {} as Record<string, unknown>, Object.keys(formData))
+}
 
-// Get all arguments' errors function.
-export const currentArgsFormErrorsOfAtom = atom(get => {
-  const currentArgsForm = get(currentArgsFormAtom)
-  const { args } = currentArgsForm
-  
-  return () => args.reduce((result, argAtom) => {
-    const arg = get(argAtom)
-    const { rootDataEntryAtom } = arg
-    const rootDataEntry = get(rootDataEntryAtom)
-    const errors = rootDataEntry.errorsOf()
+export const collectRelativeUidList = (fieldDataSet: FieldDataSet, uid: string): string[] => {
+  const fieldData = fieldDataSet[uid]
+  const { typeDef: { info }, value } = fieldData
+  const uidList = [uid]
+  let subUidList: string[] = []
 
-    return result.concat(errors)
-  }, [] as string[])
-})
+  if (HAS_SUB_FIELD_DATA_TYPE.indexOf(info) > -1) {
+    if (typeof value === 'string') {
+      subUidList = collectRelativeUidList(fieldDataSet, value)
+    } else if (Array.isArray(value)) {
+      subUidList = R.flatten(
+        R.map(uid => collectRelativeUidList(fieldDataSet, uid), value)
+      )
+    } else if (R.is(Object, value)) {
+      const object = value as Record<string, string | null>
+      const values = R.filter(_ => Boolean(_), R.values(object)) as string[]
+      subUidList = R.flatten(
+        R.map(uid => collectRelativeUidList(fieldDataSet, uid), values)
+      )
+    }
+  }
 
-// Validate total form
-export const currentArgsFormValidateAtom = atom(null, (get, set) => {
-  const currentArgsForm = get(currentArgsFormAtom)
-  const { args } = currentArgsForm
+  return R.concat(uidList, subUidList)
+}
 
-  args.forEach(argAtom => {
-    const arg = get(argAtom)
-    const { rootDataEntryAtom } = arg
-    const { execValidateAtom } = get(rootDataEntryAtom)
+export const getCheckedFieldData = (fieldData: FieldDataNormalized, isRendered: boolean): FieldDataNormalized => {
+  const { typeDef: { info }, value, errors } = fieldData
 
-    set(execValidateAtom)
-  })
-})
+  if (!isRendered) {
+    if (errors && errors.length) {
+      return R.assoc('errors', undefined, fieldData)
+    }
+  } else {
+    if (HAVE_NO_ERRORS_FIELD_DATA_TYPE.indexOf(info) === -1) {
+      if (info === TypeDefInfo.Enum) {
+        let checkedErrors = validateNotUndefined(value)
+        if (!checkedErrors.length) {
+          const value$1 = value as Record<string, string | null>
+          const nestValue = R.values(value$1)[0]
+          checkedErrors = validateNotUndefined(nestValue)
+        }
 
-// Clear Validations. 
-export const currentArgsFormClearValidationAtom = atom(null, (get, set) => {
-  const currentArgsForm = get(currentArgsFormAtom)
-  const { args } = currentArgsForm
+        if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
+          return R.assoc('errors', checkedErrors, fieldData)
+        }
+      } else {
+        const checkedErrors = validateNotUndefined(value)
+        if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
+          return R.assoc('errors', checkedErrors, fieldData)
+        }
+      }
+    }
+  }
+  return fieldData
+}
 
-  args.forEach(argAtom => {
-    const arg = get(argAtom)
-    const { rootDataEntryAtom } = arg
-    const { clearErrorsAtom } = get(rootDataEntryAtom)
+export const getCheckedForm = (form: FormNormalized) => {
+  const { formData, fieldDataSet } = form
+  const originUidList = R.values(formData)
+  const renderedUidList = R.flatten(
+    R.map(uid => collectRelativeUidList(fieldDataSet, uid), originUidList)
+  )
+  const uidList = Object.keys(fieldDataSet)
 
-    set(clearErrorsAtom)
-  })
-})
+  const fieldDataSetChecked = R.reduce((result, uid) => {
+    const fieldData = fieldDataSet[uid]
+    const isRendered = R.includes(uid, renderedUidList)
+    const nextFieldData = getCheckedFieldData(fieldData, isRendered)
+    return {
+      ...result,
+      [uid]: nextFieldData,
+    }
+  }, {} as FieldDataSet, uidList)
+
+  return {
+    ...form,
+    fieldDataSet: fieldDataSetChecked,
+  }
+}
+
+export const getFormIsInvalid = (form: FormNormalized) => {
+  const { fieldDataSet } = form
+  const uidList = Object.keys(fieldDataSet)
+
+  return R.findIndex(
+    uid => Boolean(R.path([uid, 'errors', 'length'], fieldDataSet)),
+    uidList,
+  ) > -1
+}
