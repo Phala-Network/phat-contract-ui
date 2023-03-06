@@ -127,6 +127,9 @@ export function createWebsocketConnectionMachineConfig(ctx: WebsocketConnectionC
               'setEndpoint',
             ]
           },
+          DISCONNECTED: {
+            target: "disconnected"
+          }
         }
       }, // END: connected
 
