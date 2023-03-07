@@ -124,23 +124,27 @@ export const formReducer = (prev: FormNormalized, action: FormAction): FormNorma
   }
 }
 
-export const dispatchValue = (dispatch: (action: FormAction) => void, uid: string, value?: ValueTypeNormalized) => dispatch({
-  type: FormActionType.SetValue,
-  payload: {
-    uid,
-    value,
-  }
-})
+export function dispatchValue (dispatch: (action: FormAction) => void, uid: string, value?: ValueTypeNormalized) {
+  return dispatch({
+    type: FormActionType.SetValue,
+    payload: {
+      uid,
+      value,
+    }
+  })
+}
 
-export const dispatchErrors = (dispatch: (action: FormAction) => void, uid: string, errors?: string[]) => dispatch({
-  type: FormActionType.SetErrors,
-  payload: {
-    uid,
-    errors,
-  }
-})
+export function dispatchErrors (dispatch: (action: FormAction) => void, uid: string, errors?: string[]) {
+  return dispatch({
+    type: FormActionType.SetErrors,
+    payload: {
+      uid,
+      errors,
+    }
+  })
+}
 
-const HAS_SUB_FIELD_DATA_TYPE = [
+const HAS_SUB_FIELD_DATA_TYPE: Readonly<TypeDefInfo[]> = [
   TypeDefInfo.Struct,
   TypeDefInfo.VecFixed,
   TypeDefInfo.Vec,
@@ -149,7 +153,7 @@ const HAS_SUB_FIELD_DATA_TYPE = [
   TypeDefInfo.Option,
 ]
 
-const HAVE_NO_ERRORS_FIELD_DATA_TYPE = [
+const HAVE_NO_ERRORS_FIELD_DATA_TYPE: Readonly<TypeDefInfo[]> = [
   TypeDefInfo.Struct,
   TypeDefInfo.VecFixed,
   TypeDefInfo.Vec,

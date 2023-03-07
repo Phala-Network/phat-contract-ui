@@ -38,7 +38,7 @@ const ArgumentHelpText = ({ helpText }: Partial<Pick<ArgumentField, 'helpText'>>
   ? <FormHelperText>{helpText}</FormHelperText>
   : null
 
-const ArgumentErrors = memo(({
+const ArgumentErrors = ({
   errors,
   helpText,
 }: {
@@ -62,7 +62,7 @@ const ArgumentErrors = memo(({
       </FormErrorMessage>
     )
     : <ArgumentHelpText helpText={helpText} />
-})
+}
 
 /**
  * ---------------------------------------
@@ -71,13 +71,13 @@ const ArgumentErrors = memo(({
  */
 
 // A number input.
-const NumberLikeTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, typeDef, value, errors = [] } = fieldData
   const { type } = typeDef
   const isUnsignedNumber = type.startsWith('u')
   const min = isUnsignedNumber ? 0 : undefined
   const placeholder = `Input a number${isUnsignedNumber ? ' >= 0' : ''}`
-  const isInvalid = useMemo(() => errors.length > 0, [errors])
+  const isInvalid = errors.length > 0
   const [innerValue, setInnerValue] = useState(value?.toString() || '')
 
   console.log('NumberLikeTypeFieldData render: fieldData', fieldData)
@@ -122,11 +122,11 @@ const NumberLikeTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProp
       <ArgumentErrors errors={errors} />
     </FormControl>
   )
-})
+}
 
-const BoolTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const BoolTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, errors = [] } = fieldData
-  const isInvalid = useMemo(() => errors && errors.length > 0, [errors])
+  const isInvalid = errors.length > 0
 
   const [innerValue, setInnerValue] = useState('')
 
@@ -154,9 +154,9 @@ const BoolTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => 
       <ArgumentErrors errors={errors} />
     </FormControl>
   )
-})
+}
 
-const PlainTypeFieldData = memo((props: EachFieldDataProps) => {
+const PlainTypeFieldData = (props: EachFieldDataProps) => {
   const { fieldData } = props
   const { typeDef: { type } } = fieldData
 
@@ -167,9 +167,9 @@ const PlainTypeFieldData = memo((props: EachFieldDataProps) => {
   }
 
   return <OtherTypeFieldData {...props} />
-})
+}
 
-const EnumTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, typeDef, enumFields, errors = [] } = fieldData
   const subFieldData = enumFields as string[]
 
@@ -179,18 +179,13 @@ const EnumTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => 
 
   const variants = subToArray(sub)
 
-  const variantIndex = useMemo(() => {
-    if (selectedVariantName !== undefined) {
-      return variants.findIndex(variantItem => variantItem.name === selectedVariantName)
-    }
-    return undefined
-  }, [variants, selectedVariantName])
+  const variantIndex = selectedVariantName !== undefined
+    ? variants.findIndex(variantItem => variantItem.name === selectedVariantName)
+    : undefined
 
-  const variant = useMemo(() => {
-    if (variantIndex !== undefined && variantIndex >= 0) {
-      return variants[variantIndex]
-    }
-  }, [variants, variantIndex])
+  const variant = variantIndex !== undefined && variantIndex >= 0
+    ? variants[variantIndex]
+    : undefined
 
   useEffect(() => {
     if (variantIndex !== undefined && variant && selectedVariantName) {
@@ -204,7 +199,7 @@ const EnumTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => 
     }
   }, [variant, variantIndex, selectedVariantName, subFieldData])
 
-  const isInvalid = useMemo(() => errors.length > 0, [errors])
+  const isInvalid = errors.length > 0
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value
@@ -246,9 +241,9 @@ const EnumTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => 
       }
     </>
   )
-})
+}
 
-const OptionTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, value, optionField } = fieldData
 
   debug('OptionTypeFieldData render: fieldData', fieldData)
@@ -274,9 +269,9 @@ const OptionTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) =
       }
     </>
   )
-})
+}
 
-const StructTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { value } = fieldData
   const structValue = value as Record<string, string>
   const names = Object.keys(structValue)
@@ -310,9 +305,9 @@ const StructTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) =
       </Stack>
     </Box>
   )
-})
+}
 
-const TupleOrVecFixedTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { value } = fieldData
   const subFieldsUid = value as string[]
 
@@ -336,9 +331,9 @@ const TupleOrVecFixedTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDat
       }
     </Stack>
   )
-})
+}
 
-const VecTypeItemFieldData = memo(({
+const VecTypeItemFieldData = ({
   uid,
   dispatch,
   removeSubField,
@@ -382,9 +377,9 @@ const VecTypeItemFieldData = memo(({
       </Center>
     </Flex>
   )
-})
+}
 
-const VecTypeDataEntry = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, typeDef: { sub }, value } = fieldData
   const subFieldsUid = value as string[]
   const subTypeDef = subToArray(sub)[0]
@@ -434,12 +429,12 @@ const VecTypeDataEntry = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
       </Box>
     </Stack>
   )
-})
+}
 
-const OtherTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) => {
+const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, value, errors = [] } = fieldData
 
-  const isInvalid = useMemo(() => errors.length > 0, [errors])
+  const isInvalid = errors.length > 0
 
   const [innerValue, setInnerValue] = useState('')
 
@@ -468,9 +463,9 @@ const OtherTypeFieldData = memo(({ fieldData, dispatch }: EachFieldDataProps) =>
       <ArgumentErrors errors={errors} />
     </FormControl>
   )
-})
+}
 
-const ArgumentFieldData = memo(({ uid, dispatch }: FieldDataProps) => {
+const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
   const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
   const fieldData = useAtomValue(fieldDataAtom)
 
@@ -503,7 +498,7 @@ const ArgumentFieldData = memo(({ uid, dispatch }: FieldDataProps) => {
     default:
       return <OtherTypeFieldData fieldData={fieldData} dispatch={dispatch} />
   }
-})
+}
 
 const ArgumentForm = memo(({
   name,
@@ -529,7 +524,7 @@ const ArgumentForm = memo(({
   )
 })
 
-const ArgumentsForm = memo(() => {
+const ArgumentsForm = () => {
   const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
   const [currentArgsForm, dispatch] = useReducerAtom(currentArgsFormAtom, formReducer)
   const { formData } = currentArgsForm
@@ -554,6 +549,6 @@ const ArgumentsForm = memo(() => {
       }
     </Stack>
   )
-})
+}
 
 export default ArgumentsForm
