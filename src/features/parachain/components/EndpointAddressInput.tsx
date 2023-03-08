@@ -88,6 +88,9 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           h="1.75rem"
           tw="mr-[5px]"
           size="sm"
+          disabled={
+            machine.value === 'connecting'
+          }
           onClick={() => {
             if (machine.can("RECONNECT")) {
               send({ type: "RECONNECT", data: { endpoint } });
@@ -113,6 +116,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
         <Button
           h="1.75rem"
           size="sm"
+          disabled={machine.value === 'connecting'}
           onClick={() => {
             setEndpointMode(endpointMode === "switch" ? "input" : "switch");
           }}
