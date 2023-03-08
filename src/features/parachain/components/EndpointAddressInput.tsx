@@ -15,70 +15,109 @@ import { setCookie } from "cookies-next";
 import { endpointAtom, PARACHAIN_ENDPOINT } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
 import EndpointAddressSelect from "./EndpointAddressSelect";
+import { useState } from "react";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
   const [machine, send] = useAtom(websocketConnectionMachineAtom);
+
+  const [endpointMode, setEndpointMode] = useState<"switch" | "input">(
+    "switch"
+  );
+
   return (
     <FormControl>
       <FormLabel>{label || "Khala Parachain Endpoint Address"}</FormLabel>
-      {/* <InputGroup>
-        <Input
-          type='url'
+
+      {endpointMode === "switch" ? (
+        <EndpointAddressSelect
           value={endpoint}
-          onChange={ev => setEndpoint(ev.target.value)}
+          onChange={(value) => {
+            setEndpoint(value);
+          }}
         />
-        <InputRightElement width="10.5rem">
-          <ButtonGroup>
-            <Button
-              h="1.75rem"
-              size="sm"
-              disabled={
-                !machine.can("RECONNECT") ||
-                machine.context.endpoint === endpoint
-              }
-              onClick={() => {
-                send({ type: "RECONNECT", data: { endpoint } });
-                setCookie("preferred_endpoint", endpoint, {
-                  maxAge: 60 * 60 * 24 * 30,
-                });
-              }}
-            >
-              Connect
-            </Button>
-            <Button
-              h="1.75rem"
-              size="sm"
-              onClick={() => {
-                const endpoint = PARACHAIN_ENDPOINT;
-                setEndpoint(RESET);
-                if (machine.can("RECONNECT")) {
-                  send({ type: "RECONNECT", data: { endpoint } });
-                } else {
-                  send({ type: "CONNECT", data: { endpoint } });
+      ) : (
+        <InputGroup>
+          <Input
+            type="url"
+            value={endpoint}
+            onChange={(ev) => setEndpoint(ev.target.value)}
+          />
+          <InputRightElement width="5.25rem">
+            <ButtonGroup>
+              {/* <Button
+                h="1.75rem"
+                size="sm"
+                disabled={
+                  !machine.can("RECONNECT") ||
+                  machine.context.endpoint === endpoint
                 }
-                setCookie("preferred_endpoint", endpoint, {
-                  maxAge: 60 * 60 * 24 * 30,
-                });
-              }}
-            >
-              Reset
-            </Button>
-          </ButtonGroup>
-        </InputRightElement>
-      </InputGroup> */}
-      <EndpointAddressSelect
-        value={endpoint}
-        onChange={(value) => {
-          setEndpoint(value);
-        }}
-      />
-      <div tw="mt-[8px]">
-        <Button h="1.75rem" tw="mr-[5px]" size="sm" onClick={() => {}}>
+                onClick={() => {
+                  send({ type: "RECONNECT", data: { endpoint } });
+                  setCookie("preferred_endpoint", endpoint, {
+                    maxAge: 60 * 60 * 24 * 30,
+                  });
+                }}
+              >
+                Connect
+              </Button> */}
+              <Button
+                h="1.75rem"
+                size="sm"
+                onClick={() => {
+                  const endpoint = PARACHAIN_ENDPOINT;
+                  setEndpoint(RESET);
+                  if (machine.can("RECONNECT")) {
+                    send({ type: "RECONNECT", data: { endpoint } });
+                  } else {
+                    send({ type: "CONNECT", data: { endpoint } });
+                  }
+                  setCookie("preferred_endpoint", endpoint, {
+                    maxAge: 60 * 60 * 24 * 30,
+                  });
+                }}
+              >
+                Reset
+              </Button>
+            </ButtonGroup>
+          </InputRightElement>
+        </InputGroup>
+      )}
+      <div tw="mt-[8px] flex justify-between">
+        <Button
+          h="1.75rem"
+          tw="mr-[5px]"
+          size="sm"
+          onClick={() => {
+            if (machine.can("RECONNECT")) {
+              send({ type: "RECONNECT", data: { endpoint } });
+            } else {
+              send({ type: "CONNECT", data: { endpoint } });
+            }
+            setCookie("preferred_endpoint", endpoint, {
+              maxAge: 60 * 60 * 24 * 30,
+            });
+          }}
+        >
           Connect
         </Button>
-        <Button h="1.75rem" size="sm" onClick={() => {}}>
-          DisConnect
+        <Button
+          h="1.75rem"
+          size="sm"
+          onClick={() => {
+            send({ type: "DISCONNECTED" });
+          }}
+        >
+          Disconnect
+        </Button>
+        <Button
+          h="1.75rem"
+          size="sm"
+          onClick={() => {
+            setEndpointMode(endpointMode === "switch" ? "input" : "switch");
+          }}
+        >
+          {endpointMode === "switch" ? "Switch mode" : "Input mode"}
         </Button>
       </div>
     </FormControl>

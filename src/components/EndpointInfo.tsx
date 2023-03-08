@@ -138,7 +138,7 @@ export default function ConnectionDetailModal() {
                 <FormErrorMessage>Connect error: the RPC Endpoint is wrong.</FormErrorMessage>
               </FormControl>
               {
-                 machine.value !== 'error' ? 
+                !['error', 'disconnected'].includes(machine.value as string) ? 
                  <>
                    <SuspenseFormField label="Cluster ID">
                      <ClusterIdSelect />
