@@ -12,13 +12,14 @@ import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { setCookie } from "cookies-next";
 
-import { endpointAtom, PARACHAIN_ENDPOINT } from "@/atoms/endpointsAtom";
+import { endpointAtom, PARACHAIN_ENDPOINT, preferedEndpointAtom } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
 import EndpointAddressSelect from "./EndpointAddressSelect";
 import { useState } from "react";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
+  const [, setPreferedEndpointAtom] = useAtom(preferedEndpointAtom)
   const [machine, send] = useAtom(websocketConnectionMachineAtom);
 
   const [endpointMode, setEndpointMode] = useState<"switch" | "input">(
@@ -56,9 +57,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
                   } else {
                     send({ type: "CONNECT", data: { endpoint } });
                   }
-                  setCookie("preferred_endpoint", endpoint, {
-                    maxAge: 60 * 60 * 24 * 30,
-                  });
+                  setPreferedEndpointAtom(endpoint)
                 }}
               >
                 Reset
@@ -81,9 +80,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
             } else {
               send({ type: "CONNECT", data: { endpoint } });
             }
-            setCookie("preferred_endpoint", endpoint, {
-              maxAge: 60 * 60 * 24 * 30,
-            });
+            setPreferedEndpointAtom(endpoint)
           }}
         >
           Connect
