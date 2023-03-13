@@ -12,19 +12,40 @@ import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { setCookie } from "cookies-next";
 
-import { endpointAtom, PARACHAIN_ENDPOINT, preferedEndpointAtom } from "@/atoms/endpointsAtom";
+import {
+  endpointAtom,
+  PARACHAIN_ENDPOINT,
+  preferedEndpointAtom,
+} from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
 import EndpointAddressSelect from "./EndpointAddressSelect";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
-  const [, setPreferedEndpointAtom] = useAtom(preferedEndpointAtom)
+  const [, setPreferedEndpointAtom] = useAtom(preferedEndpointAtom);
   const [machine, send] = useAtom(websocketConnectionMachineAtom);
 
   const [endpointMode, setEndpointMode] = useState<"switch" | "input">(
     "switch"
   );
+
+  function connect(endpoint: string) {
+    if (machine.can("RECONNECT")) {
+      send({ type: "RECONNECT", data: { endpoint } });
+    } else {
+      send({ type: "CONNECT", data: { endpoint } });
+    }
+    setPreferedEndpointAtom(endpoint);
+  }
+
+  useEffect(() => {
+    if (endpointMode === "switch") {
+      const endpoint = PARACHAIN_ENDPOINT;
+      setEndpoint(RESET);
+      connect(endpoint);
+    }
+  }, [endpointMode]);
 
   return (
     <FormControl>
@@ -35,6 +56,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           value={endpoint}
           onChange={(value) => {
             setEndpoint(value);
+            connect(value);
           }}
         />
       ) : (
@@ -57,7 +79,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
                   } else {
                     send({ type: "CONNECT", data: { endpoint } });
                   }
-                  setPreferedEndpointAtom(endpoint)
+                  setPreferedEndpointAtom(endpoint);
                 }}
               >
                 Reset
@@ -71,16 +93,9 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           h="1.75rem"
           tw="mr-[5px]"
           size="sm"
-          disabled={
-            machine.matches('connecting')
-          }
+          disabled={machine.matches("connecting")}
           onClick={() => {
-            if (machine.can("RECONNECT")) {
-              send({ type: "RECONNECT", data: { endpoint } });
-            } else {
-              send({ type: "CONNECT", data: { endpoint } });
-            }
-            setPreferedEndpointAtom(endpoint)
+            connect(endpoint);
           }}
         >
           Connect
@@ -88,9 +103,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
         <Button
           h="1.75rem"
           size="sm"
-          disabled={
-            machine.matches('disconnected')
-          }
+          disabled={machine.matches("disconnected")}
           onClick={() => {
             send({ type: "DISCONNECTED" });
           }}
@@ -100,12 +113,12 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
         <Button
           h="1.75rem"
           size="sm"
-          disabled={machine.matches('connecting')}
+          disabled={machine.matches("connecting")}
           onClick={() => {
             setEndpointMode(endpointMode === "switch" ? "input" : "switch");
           }}
         >
-          {endpointMode === "switch" ?  "Custom" : "Official Testnet"}
+          {endpointMode === "switch" ? "Custom" : "Official Testnet"}
         </Button>
       </div>
     </FormControl>
