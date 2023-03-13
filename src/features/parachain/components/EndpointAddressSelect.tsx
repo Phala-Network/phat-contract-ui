@@ -16,7 +16,7 @@ export default function EndpointAddressSelect({
       }}
     >
       <option>wss://poc5.phala.network/ws</option>
-      <option>wss://phat-beta.phala.network/khala/ws</option>
+      <option>wss://phat-beta-node.phala.network/khala/ws</option>
     </Select>
   );
 }
