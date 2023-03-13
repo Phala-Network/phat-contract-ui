@@ -67,7 +67,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           </InputRightElement>
         </InputGroup>
       )}
-      <div tw="mt-[8px] flex justify-between">
+      <div tw="mt-2 flex flex-row gap-2">
         <Button
           h="1.75rem"
           tw="mr-[5px]"
