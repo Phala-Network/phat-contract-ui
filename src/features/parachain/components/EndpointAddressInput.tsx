@@ -89,7 +89,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           h="1.75rem"
           size="sm"
           disabled={
-            machine.matches('connecting')
+            machine.matches('disconnected')
           }
           onClick={() => {
             send({ type: "DISCONNECTED" });
@@ -105,7 +105,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
             setEndpointMode(endpointMode === "switch" ? "input" : "switch");
           }}
         >
-          {endpointMode === "switch" ? "Switch mode" : "Input mode"}
+          {endpointMode === "switch" ?  "Custom" : "Official Testnet"}
         </Button>
       </div>
     </FormControl>
