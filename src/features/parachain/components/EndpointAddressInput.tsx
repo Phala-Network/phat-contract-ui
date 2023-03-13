@@ -72,7 +72,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           tw="mr-[5px]"
           size="sm"
           disabled={
-            machine.value === 'connecting'
+            machine.matches('connecting')
           }
           onClick={() => {
             if (machine.can("RECONNECT")) {
@@ -88,6 +88,9 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
         <Button
           h="1.75rem"
           size="sm"
+          disabled={
+            machine.matches('connecting')
+          }
           onClick={() => {
             send({ type: "DISCONNECTED" });
           }}
@@ -97,7 +100,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
         <Button
           h="1.75rem"
           size="sm"
-          disabled={machine.value === 'connecting'}
+          disabled={machine.matches('connecting')}
           onClick={() => {
             setEndpointMode(endpointMode === "switch" ? "input" : "switch");
           }}

@@ -133,7 +133,7 @@ export default function ConnectionDetailModal() {
         <ModalCloseButton />
           <ModalBody>
             <VStack>
-              <FormControl isInvalid={machine.value === 'error'}>
+              <FormControl isInvalid={machine.matches('error')}>
                 <EndpointAddressInput label="RPC Endpoint" />
                 <FormErrorMessage>Connect error: the RPC Endpoint is wrong.</FormErrorMessage>
               </FormControl>
