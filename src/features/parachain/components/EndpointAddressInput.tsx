@@ -45,22 +45,6 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           />
           <InputRightElement width="5.25rem">
             <ButtonGroup>
-              {/* <Button
-                h="1.75rem"
-                size="sm"
-                disabled={
-                  !machine.can("RECONNECT") ||
-                  machine.context.endpoint === endpoint
-                }
-                onClick={() => {
-                  send({ type: "RECONNECT", data: { endpoint } });
-                  setCookie("preferred_endpoint", endpoint, {
-                    maxAge: 60 * 60 * 24 * 30,
-                  });
-                }}
-              >
-                Connect
-              </Button> */}
               <Button
                 h="1.75rem"
                 size="sm"
