@@ -34,6 +34,7 @@ import { currentAccountAtom, currentAccountBalanceAtom } from '@/features/identi
 import {
   candidateAtom,
   currentClusterIdAtom,
+  currentClusterAtom,
   availableClusterOptionsAtom,
   candidateFileInfoAtom,
   pruntimeURLAtom,
@@ -57,7 +58,8 @@ const instantiateEstimateGasAtom = atom(async get => {
   const systemContractId = get(currentSystemContractIdAtom)
   const candidate = get(candidateAtom)
   const initSelector = get(contractSelectedInitSelectorAtom)
-  if (!systemContractId || !candidate) {
+  const clusterInfo = get(currentClusterAtom)
+  if (!systemContractId || !candidate || !clusterInfo) {
     return { gasLimit: new BN(0), storageDepositLimit: null } as EstimateResultLike
   }
   const { instantiate } = await create({
@@ -86,7 +88,8 @@ const instantiateEstimateGasAtom = atom(async get => {
   const { gasRequired, storageDeposit } = returns
   const options: EstimateResultLike = {
     gasLimit: (gasRequired as any).refTime,
-    storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
+    storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
+    gasPrice: clusterInfo.gasPrice,
   }
   return options
 })
@@ -154,8 +157,14 @@ const InstantiateTimeoutField = () => {
   )
 }
 
+const gasLimitPlaceholder = (new BN('1000000000000')).div(new BN(1e12)).toString()
+
 const DepositSettingsFieldset = () => {
   const [value, update] = useAtom(depositSettingsControlsAtom)
+  let gasLimit = gasLimitPlaceholder
+  if (value.gasLimit) {
+    gasLimit = `${(new BN(value.gasLimit)).div(new BN(value.gasPrice || 1)).div(new BN(1e10)).toNumber() / 100}`
+  }
   if (value.autoDeposit) {
     return (
       <>
@@ -165,7 +174,7 @@ const DepositSettingsFieldset = () => {
         <dl tw='text-xs flex flex-col gap-1 mt-2'>
           <div tw='flex flex-row'>
             <dt tw='text-gray-500 min-w-[6.5rem]'>Gas</dt>
-            <dd>{value.gasLimit || '1000000000000'}</dd>
+            <dd>{gasLimit} PHA</dd>
           </div>
           <div tw='flex flex-row'>
             <dt tw='text-gray-500 min-w-[6.5rem]'>Storage Deposit</dt>
@@ -185,14 +194,18 @@ const DepositSettingsFieldset = () => {
           <FormLabel tw='text-xs'>
             Gas Limit
           </FormLabel>
-          <Input
-            size="sm"
-            defaultValue={`${1e12}`}
-            value={(value.gasLimit === null || value.gasLimit === undefined || value.gasLimit === 0) ? undefined : `${value.gasLimit}`}
-            onChange={({ target: { value } }) => {
-              update({ gasLimit: value === '' ? null : Number(value) })
-            }}
-          />
+          <div>
+            <Input
+              size="sm"
+              maxW="12rem"
+              defaultValue={`${1e12}`}
+              value={(value.gasLimit === null || value.gasLimit === undefined || value.gasLimit === 0) ? undefined : `${value.gasLimit}`}
+              onChange={({ target: { value } }) => {
+                update({ gasLimit: value === '' ? null : Number(value) })
+              }}
+            />
+            <span tw='ml-2 text-xs'>{new BN(value.gasLimit || 1e12).div(new BN(value.gasPrice || 1)).div(new BN(1e10)).toNumber() / 100} PHA</span>
+          </div>
         </FormControl>
         <FormControl>
           <FormLabel tw='text-xs'>
@@ -200,6 +213,7 @@ const DepositSettingsFieldset = () => {
           </FormLabel>
           <Input
             size="sm"
+            maxW="12rem"
             value={(value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`}
             onChange={({ target: { value } }) => {
               update({ storageDepositLimit: value === '' ? null : Number(value) })
