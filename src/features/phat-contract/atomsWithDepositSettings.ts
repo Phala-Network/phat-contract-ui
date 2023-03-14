@@ -18,7 +18,7 @@ export type DepositSettingsValue = (DepositSettings & { autoDeposit: false })
 export interface EstimateResultLike {
   gasLimit: u64
   storageDepositLimit: BN | null
-  gasPrice: number
+  gasPrice?: number
 }
 
 export type ReadOnlyDepositSettingsValueAtom = Atom<DepositSettingsValue>
@@ -44,7 +44,7 @@ export function atomsWithDepositSettings(estimateGasAtom: Atom<Promise<EstimateR
         }
         return value
       }
-      return store
+      return { ...store, gasPrice: estimate.gasPrice }
     },
     (get, set, updates: Partial<Required<DepositSettings>>) => {
       if (!updates.autoDeposit) {
