@@ -151,7 +151,8 @@ export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
   return clusters.map(([id, obj]) => {
     const { permission } = obj
-    return { label: `[${permission}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
+    const permissionKey = R.head(R.keys(permission))
+    return { label: `[${permissionKey}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
   }).filter(i => {
     if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
         return false
@@ -167,7 +168,6 @@ export const currentClusterAtom = atom(get => {
   if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && currentClusterId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
     currentClusterId = '0x0000000000000000000000000000000000000000000000000000000000000001'
   }
-  console.log('clusters', clusters, currentClusterId)
   const found = R.find(([id]) => id === currentClusterId, clusters)
   if (found) {
     return found[1]
@@ -176,6 +176,7 @@ export const currentClusterAtom = atom(get => {
 }, (_, set, value: string) => {
   set(currentClusterIdAtom, value)
 })
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
