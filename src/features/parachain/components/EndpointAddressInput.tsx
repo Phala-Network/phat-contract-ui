@@ -4,9 +4,7 @@ import {
   FormLabel,
   Input,
   InputGroup,
-  InputRightElement,
   Button,
-  ButtonGroup,
 } from "@chakra-ui/react";
 import { useAtom, useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -57,26 +55,6 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
             value={endpoint}
             onChange={(ev) => setEndpoint(ev.target.value)}
           />
-          <InputRightElement width="5.25rem">
-            <ButtonGroup>
-              <Button
-                h="1.75rem"
-                size="sm"
-                onClick={() => {
-                  const endpoint = PARACHAIN_ENDPOINT;
-                  setEndpoint(RESET);
-                  if (machine.can("RECONNECT")) {
-                    send({ type: "RECONNECT", data: { endpoint } });
-                  } else {
-                    send({ type: "CONNECT", data: { endpoint } });
-                  }
-                  setPreferedEndpointAtom(endpoint);
-                }}
-              >
-                Reset
-              </Button>
-            </ButtonGroup>
-          </InputRightElement>
         </InputGroup>
       )}
       <div tw="mt-2 flex flex-row gap-2">
