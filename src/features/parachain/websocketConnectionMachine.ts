@@ -110,6 +110,12 @@ export function createWebsocketConnectionMachineConfig(ctx: WebsocketConnectionC
               'setError',
             ],
           },
+          CONNECT_FAILED: {
+            target: 'error',
+            actions: [
+              'setError',
+            ],
+          },
         },
       }, // END: connecting
 
