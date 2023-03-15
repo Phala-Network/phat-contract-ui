@@ -1,5 +1,6 @@
 import { Select } from "@chakra-ui/react";
-import { Atom, useAtom, WritableAtom } from "jotai";
+
+export const options = ['wss://poc5.phala.network/ws', 'wss://phat-beta-node.phala.network/khala/ws']
 
 export default function EndpointAddressSelect({
   onChange,
@@ -15,8 +16,11 @@ export default function EndpointAddressSelect({
         onChange(e.target.value);
       }}
     >
-      <option>wss://poc5.phala.network/ws</option>
-      <option>wss://phat-beta-node.phala.network/khala/ws</option>
+      {
+        options.map(o => {
+          return <option key={o}>{o}</option>
+        })
+      }
     </Select>
   );
 }

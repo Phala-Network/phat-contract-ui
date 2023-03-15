@@ -7,7 +7,6 @@ import {
   Button,
 } from "@chakra-ui/react";
 import { useAtom, useSetAtom } from "jotai";
-import { RESET } from "jotai/utils";
 
 import {
   endpointAtom,
@@ -16,7 +15,7 @@ import {
   switchModeAtom,
 } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
-import EndpointAddressSelect from "./EndpointAddressSelect";
+import EndpointAddressSelect, { options } from "./EndpointAddressSelect";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
@@ -83,9 +82,13 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           disabled={machine.matches("connecting")}
           onClick={() => {
             if (switchMode === 'input') {
-              const endpoint = PARACHAIN_ENDPOINT;
-              setEndpoint(endpoint);
-              connect(endpoint);
+              const isValid = options.includes(endpoint);
+
+              if (!isValid) {
+                const endpoint$1 = PARACHAIN_ENDPOINT;
+                setEndpoint(endpoint$1);
+                connect(endpoint$1);
+              }
             }
             setSwitchMode(switchMode === "switch" ? "input" : "switch");
           }}
