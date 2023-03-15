@@ -39,14 +39,6 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
     setPreferedEndpointAtom(endpoint);
   }
 
-  useEffect(() => {
-    if (endpointMode === "switch") {
-      const endpoint = PARACHAIN_ENDPOINT;
-      setEndpoint(RESET);
-      connect(endpoint);
-    }
-  }, [endpointMode]);
-
   return (
     <FormControl>
       <FormLabel>{label || "Khala Parachain Endpoint Address"}</FormLabel>
@@ -115,7 +107,13 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           size="sm"
           disabled={machine.matches("connecting")}
           onClick={() => {
+            if (endpointMode === 'input') {
+              const endpoint = PARACHAIN_ENDPOINT;
+              setEndpoint(RESET);
+              connect(endpoint);
+            }
             setEndpointMode(endpointMode === "switch" ? "input" : "switch");
+
           }}
         >
           {endpointMode === "switch" ? "Custom" : "Official Testnet"}
