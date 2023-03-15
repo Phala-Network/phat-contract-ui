@@ -13,20 +13,18 @@ import {
   endpointAtom,
   PARACHAIN_ENDPOINT,
   preferedEndpointAtom,
+  switchModeAtom,
 } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
 import EndpointAddressSelect from "./EndpointAddressSelect";
-import { useState } from "react";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
   const setPreferedEndpointAtom = useSetAtom(preferedEndpointAtom);
   const [machine, send] = useAtom(websocketConnectionMachineAtom);
 
-  const [endpointMode, setEndpointMode] = useState<"switch" | "input">(
-    "switch"
-  );
-
+  const [switchMode, setSwitchMode] = useAtom(switchModeAtom);
+  
   function connect(endpoint: string) {
     if (machine.can("RECONNECT")) {
       send({ type: "RECONNECT", data: { endpoint } });
@@ -40,7 +38,7 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
     <FormControl>
       <FormLabel>{label || "Khala Parachain Endpoint Address"}</FormLabel>
 
-      {endpointMode === "switch" ? (
+      {switchMode === "switch" ? (
         <EndpointAddressSelect
           value={endpoint}
           onChange={(value) => {
@@ -84,16 +82,15 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
           size="sm"
           disabled={machine.matches("connecting")}
           onClick={() => {
-            if (endpointMode === 'input') {
+            if (switchMode === 'input') {
               const endpoint = PARACHAIN_ENDPOINT;
-              setEndpoint(RESET);
+              setEndpoint(endpoint);
               connect(endpoint);
             }
-            setEndpointMode(endpointMode === "switch" ? "input" : "switch");
-
+            setSwitchMode(switchMode === "switch" ? "input" : "switch");
           }}
         >
-          {endpointMode === "switch" ? "Custom" : "Official Testnet"}
+          {switchMode === "switch" ? "Custom" : "Official Testnet"}
         </Button>
       </div>
     </FormControl>
