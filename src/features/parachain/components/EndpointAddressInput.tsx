@@ -8,9 +8,8 @@ import {
   Button,
   ButtonGroup,
 } from "@chakra-ui/react";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
-import { setCookie } from "cookies-next";
 
 import {
   endpointAtom,
@@ -19,7 +18,7 @@ import {
 } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
 import EndpointAddressSelect from "./EndpointAddressSelect";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
