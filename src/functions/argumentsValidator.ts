@@ -88,7 +88,7 @@ const toString = (value: unknown): string => {
 
 // Convert a string or number like a number to a Big Number,
 // It doesn't contain NaN, Infinity
-const convertToBN = (value: string | number) => {
+export const convertToBN = (value: string | number) => {
   if (R.is(String, value) && value !== '') {
     const number = Number(value)
     if (Number.isFinite(number)) {
@@ -177,7 +177,10 @@ const convertToArray = (value: unknown): unknown[] => {
   return []
 }
 
-const subToArray = (sub: TypeDef | TypeDef[]): TypeDef[] => {
+export const subToArray = (sub?: TypeDef | TypeDef[]): TypeDef[] => {
+  if (!sub) {
+    return []
+  }
   const subArray = Array.isArray(sub) ? sub : [sub]
   return subArray
 }
@@ -678,4 +681,18 @@ export const singleInputsValidator = (
   })
 
   return validateInfos
+}
+
+/**
+ * -------------------------------
+ *         Form validators
+ * -------------------------------
+ */
+
+// The form will ensure that either there is a valid value or it is undefined.
+export const validateNotUndefined = (value: unknown): string[] => {
+  if (value === undefined) {
+    return ['The value mustn\'t be empty.']
+  }
+  return []
 }

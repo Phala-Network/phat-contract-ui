@@ -3,7 +3,7 @@ import type {Bytes} from '@polkadot/types-codec'
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { useAtomValue, useSetAtom } from "jotai"
-import { waitForAll } from "jotai/utils"
+import { useReducerAtom, waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
 import { stringToHex } from '@polkadot/util'
@@ -29,9 +29,10 @@ import {
   currentSystemContractIdAtom,
   currentClusterIdAtom,
   currentWorkerIdAtom,
-  currentArgsErrorsAtom,
 } from '../atoms'
 import { singleInputsValidator } from '@/functions/argumentsValidator'
+import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFieldValue, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
+// import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
 
 interface InkResponse {
   nonce: string
@@ -66,7 +67,7 @@ export enum ExecResult {
   Stop = 'stop',
 }
 
-export default function useContractExecutor(): [boolean, (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
+export default function useContractExecutor(): [boolean, (overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
   const toast = useToast()
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
@@ -84,10 +85,14 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
-  const setCurrentArgsErrors = useSetAtom(currentArgsErrorsAtom)
+  // const currentArgsFormValueOf = useAtomValue(currentArgsFormValueOfAtom)
+  // const currentArgsFormValidate = useSetAtom(currentArgsFormValidateAtom)
+  // const currentArgsFormErrorsOf = useAtomValue(currentArgsFormErrorsOfAtom)
+  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
+  const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
   const [isLoading, setIsLoading] = useState(false)
 
-  const fn = useCallback(async (inputs: Record<string, unknown>, overrideMethodSpec?: ContractMetaMessage) => {
+  const fn = useCallback(async (overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
@@ -95,7 +100,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
         debug('contractInstance or account is null')
         return
       }
-      console.log('contract', contract)
+      debug('contract', contract)
       // @ts-ignore
       const apiCopy = await ApiPromise.create({ ...api._options })
       const contractInstance = new ContractPromise(
@@ -110,24 +115,22 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       )
       debug('methodSpec', methodSpec)
 
-      // `abi` contains all messages and arguments' type
-      const abi = contractInstance.abi
-      const message = abi.messages.find(message => message.identifier === methodSpec.label)
+      const inputValues = getFormValue(currentArgsForm)
+      const checkedArgsForm = getCheckedForm(currentArgsForm)
+      const isInvalid = getFormIsInvalid(checkedArgsForm)
 
-      debug('inputs', inputs)
-      debug('message.args', message?.args)
-
-      const validates = singleInputsValidator(api.registry, message?.args || [], inputs)
-
-      debug('validates', validates)
-
-      const hasError = validates.some(validate => validate.errors?.length)
-      if (hasError) {
-        setCurrentArgsErrors(validates.map(_ => (_.errors || [])))
+      dispatchForm({
+        type: FormActionType.SetForm,
+        payload: {
+          form: checkedArgsForm,
+        }
+      })
+      
+      debug('inputValues & errors', inputValues, isInvalid)
+      
+      if (isInvalid) {
         return ExecResult.Stop
       }
-
-      const argsParsed = validates.map(_ => _.value)
 
       const queryMethods = R.fromPairs(R.map(
         i => [i.meta.identifier, i.meta.method],
@@ -146,10 +149,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       }
       const args = R.map(
         i => {
-          const value = inputs[i.label]
-          if (i.type.type === 1 && typeof value === 'string') {
-            return [value]
-          }
+          const value = inputValues[i.label]
           return value
         },
         methodSpec.args
@@ -162,7 +162,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
       // tx
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
-        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, argsParsed);
+        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
         const r1 = await signAndSend(
           contractInstance.tx[txMethods[methodSpec.label]](txConf, ...args),
           account.address,
@@ -184,7 +184,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
           cert as unknown as string,
           // querySignCache as unknown as string,
           { value: 0, gasLimit: -1 },
-          ...argsParsed
+          ...args
         )
         debug('query result: ', queryResult)
         // @TODO Error handling
@@ -193,7 +193,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
             contract,
             methodSpec,
             succeed: true,
-            args: inputs,
+            args: inputValues,
             output: queryResult.output?.toHuman(),
             completedAt: Date.now(),
           })
@@ -202,7 +202,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
             contract,
             methodSpec,
             succeed: false,
-            args: inputs,
+            args: inputValues,
             output: queryResult.result.toHuman(),
             completedAt: Date.now(),
           })
@@ -253,7 +253,7 @@ export default function useContractExecutor(): [boolean, (inputs: Record<string,
     }
   }, [
     api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, setLogs, systemContractId
+    signer, setLogs, systemContractId, currentArgsForm
   ])
   return [isLoading, fn]
 }
