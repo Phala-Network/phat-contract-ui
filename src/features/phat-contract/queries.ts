@@ -35,11 +35,9 @@ export function queryClusterList(api: ApiPromise) {
     queryFn: async () => {
       const result = await api.query.phalaFatContracts.clusters.entries()
       const transformed: Pairs<string, ClusterInfo>[] = result.map(([storageKey, value]) => {
-        const keys = storageKey.toHuman() as string[]
-        const info = value.unwrap().toHuman()
-        if (isClosedBetaEnv) {
-          info.id = keys[0]
-        }
+        const keys = storageKey.args.map(i => i.toPrimitive()) as string[]
+        const info = value.unwrap().toJSON()
+        info.id = keys[0]
         return [keys[0], info]
       })
       return transformed

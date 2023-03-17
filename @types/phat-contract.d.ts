@@ -5,6 +5,9 @@ interface ClusterInfo {
   permission: "Public" | string
   systemContract?: string
   workers: string[]
+  gasPrice: number
+  depositPerByte: number
+  depositPerItem: number
 }
 
 interface ContractInfo {
