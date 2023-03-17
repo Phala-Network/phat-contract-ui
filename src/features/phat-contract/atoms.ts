@@ -204,17 +204,7 @@ export const availableClusterOptionsAtom = atom(get => {
     return true
   })
   
-  if (isClosedBetaEnv) {
-    const closedBetaOptions = options.filter(i => {
-      if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-          return false
-      }
-      return true
-    })
-    return closedBetaOptions
-  } else {
-    return options
-  }
+  return options
 })
 
 export const currentClusterAtom = atom(get => {
