@@ -1,24 +1,28 @@
 import type {Bytes} from '@polkadot/types-codec'
+import type {ContractOptions} from '@polkadot/api-contract/types'
+import type { u64 } from '@polkadot/types'
+import type { BN } from '@polkadot/util'
+import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
-import { useAtomValue, useSetAtom } from "jotai"
+import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useReducerAtom, waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
 import { stringToHex } from '@polkadot/util'
 import { ApiPromise } from '@polkadot/api'
 import * as R from 'ramda'
+import { Keyring } from '@polkadot/keyring'
 
-import { CertificateData, create } from '@phala/sdk'
+import { CertificateData, create, signCertificate } from '@phala/sdk'
 import createLogger from "@/functions/createLogger"
-// import { blockBarrier } from '@/functions/polling'
 import signAndSend from '@/functions/signAndSend'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
-import { queryClusterWorkerPublicKey, queryPinkLoggerContract } from '../queries'
+import { queryPinkLoggerContract } from '../queries'
 
 import {
   pruntimeURLAtom,
@@ -27,12 +31,12 @@ import {
   dispatchResultsAtom,
   pinkLoggerResultAtom,
   currentSystemContractIdAtom,
-  currentClusterIdAtom,
   currentWorkerIdAtom,
 } from '../atoms'
 import { singleInputsValidator } from '@/functions/argumentsValidator'
 import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFieldValue, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 // import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
+
 
 interface InkResponse {
   nonce: string
@@ -45,29 +49,78 @@ interface InkResponse {
 
 const debug = createLogger('chain', 'debug')
 
+
+interface EstimateGasResult {
+  gasLimit: u64
+  storageDepositLimit: BN | null
+}
+
 async function estimateGas(contract: ContractPromise, method: string, cert: CertificateData, args: unknown[]) {
   const { gasRequired, storageDeposit } = await contract.query[method](cert as any, {}, ...args)
-  const options = {
+  const options: EstimateGasResult = {
       gasLimit: (gasRequired as any).refTime,
       storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
   }
   return options
 }
 
-const remotePubkeyAtom = atomWithQuery(get => {
+const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
+
+const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
-  const clusterId = get(currentClusterIdAtom)
-  return queryClusterWorkerPublicKey(api, clusterId)
+  const contract = get(currentContractAtom)
+  const pruntimeURL = get(pruntimeURLAtom)
+  const remotePubkey = get(currentWorkerIdAtom)
+  // @ts-ignore
+  const apiCopy = await ApiPromise.create({ ...api._options })
+  const contractInstance = new ContractPromise(
+    (await create({
+      api: apiCopy,
+      baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+      // enable autoDeposit to pay for gas fee
+      autoDeposit: true
+    })).api,
+    contract.metadata,
+    contract.contractId
+  )
+  return contractInstance
 })
 
-// pay 1 PHA as gas fee for each tx call. adhoc but works.
-const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
+export const inputsAtom = atom<Record<string, string>>({})
+
+export const estimateGasAtom = atom(async get => {
+  const api = get(apiPromiseAtom)
+  const contractInstance = get(currentContractPromiseAtom)
+  const selectedMethodSpec = get(currentMethodAtom)
+  const keyring = new Keyring({ type: 'sr25519' })
+  const pair = keyring.addFromUri('//Alice')
+  const cert = await signCertificate({ api, pair })
+  // const cert = get(certQueryAtom)
+  const txMethods = R.fromPairs(R.map(
+    i => [i.meta.identifier, i.meta.method],
+    R.values(contractInstance.tx || {})
+  ))
+  // const inputs = get(inputsAtom)
+  const inputs = getFormValue(get(get(currentArgsFormAtomInAtom)))
+  const args = R.map(
+    i => {
+      const value = inputs[i.label]
+      // if (i.type.type === 1 && typeof value === 'string') {
+      //   return [value]
+      // }
+      return value
+    },
+    selectedMethodSpec!.args
+  )
+  const txConf = await estimateGas(contractInstance, txMethods[selectedMethodSpec!.label], cert, args);
+  return txConf
+})
 
 export enum ExecResult {
   Stop = 'stop',
 }
 
-export default function useContractExecutor(): [boolean, (overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
+export default function useContractExecutor(): [boolean, (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
   const toast = useToast()
   const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
     apiPromiseAtom,
@@ -92,7 +145,7 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
   const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
   const [isLoading, setIsLoading] = useState(false)
 
-  const fn = useCallback(async (overrideMethodSpec?: ContractMetaMessage) => {
+  const fn = useCallback(async (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
@@ -162,9 +215,16 @@ export default function useContractExecutor(): [boolean, (overrideMethodSpec?: C
       // tx
       if (methodSpec.mutates) {
         // const { signer } = await web3FromSource(account.meta.source)
-        const txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+        let txConf
+        if (depositSettings.autoDeposit) {
+          txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+          debug('auto deposit: ', txConf)
+        } else {
+          txConf = R.pick(['gasLimit', 'storageDepositLimit'], depositSettings)
+          debug('manual deposit: ', txConf)
+        }
         const r1 = await signAndSend(
-          contractInstance.tx[txMethods[methodSpec.label]](txConf, ...args),
+          contractInstance.tx[txMethods[methodSpec.label]](txConf as unknown as ContractOptions, ...args),
           account.address,
           signer
         )
