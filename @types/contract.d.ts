@@ -70,14 +70,22 @@ type ContractMetadata = {
     version: string;
     authors: string[];
   },
-  V3: {
-    spec: {
-      constructors: ContractMetaConstructor[];
-      docs: string[];
-      events: unknown[];
-      messages: ContractMetaMessage[];
-    },
-    storage: ContractMetaStorage,
-    types: ContractMetaType[],
-  }
+  // V3: {
+  //   spec: {
+  //     constructors: ContractMetaConstructor[];
+  //     docs: string[];
+  //     events: unknown[];
+  //     messages: ContractMetaMessage[];
+  //   },
+  //   storage: ContractMetaStorage,
+  //   types: ContractMetaType[],
+  // }
+  spec: {
+    constructors: ContractMetaConstructor[];
+    docs: string[];
+    events: unknown[];
+    messages: ContractMetaMessage[];
+  },
+  storage: ContractMetaStorage,
+  types: ContractMetaType[],
 }

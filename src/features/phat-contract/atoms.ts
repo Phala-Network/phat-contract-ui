@@ -55,7 +55,7 @@ export const contractAvailableSelectorAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return [...contract.V3.spec.constructors.map(i => ({
+  return [...contract.spec.constructors.map(i => ({
     value: i.selector,
     label: i.label,
     default: i.label === 'default',
@@ -111,10 +111,10 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         set(contractParserErrorAtom, "Your contract file is invalid.")
         return
       }
-      if (!contract.V3) {
-        set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
-        return
-      }
+      // if (!contract.V3) {
+      //   set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
+      //   return
+      // }
 
       if (isCheckWASM) {
         // const isAllowIndeterminism = get(candidateAllowIndeterminismAtom)
@@ -373,7 +373,7 @@ export const messagesAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return contract.metadata.V3.spec.messages || []
+  return contract.metadata.spec.messages || []
 })
 
 export const phalaFatContractQueryAtom = atom(async get => {

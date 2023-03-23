@@ -20,11 +20,11 @@ export default function useLocalContractsImport() {
             console.log('import error: Your contract file is invalid')
             return
           }
-          if (!contract.V3) {
-            console.log('import error: Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.')
-            // set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
-            return
-          }
+          // if (!contract.V3) {
+          //   console.log('import error: Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.')
+          //   // set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
+          //   return
+          // }
           if (!contract.phat || !contract.phat.contractId) {
             console.log('import error: For now only support metadata that export from contract UI.')
             // set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
