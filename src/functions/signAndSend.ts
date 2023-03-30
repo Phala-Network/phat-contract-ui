@@ -6,6 +6,7 @@ const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, si
   return new Promise(async (resolve, reject) => {
     // Ready -> Broadcast -> InBlock -> Finalized
     const unsub = await target.signAndSend(
+      //@ts-ignore
       address, { signer }, (result) => {
         const humanized = result.toHuman()          
         if (result.status.isInBlock) {

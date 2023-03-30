@@ -89,6 +89,7 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
 
 async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string, remotePubkey: string) {
   return new ContractPromise(
+    //@ts-ignore
     (await create({
       // @ts-ignore
       api: await ApiPromise.create({ ...api._options }),

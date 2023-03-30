@@ -644,6 +644,7 @@ export const singleInputValidator = (
       }
 
       case TypeDefInfo.Si:
+        //@ts-ignore
         return singleInputValidator(registry, registry.lookup.getTypeDef(type), inputValue)
 
       case TypeDefInfo.Struct:

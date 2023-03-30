@@ -297,6 +297,7 @@ const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDat
       return createFieldData(registry, sub as TypeDef)
 
     case TypeDefInfo.Si:
+      //@ts-ignore
       return createFieldData(registry, registry.lookup.getTypeDef(type))
   
     default:

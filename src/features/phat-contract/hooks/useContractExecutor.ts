@@ -74,7 +74,9 @@ const currentContractPromiseAtom = atom(async get => {
   // @ts-ignore
   const apiCopy = await ApiPromise.create({ ...api._options })
   const contractInstance = new ContractPromise(
+    //@ts-ignore
     (await create({
+      //@ts-ignore
       api: apiCopy,
       baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
       // enable autoDeposit to pay for gas fee
@@ -94,6 +96,7 @@ export const estimateGasAtom = atom(async get => {
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
+  //@ts-ignore
   const cert = await signCertificate({ api, pair })
   // const cert = get(certQueryAtom)
   const txMethods = R.fromPairs(R.map(
@@ -157,7 +160,9 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       // @ts-ignore
       const apiCopy = await ApiPromise.create({ ...api._options })
       const contractInstance = new ContractPromise(
+        //@ts-ignore
         (await create({
+          //@ts-ignore
           api: apiCopy,
           baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
           // enable autoDeposit to pay for gas fee
@@ -210,6 +215,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
+      //@ts-ignore
       const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
 
       // tx
@@ -224,6 +230,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           debug('manual deposit: ', txConf)
         }
         const r1 = await signAndSend(
+          //@ts-ignore
           contractInstance.tx[txMethods[methodSpec.label]](txConf as unknown as ContractOptions, ...args),
           account.address,
           signer
@@ -279,6 +286,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     } finally {
       if (api && signer && account && systemContractId && remotePubkey) {
         try {
+          //@ts-ignore
           const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
           const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {

@@ -6,6 +6,7 @@ import type {Signer as InjectedSigner} from '@polkadot/api/types'
 import type { QueryFunctionContext } from "@tanstack/query-core"
 
 import { signCertificate } from '@phala/sdk'
+import { KeyringPair } from "@polkadot/keyring/types"
 
 const hexToUtf8 = (hex: string): string => {
   if (hex.startsWith('0x')) {
@@ -33,9 +34,10 @@ export function queryChainIdentity(api: ApiPromise, address: string) {
   }
 }
 
-export function querySignCertificate(api: ApiPromise, signer: Signer | InjectedSigner, account: InjectedAccountWithMeta) {
+export function querySignCertificate(api: ApiPromise, signer: Signer | InjectedSigner, account: KeyringPair) {
   return {
     queryKey: ['queryContractCert', account.address],
+    //@ts-ignore
     queryFn: () => signCertificate({ signer, account, api }),
     staleTime: 1000 * 60 * 15, // 15 minutes
   }
