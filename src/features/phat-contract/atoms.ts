@@ -55,7 +55,8 @@ export const contractAvailableSelectorAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return [...contract.V3.spec.constructors.map(i => ({
+  const spec = contract.V3 ? contract.V3.spec : contract.spec
+  return [...spec.constructors.map(i => ({
     value: i.selector,
     label: i.label,
     default: i.label === 'default',
@@ -111,8 +112,11 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         set(contractParserErrorAtom, "Your contract file is invalid.")
         return
       }
-      if (!contract.V3) {
-        set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
+
+      try {
+        new Abi(contract)
+      } catch (err) {
+        set(contractParserErrorAtom, `Your contract file is invalid: ${err}`)
         return
       }
 
@@ -373,7 +377,10 @@ export const messagesAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return contract.metadata.V3.spec.messages || []
+  if (contract.metadata.V3) {
+    return contract.metadata.V3.spec.messages || []
+  }
+  return contract.metadata.spec.messages || []
 })
 
 export const phalaFatContractQueryAtom = atom(async get => {
