@@ -174,7 +174,7 @@
        >
      }
 
-     phalaFatContracts: {
+     phalaPhatContracts: {
       contracts: AugmentedQueryAt<
         ApiType,
         (contractId?: string) => Observable<MethodResult<Option<ContractInfo>>>,
@@ -200,7 +200,7 @@
       >
      }
 
-     phalaFatTokenomic: {
+     phalaPhatTokenomic: {
       contractTotalStakes: AugmentedQueryAt<
         ApiType,
         (contractId?: string) => Observable<Balance>,
@@ -341,7 +341,7 @@
        >
     }
 
-    phalaFatTokenomic: {
+    phalaPhatTokenomic: {
       adjustStake: AugmentedSubmittable<
         (
           contractId: string,

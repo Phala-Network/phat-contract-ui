@@ -15,9 +15,9 @@ function toHuman(value: Codec): AnyJson {
 
 export function queryContractList(api: ApiPromise) {
   return {
-    queryKey: ['phalaFatContracts.contracts'],
+    queryKey: ['phalaPhatContracts.contracts'],
     queryFn: async (ctx: any) => {
-      const result = await api.query.phalaFatContracts.contracts.entries()
+      const result = await api.query.phalaPhatContracts.contracts.entries()
       const transformed: Pairs<string, ContractInfo>[] = result.map(([storageKey, value]) => {
         const keys = storageKey.toHuman() as string[]
         return [keys[0], value.unwrap().toHuman()]
@@ -31,9 +31,9 @@ export function queryContractList(api: ApiPromise) {
 
 export function queryClusterList(api: ApiPromise) {
   return {
-    queryKey: ['phalaFatContracts.clusters'],
+    queryKey: ['phalaPhatContracts.clusters'],
     queryFn: async () => {
-      const result = await api.query.phalaFatContracts.clusters.entries()
+      const result = await api.query.phalaPhatContracts.clusters.entries()
       const transformed: Pairs<string, ClusterInfo>[] = result.map(([storageKey, value]) => {
         const keys = storageKey.args.map(i => i.toPrimitive()) as string[]
         const info = value.unwrap().toJSON()
@@ -48,14 +48,14 @@ export function queryClusterList(api: ApiPromise) {
 
 export function queryClusterWorkerPublicKey(api: ApiPromise, clusterId?: string) {
   return {
-    queryKey: ['phalaFatContracts.clusterWorkers', clusterId],
+    queryKey: ['phalaPhatContracts.clusterWorkers', clusterId],
     queryFn: async (ctx: any) => {
       const { queryKey: [, clusterId ]} = ctx as QueryFunctionContext<[string, string]>
       if (clusterId) {
-        const result = await api.query.phalaFatContracts.clusterWorkers(clusterId)
+        const result = await api.query.phalaPhatContracts.clusterWorkers(clusterId)
         return [[clusterId, result.toHuman()]]
       } else {
-        const result = await api.query.phalaFatContracts.clusterWorkers.entries()
+        const result = await api.query.phalaPhatContracts.clusterWorkers.entries()
         const transformed = result.map(([storageKey, value]) => {
           const keys = storageKey.toHuman() as string[]
           return [keys[0], value.toHuman()]
@@ -69,7 +69,7 @@ export function queryClusterWorkerPublicKey(api: ApiPromise, clusterId?: string)
 
 export function queryEndpointList(api: ApiPromise, workerId?: string) {
   return {
-    queryKey: ['phalaFatContracts.endpoints', workerId],
+    queryKey: ['phalaPhatContracts.endpoints', workerId],
     queryFn: async (ctx: QueryFunctionContext) => {
       const { queryKey: [, workerId ]} = ctx as QueryFunctionContext<[string, string]>
       const result = await api.query.phalaRegistry.endpoints.entries()
