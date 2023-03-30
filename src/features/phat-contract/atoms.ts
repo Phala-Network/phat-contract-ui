@@ -112,8 +112,11 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         set(contractParserErrorAtom, "Your contract file is invalid.")
         return
       }
-      if (!contract.V3) {
-        set(contractParserErrorAtom, "Your contract metadata version is too low, Please upgrade your cargo-contract with `cargo install cargo-contract --force`.")
+
+      try {
+        new Abi(contract)
+      } catch (err) {
+        set(contractParserErrorAtom, `Your contract file is invalid: ${err}`)
         return
       }
 
