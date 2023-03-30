@@ -40,7 +40,8 @@ export default function useUploadCodeAndInstantiate() {
   
       const salt = '0x' + new Date().getTime()
 
-      if (contract.V3.spec.constructors.length === 0) {
+      const spec = contract.V3 ? contract.V3.spec : contract.spec
+      if (spec.constructors.length === 0) {
         throw new Error('No constructor found.')
       }
       const defaultInitSelector = R.pipe(
@@ -48,7 +49,7 @@ export default function useUploadCodeAndInstantiate() {
         R.sortBy((c: ContractMetaConstructor) => c.args.length),
         i => R.head<ContractMetaConstructor>(i),
         (i) => i ? i.selector : undefined,
-      )(contract.V3.spec.constructors)
+      )(spec.constructors)
 
       const initSelector = chooseInitSelector || defaultInitSelector
       console.log('user choose initSelector: ', chooseInitSelector)

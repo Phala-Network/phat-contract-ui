@@ -55,7 +55,8 @@ export const contractAvailableSelectorAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return [...contract.V3.spec.constructors.map(i => ({
+  const spec = contract.V3 ? contract.V3.spec : contract.spec
+  return [...spec.constructors.map(i => ({
     value: i.selector,
     label: i.label,
     default: i.label === 'default',
@@ -373,7 +374,10 @@ export const messagesAtom = atom(get => {
   if (!contract) {
     return []
   }
-  return contract.metadata.V3.spec.messages || []
+  if (contract.metadata.V3) {
+    return contract.metadata.V3.spec.messages || []
+  }
+  return contract.metadata.spec.messages || []
 })
 
 export const phalaFatContractQueryAtom = atom(async get => {
