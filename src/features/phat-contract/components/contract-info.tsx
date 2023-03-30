@@ -53,6 +53,7 @@ const contractStakingAtom = atom(
     const signer = get(signerAtom)
     const theNumber = new Decimal(value).mul(new Decimal(10).pow(api.registry.chainDecimals[0]))
     if (account && signer) {
+      // @ts-ignore
       await signAndSend(api.tx.phalaPhatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
       set(isSavingAtom, false)
     }

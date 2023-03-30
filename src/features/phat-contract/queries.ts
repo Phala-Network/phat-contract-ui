@@ -88,15 +88,16 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
 
 
 async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string, remotePubkey: string) {
+  const patched = await create({
+    // @ts-ignore
+    api: await ApiPromise.create({ ...api._options }),
+    // api: await api.clone().isReady,
+    baseURL: pruntime,
+    contractId: contractId,
+    remotePubkey: remotePubkey,
+  })
   return new ContractPromise(
-    (await create({
-      // @ts-ignore
-      api: await ApiPromise.create({ ...api._options }),
-      // api: await api.clone().isReady,
-      baseURL: pruntime,
-      contractId: contractId,
-      remotePubkey: remotePubkey,
-    })).api,
+    patched.api as unknown as ApiPromise,
     // contractSystem.metadata,
     {
       "V3": {

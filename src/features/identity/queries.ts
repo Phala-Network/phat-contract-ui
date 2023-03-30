@@ -1,6 +1,6 @@
 import type { ApiPromise } from "@polkadot/api"
-import type { InjectedAccountWithMeta, InjectedAccount } from '@polkadot/extension-inject/types'
 import type { Signer } from "@polkadot/types/types"
+import type { KeyringPair } from '@polkadot/keyring/types';
 import type {Signer as InjectedSigner} from '@polkadot/api/types'
 
 import type { QueryFunctionContext } from "@tanstack/query-core"
@@ -33,10 +33,12 @@ export function queryChainIdentity(api: ApiPromise, address: string) {
   }
 }
 
-export function querySignCertificate(api: ApiPromise, signer: Signer | InjectedSigner, account: InjectedAccountWithMeta) {
+type SignCertificateOptions = Parameters<typeof signCertificate>[0]
+
+export function querySignCertificate(api: ApiPromise, signer: Signer | InjectedSigner, account: KeyringPair) {
   return {
     queryKey: ['queryContractCert', account.address],
-    queryFn: () => signCertificate({ signer, account, api }),
+    queryFn: () => signCertificate({ signer, account, api } as unknown as SignCertificateOptions),
     staleTime: 1000 * 60 * 15, // 15 minutes
   }
 }

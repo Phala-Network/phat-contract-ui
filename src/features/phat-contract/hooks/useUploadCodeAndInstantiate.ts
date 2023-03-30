@@ -69,6 +69,7 @@ export default function useUploadCodeAndInstantiate() {
       // Upload & instantiate contract
       console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
       const result = await signAndSend(
+        // @ts-ignore
         api.tx.utility.batchAll([
           api.tx.phalaPhatContracts.transferToCluster(
               2e12,  // transfer 2 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
@@ -127,6 +128,7 @@ export default function useUploadCodeAndInstantiate() {
 
         console.info('Auto staking to the contract...');
         const stakeResult = await signAndSend(
+          // @ts-ignore
           api.tx.phalaPhatTokenomic.adjustStake(
             contractId,
             1e10,  // stake 1 cent
