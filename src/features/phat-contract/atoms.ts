@@ -179,7 +179,7 @@ export const availableContractsAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const currentClusterIdAtom = atom('0x0000000000000000000000000000000000000000000000000000000000000000')
+export const currentClusterIdAtom = atomWithStorage('user-selected-cluster', '0x0000000000000000000000000000000000000000000000000000000000000000')
 
 export const registeredClusterListAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
