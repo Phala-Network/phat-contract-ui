@@ -69,13 +69,13 @@ export default function useUploadCodeAndInstantiate() {
       console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
       const result = await signAndSend(
         api.tx.utility.batchAll([
-          api.tx.phalaFatContracts.transferToCluster(
+          api.tx.phalaPhatContracts.transferToCluster(
               2e12,  // transfer 2 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
               clusterId,
               account.address,  // user's own account
           ),
-          api.tx.phalaFatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
-          api.tx.phalaFatContracts.instantiateContract(
+          api.tx.phalaPhatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
+          api.tx.phalaPhatContracts.instantiateContract(
             { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId,
             0,  // not transfer any token to the contract during initialization
             gasLimit,
@@ -103,7 +103,7 @@ export default function useUploadCodeAndInstantiate() {
         try {
           await checkUntilEq(
             async () => {
-              const result = await api.query.phalaFatContracts.clusterContracts(clusterId)
+              const result = await api.query.phalaPhatContracts.clusterContracts(clusterId)
               const contractIds = result.map(i => i.toString())
               return contractIds.filter((id) => id === contractId).length
             },
