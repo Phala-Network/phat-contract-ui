@@ -296,7 +296,8 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           if (result) {
             const { sidevmQuery } = result
             const params = {
-              action: 'GetLog',              contract: contract.contractId,
+              action: 'GetLog',
+              contract: contract.contractId,
             }
             const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
