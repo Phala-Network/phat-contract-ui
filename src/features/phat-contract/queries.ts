@@ -5,6 +5,7 @@ import ms from 'ms'
 import { ApiPromise } from "@polkadot/api"
 import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
+import { abis } from '@phala/sdk'
 
 import { CertificateData, create } from "@phala/sdk"
 import { isClosedBetaEnv } from '@/vite-env'
@@ -95,125 +96,12 @@ async function createSystemContractPromise(api: ApiPromise, pruntime: string, co
     baseURL: pruntime,
     contractId: contractId,
     remotePubkey: remotePubkey,
+    autoDeposit: true,
   })
   return new ContractPromise(
     patched.api as unknown as ApiPromise,
     // contractSystem.metadata,
-    {
-      "V3": {
-        "spec": {
-          "messages": [
-            {
-              "args": [
-                {
-                  "label": "name",
-                  "type": {
-                    "displayName": [
-                      "String"
-                    ],
-                    "type": 7
-                  }
-                }
-              ],
-              "docs": [],
-              "label": "System::get_driver",
-              "mutates": false,
-              "payable": false,
-              "returnType": {
-                "displayName": [
-                  "Option"
-                ],
-                "type": 12
-              },
-              "selector": "0x2740cf0a"
-            },
-          ],
-        },
-        "types": [
-          {
-            "id": 0,
-            "type": {
-              "def": {
-                "composite": {
-                  "fields": [
-                    {
-                      "type": 1,
-                      "typeName": "u8"
-                      // "typeName": "[u8; 32]"
-                    }
-                  ]
-                }
-              },
-              "path": [
-                "ink_env",
-                "types",
-                "AccountId"
-              ]
-            }
-          },
-          {
-            "id": 1,
-            "type": {
-              "def": {
-                "array": {
-                  "len": 32,
-                  "type": 2
-                }
-              }
-            }
-          },
-          {
-            "id": 2,
-            "type": {
-              "def": {
-                "primitive": "u8"
-              }
-            }
-          },
-          {
-            "id": 7,
-            "type": {
-              "def": {
-                "primitive": "str"
-              }
-            }
-          },
-          {
-            "id": 12,
-            "type": {
-              "def": {
-                "variant": {
-                  "variants": [
-                    {
-                      "index": 0,
-                      "name": "None"
-                    },
-                    {
-                      "fields": [
-                        {
-                          "type": 0
-                        }
-                      ],
-                      "index": 1,
-                      "name": "Some"
-                    }
-                  ]
-                }
-              },
-              "params": [
-                {
-                  "name": "T",
-                  "type": 0
-                }
-              ],
-              "path": [
-                "Option"
-              ]
-            }
-          },
-        ],
-      }
-    },
+    abis.system,
     contractId
   );
 }
@@ -238,7 +126,8 @@ export function queryPinkLoggerContract(
       if (!output) {
         return null
       }
-      const loggerContractId = output.toHex()
+      // @ts-ignore
+      const loggerContractId = output.asOk.toHex()
       if (!loggerContractId || loggerContractId === '0x') {
         return null
       }
@@ -249,6 +138,7 @@ export function queryPinkLoggerContract(
         baseURL: pruntime,
         contractId: loggerContractId,
         remotePubkey: remotePubkey,
+        autoDeposit: true,
       })
     },
     staleTime: ms('30m'),
