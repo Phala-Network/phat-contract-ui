@@ -34,7 +34,7 @@ const contractTotalStakesAtom = atomWithQuerySubscription<number>((get, api, sub
   const { contractId } = get(currentContractAtom)
   if (contractId) {
     const multiplier = new Decimal(10).pow(api.registry.chainDecimals[0])
-    return api.query.phalaFatTokenomic.contractTotalStakes(contractId, (stakes) => {
+    return api.query.phalaPhatTokenomic.contractTotalStakes(contractId, (stakes) => {
       const value = new Decimal(stakes.toString()).div(multiplier)
       subject.next(value.toNumber())
     })
@@ -53,7 +53,7 @@ const contractStakingAtom = atom(
     const signer = get(signerAtom)
     const theNumber = new Decimal(value).mul(new Decimal(10).pow(api.registry.chainDecimals[0]))
     if (account && signer) {
-      await signAndSend(api.tx.phalaFatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
+      await signAndSend(api.tx.phalaPhatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
       set(isSavingAtom, false)
     }
   }

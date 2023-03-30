@@ -96,7 +96,7 @@ async function createSystemContractPromise(api: ApiPromise, pruntime: string, co
       baseURL: pruntime,
       contractId: contractId,
       remotePubkey: remotePubkey,
-    })).api,
+    })).api as unknown as ApiPromise,
     // contractSystem.metadata,
     {
       "V3": {

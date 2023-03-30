@@ -126,7 +126,7 @@ export default function useUploadCodeAndInstantiate() {
 
         console.info('Auto staking to the contract...');
         const stakeResult = await signAndSend(
-          api.tx.phalaFatTokenomic.adjustStake(
+          api.tx.phalaPhatTokenomic.adjustStake(
             contractId,
             1e10,  // stake 1 cent
           ),
