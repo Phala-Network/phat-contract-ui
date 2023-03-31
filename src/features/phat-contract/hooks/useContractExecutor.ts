@@ -306,7 +306,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
               response.records.forEach(r => {
                 if (r.type == 'MessageOutput' && r.output.startsWith('0x')) {
                   try {
-                    let decoded = api.createType('Result<ExecReturnValue, DispatchError>', r.output)
+                    let decoded = api.createType('ContractExecResult', r.output)
                     r.decoded = JSON.stringify(decoded.toHuman())
                   } catch {
                     console.info('Failed to decode MessageOutput', r.output)
