@@ -72,7 +72,7 @@ const instantiateEstimateGasAtom = atom(async get => {
   })
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
-  const cert = await signCertificate({ api: apiPromise, pair })
+  const cert = await signCertificate({ api: apiPromise as unknown as Parameters<typeof signCertificate>[0]['api'], pair })
   const raw = await instantiate({
     // @ts-ignore
     codeHash: candidate.source.hash,

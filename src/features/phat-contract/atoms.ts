@@ -179,7 +179,7 @@ export const availableContractsAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const currentClusterIdAtom = atom('0x0000000000000000000000000000000000000000000000000000000000000000')
+export const currentClusterIdAtom = atomWithStorage('user-selected-cluster', '0x0000000000000000000000000000000000000000000000000000000000000000')
 
 export const registeredClusterListAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
@@ -389,7 +389,7 @@ export const phalaFatContractQueryAtom = atom(async get => {
   if (!api || !info) {
     return null
   }
-  const result = await api.query.phalaFatContracts.contracts(info.contractId)
+  const result = await api.query.phalaPhatContracts.contracts(info.contractId)
   return result.toHuman() as ContractInfo
 })
 

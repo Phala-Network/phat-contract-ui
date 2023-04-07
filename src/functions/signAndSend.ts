@@ -1,13 +1,11 @@
 import type { ApiTypes } from '@polkadot/api-base/types/base'
-import type { SubmittableExtrinsic } from '@polkadot/api-base/types/submittable'
-import type { Signer as InjectedSigner } from '@polkadot/api/types'
+import type { SubmittableExtrinsic, SignerOptions } from '@polkadot/api-base/types/submittable'
 
-const signAndSend = (target: SubmittableExtrinsic<ApiTypes>, address: string, signer: InjectedSigner) => {
+function signAndSend<ApiType extends ApiTypes>(target: SubmittableExtrinsic<ApiType>, address: string, signer: SignerOptions['signer']) {
   return new Promise(async (resolve, reject) => {
     // Ready -> Broadcast -> InBlock -> Finalized
     const unsub = await target.signAndSend(
       address, { signer }, (result) => {
-        const humanized = result.toHuman()          
         if (result.status.isInBlock) {
           let error;
           for (const e of result.events) {

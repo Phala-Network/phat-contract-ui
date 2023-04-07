@@ -13,7 +13,7 @@ import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { createWebsocketConnectionMachineConfig, createWebsocketConnectionMachineOptions } from './websocketConnectionMachine'
 import { createApiPromise } from './create'
-import { WsProvider } from '@polkadot/api'
+import { ApiPromise, WsProvider } from '@polkadot/api'
 
 const debug = createLogger('parachain', 'debug')
 
@@ -124,7 +124,7 @@ export const apiPromiseAtom = atom(async (get) => {
   while (true) {
     const machine = get(websocketConnectionMachineAtom)
     if (machine.value === 'connected') {
-      return machine.context.connection!
+      return machine.context.connection! as ApiPromise
     }
     await new Promise(resolve => setTimeout(resolve, 500))
   }

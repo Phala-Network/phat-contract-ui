@@ -2,6 +2,7 @@ import type {Bytes} from '@polkadot/types-codec'
 import type {ContractOptions} from '@polkadot/api-contract/types'
 import type { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
+import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
@@ -66,20 +67,27 @@ async function estimateGas(contract: ContractPromise, method: string, cert: Cert
 
 const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
 
+type CreateOptions = Parameters<typeof create>[0]
+
+type SignOptions = Parameters<typeof signCertificate>[0]
+
 const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const contract = get(currentContractAtom)
   const pruntimeURL = get(pruntimeURLAtom)
   const remotePubkey = get(currentWorkerIdAtom)
   // @ts-ignore
-  const apiCopy = await ApiPromise.create({ ...api._options })
-  const contractInstance = new ContractPromise(
-    (await create({
+  const apiCopy = await ApiPromise.create({ ...api._options }) as CreateOptions['api']
+  const patched = await create({
       api: apiCopy,
-      baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+      baseURL: pruntimeURL,
+      contractId: contract.contractId,
+      remotePubkey: remotePubkey,
       // enable autoDeposit to pay for gas fee
       autoDeposit: true
-    })).api,
+    }) 
+  const contractInstance = new ContractPromise(
+    patched.api as unknown as ApiPromise,
     contract.metadata,
     contract.contractId
   )
@@ -94,7 +102,7 @@ export const estimateGasAtom = atom(async get => {
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
-  const cert = await signCertificate({ api, pair })
+  const cert = await signCertificate({ api: api as unknown as SignOptions['api'], pair })
   // const cert = get(certQueryAtom)
   const txMethods = R.fromPairs(R.map(
     i => [i.meta.identifier, i.meta.method],
@@ -156,13 +164,16 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('contract', contract)
       // @ts-ignore
       const apiCopy = await ApiPromise.create({ ...api._options })
-      const contractInstance = new ContractPromise(
-        (await create({
-          api: apiCopy,
-          baseURL: pruntimeURL, contractId: contract.contractId, remotePubkey: remotePubkey,
+      const patched = await create({
+          api: apiCopy as unknown as CreateOptions['api'],
+          baseURL: pruntimeURL,
+          contractId: contract.contractId,
+          remotePubkey: remotePubkey,
           // enable autoDeposit to pay for gas fee
           autoDeposit: true
-        })).api,
+        })
+      const contractInstance = new ContractPromise(
+        patched.api as unknown as ApiPromise,
         contract.metadata,
         contract.contractId
       )
@@ -210,7 +221,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
-      const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
+      const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
 
       // tx
       if (methodSpec.mutates) {
@@ -224,6 +235,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           debug('manual deposit: ', txConf)
         }
         const r1 = await signAndSend(
+          // @ts-ignore
           contractInstance.tx[txMethods[methodSpec.label]](txConf as unknown as ContractOptions, ...args),
           account.address,
           signer
@@ -279,12 +291,13 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     } finally {
       if (api && signer && account && systemContractId && remotePubkey) {
         try {
-          const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account))
+          const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
           const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
           if (result) {
             const { sidevmQuery } = result
             const params = {
-              action: 'GetLog',              contract: contract.contractId,
+              action: 'GetLog',
+              contract: contract.contractId,
             }
             const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
             const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
@@ -293,7 +306,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
               response.records.forEach(r => {
                 if (r.type == 'MessageOutput' && r.output.startsWith('0x')) {
                   try {
-                    let decoded = api.createType('Result<ExecReturnValue, DispatchError>', r.output)
+                    let decoded = api.createType('ContractExecResult', r.output)
                     r.decoded = JSON.stringify(decoded.toHuman())
                   } catch {
                     console.info('Failed to decode MessageOutput', r.output)

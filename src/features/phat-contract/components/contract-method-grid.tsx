@@ -177,9 +177,9 @@ const SimpleArgsFormModal = () => {
   }
 
   return (
-    <Modal size="full" scrollBehavior="inside" isOpen={visible} onClose={hideModal}>
+    <Modal scrollBehavior="inside" isOpen={visible} onClose={hideModal}>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent minWidth="75vw" maxWidth="780px">
         <ModalHeader>
           <h4 tw="mr-2 font-mono text-lg">{currentMethod.label}</h4>
           {currentMethod.mutates ? (

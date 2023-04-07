@@ -30,8 +30,9 @@ export default function useAttachToContract() {
       const metadata = R.dissocPath(['source', 'wasm'], contract)
 
       // Check contracts in cluster or not.
-      const result = await api.query.phalaFatContracts.clusterContracts(clusterId)
-      const contractIds = result.map(i => i.toString())
+      const result = await api.query.phalaPhatContracts.clusterContracts(clusterId)
+      // @ts-ignore
+      const contractIds: string[] = result.map(i => i.toString())
       const contractsFound = contractIds.filter((id) => id === contractId).length
       if (!contractsFound) {
         throw new Error('Contract not found on the blockchain.')
