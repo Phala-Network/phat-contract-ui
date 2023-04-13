@@ -22,9 +22,6 @@ const InitSelectorField = () => {
     i => R.head<SelectorOption>(i),
   )(selectors)
   const selected = chooseSelectors || defaultSelectors
-  if (!selected) {
-    return <></>
-  }
   return (
     <FormControl>
       <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">Init Selector</FormLabel>
@@ -33,7 +30,7 @@ const InitSelectorField = () => {
           variant='outline'
           size="sm"
           tw="border border-solid border-black"
-          defaultValue={selected.value}
+          defaultValue={selected?.value}
           onChange={evt => {
             setInitSelector(evt.target.value)
           }}

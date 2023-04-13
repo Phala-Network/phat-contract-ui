@@ -56,10 +56,14 @@ export const contractAvailableSelectorAtom = atom(get => {
     return []
   }
   const spec = contract.V3 ? contract.V3.spec : contract.spec
+  let defaults: any = spec.constructors.filter(i => i.label === 'default')
+  if (!defaults) {
+    defaults = R.head(spec.constructors)
+  }
   return [...spec.constructors.map(i => ({
     value: i.selector,
     label: i.label,
-    default: i.label === 'default',
+    default: i.selector === defaults?.selector,
     argCounts: i.args.length,
   }))]
 })
