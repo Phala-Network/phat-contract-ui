@@ -51,7 +51,7 @@ export default function useUploadCodeAndInstantiate() {
         (i) => i ? i.selector : undefined,
       )(spec.constructors)
 
-      const initSelector = chooseInitSelector || defaultInitSelector
+      const initSelector = chooseInitSelector || defaultInitSelector || R.head(spec.constructors)?.selector
       console.log('user choose initSelector: ', chooseInitSelector)
       console.log('default initSelector: ', defaultInitSelector)
       if (!initSelector) {
