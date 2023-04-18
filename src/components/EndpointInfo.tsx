@@ -53,15 +53,14 @@ const RPCNotReadyAlert = () => {
 }
 
 const ClusterIdSelect = () => {
-  const [currentClusterId] = useAtom(currentClusterIdAtom)
+  const currentClusterId = useAtomValue(currentClusterIdAtom)
   const [currentCluster, setClusterId] = useAtom(currentClusterAtom)
   const options = useAtomValue(availableClusterOptionsAtom)
-  const clusterId = isClosedBetaEnv ? currentCluster?.id : currentClusterId
   if (options.length === 0) {
     return <RPCNotReadyAlert />
   }
   return (
-    <Select value={clusterId} onChange={setClusterId} options={options} />
+    <Select value={currentCluster?.id || currentClusterId} onChange={setClusterId} options={options} />
   )
 }
 

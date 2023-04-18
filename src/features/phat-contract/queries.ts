@@ -43,7 +43,6 @@ export function queryClusterList(api: ApiPromise) {
       })
       return transformed
     },
-    staleTime: ms('5m'),
   }
 }
 
