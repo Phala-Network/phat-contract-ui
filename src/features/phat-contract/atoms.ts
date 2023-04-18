@@ -179,7 +179,7 @@ export const availableContractsAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const currentClusterIdAtom = atom('0x0000000000000000000000000000000000000000000000000000000000000000')
+export const currentClusterIdAtom = atom('0x0000000000000000000000000000000000000000000000000000000000000001')
 
 export const registeredClusterListAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
@@ -272,14 +272,18 @@ export const currentWorkerIdAtom = atom(
 export const availableWorkerListAtom = atom(get => {
   const clusterInfo = get(currentClusterAtom)
   if (clusterInfo) {
-    // 2023-01-16: hotfix for workers down
-    return R.without(
+    // 2023-04-18: took down qc workers for maintainance.
+    const result = R.without(
       [
-        "0x9e10f9be30e98a2a689c255f0780d6d58c6ca29dad1ea3f77ec94aaa8c9c174f",
-        "0x50cfa4b7a48893c8772cf348d7c2eb03071263a7f8ab4381a20e1df2a99dbc3a"
+        "0xd2267eba761d95b44366b15a52fd7c9247e5fd43e1ff1df457702c184a08e848",
+        "0x7a542638a1edd1e7cd0b4ebdf528baea80564678a83990503b3728494864fd32",
+        "0x8cbe030be2a9b49877c5f59cdd3bec3ea1686da4e9e1b401ed12b38efbecc36f",
+        "0xd29a7b8d4578cdaa63087300873626273855d11d787eab5e67720dca0088cf70",
       ],
       clusterInfo.workers
     )
+    console.log('available workers', clusterInfo.workers, result)
+    return result
     // return clusterInfo.workers
   }
   return []
