@@ -192,28 +192,17 @@ export const registeredClusterListAtom = atomWithQuery(get => {
 
 export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
-  const endpoint = get(endpointAtom)
   const options = clusters.map(([id, obj]) => {
     const { permission } = obj
     const permissionKey = R.head(R.keys(permission))
     return { label: `[${permissionKey}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
-  }).filter(i => {
-    if (endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && i.value === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-        return false
-    }
-    return true
   })
-  
   return options
 })
 
 export const currentClusterAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
   let currentClusterId = get(currentClusterIdAtom)
-  const endpoint = get(endpointAtom)
-  if (isClosedBetaEnv && endpoint === 'wss://phat-beta-node.phala.network/khala/ws' && currentClusterId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-    currentClusterId = '0x0000000000000000000000000000000000000000000000000000000000000001'
-  }
   const found = R.find(([id]) => id === currentClusterId, clusters)
   if (found) {
     return found[1]
