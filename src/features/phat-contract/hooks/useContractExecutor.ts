@@ -212,9 +212,15 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         return
       }
       const abiArgs = R.find(i => i.identifier === methodSpec.label, contractInstance.abi.messages)
+      debug('parsed abi args:', abiArgs)
       const args = R.map(
         ([arg, abiArg]) => {
           const value = inputValues[arg.label]
+          // If type is Text, input like `0x02` might auto conhort to hex string at polkadot-js internal,
+          // so we need to convert it to hex string to bypass that.
+          if (abiArg.type.type === 'Text') {
+            return api.createType('Text', stringToHex(value as string))
+          }
           return api.createType(abiArg.type.type, value)
         },
         R.zip(methodSpec.args, abiArgs!.args)
