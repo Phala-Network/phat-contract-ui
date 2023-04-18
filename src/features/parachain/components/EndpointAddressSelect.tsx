@@ -1,6 +1,9 @@
 import { Select } from "@chakra-ui/react";
 
-export const options = ['wss://poc5.phala.network/ws', 'wss://phat-beta-node.phala.network/khala/ws']
+export const options = [
+  'wss://pc-test-3.phala.network/khala/ws',
+  'wss://poc5.phala.network/ws',
+]
 
 export default function EndpointAddressSelect({
   onChange,
