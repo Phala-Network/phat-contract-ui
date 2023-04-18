@@ -46,6 +46,7 @@ export enum PlainType {
   // Address
   AccountId = 'AccountId',
   Address = 'Address',
+  Bytes = 'Bytes',
 }
 
 export interface ValidateInfo<T> {

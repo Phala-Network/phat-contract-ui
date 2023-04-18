@@ -432,7 +432,8 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
 }
 
 const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
-  const { uid, value, errors = [] } = fieldData
+  const { uid, value, typeDef: { type }, errors = [] } = fieldData
+  const isBytes = type === PlainType.Bytes
 
   const isInvalid = errors.length > 0
 
@@ -444,7 +445,18 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
     if (!innerValue) {
       dispatchValue(dispatch, uid, undefined)
     } else {
-      dispatchValue(dispatch, uid, innerValue)
+      let nextValue: ValueTypeNormalized = innerValue
+      if (isBytes) {
+        try {
+          const maybeArray = JSON.parse(nextValue)
+          if (Array.isArray(maybeArray)) {
+            nextValue = maybeArray
+          }
+        } catch (error) {
+          // noop
+        }
+      }
+      dispatchValue(dispatch, uid, nextValue)
     }
   }, [innerValue])
 
