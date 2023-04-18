@@ -401,7 +401,8 @@ export const currentFieldDataSetReadOnlyAtom = selectAtom(currentArgsFormAtom, f
 export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
   const fieldData = fieldDataSet[uid]
 
-  if (fieldData.typeDef.type === '[u8;32]') {
+  // [u8;32] or [u8;29]
+  if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
     return fieldData.value
   }
 
@@ -443,7 +444,8 @@ export const getFormValue = (form: FormNormalized) => {
 export const collectRelativeUidList = (fieldDataSet: FieldDataSet, uid: string): string[] => {
   const fieldData = fieldDataSet[uid]
 
-  if (fieldData.typeDef.type === '[u8;32]') {
+  // [u8;32] or [u8;29]
+  if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
     return [uid]
   }
 

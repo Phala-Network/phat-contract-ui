@@ -490,7 +490,8 @@ const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
       return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
 
     case TypeDefInfo.VecFixed:
-      if (fieldData.typeDef.type === '[u8;32]') {
+      // [u8;32] or [u8;29]
+      if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
         return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       }
       return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
