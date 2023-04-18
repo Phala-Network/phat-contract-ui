@@ -229,7 +229,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         // const { signer } = await web3FromSource(account.meta.source)
         let txConf
         if (depositSettings.autoDeposit) {
-          txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+          txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args as unknown[]);
           debug('auto deposit: ', txConf)
         } else {
           txConf = R.pick(['gasLimit', 'storageDepositLimit'], depositSettings)
