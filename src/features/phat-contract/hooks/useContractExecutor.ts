@@ -216,10 +216,11 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       const args = R.map(
         ([arg, abiArg]) => {
           const value = inputValues[arg.label]
-          // If type is Text, input like `0x02` might auto conhort to hex string at polkadot-js internal,
-          // so we need to convert it to hex string to bypass that.
+          // Because the Text will try convert string prefix with `0x` to hex string, so we need to
+          // find a way to bypass that.
+          // @see: https://github.com/polkadot-js/api/blob/3d2307f12a7b82abcffb7dbcaac4a6ec6f9fee9d/packages/types-codec/src/native/Text.ts#L36
           if (abiArg.type.type === 'Text') {
-            return api.createType('Text', stringToHex(value as string))
+            return api.createType('Text', { toString: () => (value as string) })
           }
           return api.createType(abiArg.type.type, value)
         },
