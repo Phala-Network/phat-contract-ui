@@ -21,6 +21,10 @@ export const PARACHAIN_ENDPOINT = isClosedBetaEnv
 
 export const preferedEndpointAtom = atomWithStorage<string>('last-selected-rpc', PARACHAIN_ENDPOINT)
 
+type ISwitchMode = "switch" | "input";
+
+export const switchModeAtom = atomWithStorage<ISwitchMode>('last-switch-mode', "switch")
+
 export const endpointAtom = atom(
   get => get(preferedEndpointAtom),
   (get, set, next: string | typeof RESET) => {

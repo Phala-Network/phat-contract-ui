@@ -39,7 +39,7 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
 
             const seed = setTimeout(() => {
               send({ type: 'CONNECT_TIMEOUT', data: { error: new Error('Connect timeout.') } })
-            }, 5 * 1000)
+            }, 15 * 1000)
 
             const { cryptoWaitReady } = await import('@polkadot/util-crypto')
             await cryptoWaitReady()
