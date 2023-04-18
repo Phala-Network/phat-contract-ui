@@ -211,15 +211,13 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         debug('method not found', methodSpec.label)
         return
       }
+      const abiArgs = R.find(i => i.identifier === methodSpec.label, contractInstance.abi.messages)
       const args = R.map(
-        arg => {
+        ([arg, abiArg]) => {
           const value = inputValues[arg.label]
-          if (R.path(['type', 'displayName', '0'], arg) === 'String') {
-            return api.createType('String', value)
-          }
-          return value
+          return api.createType(abiArg.type.type, value)
         },
-        methodSpec.args
+        R.zip(methodSpec.args, abiArgs!.args)
       )
       debug('args built: ', args)
 
