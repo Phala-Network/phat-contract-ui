@@ -212,8 +212,11 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         return
       }
       const args = R.map(
-        i => {
-          const value = inputValues[i.label]
+        arg => {
+          const value = inputValues[arg.label]
+          if (R.path(['type', 'displayName', '0'], arg) === 'String') {
+            return api.createType('String', value)
+          }
           return value
         },
         methodSpec.args

@@ -395,10 +395,17 @@ export const currentArgsFormAtom = atom(get => get(get(currentArgsFormAtomInAtom
   const currentArgsFormAtom = get(currentArgsFormAtomInAtom)
   set(currentArgsFormAtom, update)
 })
+
 export const currentFieldDataSetReadOnlyAtom = selectAtom(currentArgsFormAtom, form => form.fieldDataSet)
 
 export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
   const fieldData = fieldDataSet[uid]
+
+  // [u8;32] or [u8;29]
+  if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
+    return fieldData.value
+  }
+
   const { typeDef: { info }, value } = fieldData
 
   if (HAS_SUB_FIELD_DATA_TYPE.indexOf(info) > -1) {
@@ -436,6 +443,12 @@ export const getFormValue = (form: FormNormalized) => {
 
 export const collectRelativeUidList = (fieldDataSet: FieldDataSet, uid: string): string[] => {
   const fieldData = fieldDataSet[uid]
+
+  // [u8;32] or [u8;29]
+  if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
+    return [uid]
+  }
+
   const { typeDef: { info }, value } = fieldData
   const uidList = [uid]
   let subUidList: string[] = []
