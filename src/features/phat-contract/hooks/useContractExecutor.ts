@@ -34,9 +34,7 @@ import {
   currentSystemContractIdAtom,
   currentWorkerIdAtom,
 } from '../atoms'
-import { singleInputsValidator } from '@/functions/argumentsValidator'
-import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFieldValue, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
-// import { currentArgsFormErrorsOfAtom, currentArgsFormValidateAtom, currentArgsFormValueOfAtom } from '../argumentsFormAtom'
+import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
 
 interface InkResponse {
@@ -211,15 +209,20 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         debug('method not found', methodSpec.label)
         return
       }
+      const abiArgs = R.find(i => i.identifier === methodSpec.label, contractInstance.abi.messages)
+      debug('parsed abi args:', abiArgs)
       const args = R.map(
-        arg => {
+        ([arg, abiArg]) => {
           const value = inputValues[arg.label]
-          if (R.path(['type', 'displayName', '0'], arg) === 'String') {
-            return api.createType('String', value)
+          // Because the Text will try convert string prefix with `0x` to hex string, so we need to
+          // find a way to bypass that.
+          // @see: https://github.com/polkadot-js/api/blob/3d2307f12a7b82abcffb7dbcaac4a6ec6f9fee9d/packages/types-codec/src/native/Text.ts#L36
+          if (abiArg.type.type === 'Text') {
+            return api.createType('Text', { toString: () => (value as string) })
           }
-          return value
+          return api.createType(abiArg.type.type, value)
         },
-        methodSpec.args
+        R.zip(methodSpec.args, abiArgs!.args)
       )
       debug('args built: ', args)
 
@@ -231,7 +234,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         // const { signer } = await web3FromSource(account.meta.source)
         let txConf
         if (depositSettings.autoDeposit) {
-          txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args);
+          txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args as unknown[]);
           debug('auto deposit: ', txConf)
         } else {
           txConf = R.pick(['gasLimit', 'storageDepositLimit'], depositSettings)
