@@ -7,13 +7,13 @@ import { atom, useAtom } from 'jotai'
 import { atomWithMachine } from 'jotai/xstate'
 import { atomWithReset } from 'jotai/utils'
 import * as R from 'ramda'
+import { ApiPromise, WsProvider } from '@polkadot/api'
+import { options } from '@phala/sdk'
 
 import createLogger from '@/functions/createLogger'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { createWebsocketConnectionMachineConfig, createWebsocketConnectionMachineOptions } from './websocketConnectionMachine'
-import { createApiPromise } from './create'
-import { ApiPromise, WsProvider } from '@polkadot/api'
 
 const debug = createLogger('parachain', 'debug')
 
@@ -60,7 +60,7 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
               })
             })
 
-            const api = await createApiPromise(ws);
+            const api = await ApiPromise.create(options({ provider: ws, noInitWarn: true }))
 
             debug('connected')
 
