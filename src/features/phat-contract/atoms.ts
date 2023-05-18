@@ -6,6 +6,7 @@ import { atom } from 'jotai'
 import { atomWithReset, atomWithStorage, waitForAll } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
+import { OnChainRegistry, PinkLoggerContractPromise } from '@phala/sdk'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { queryClusterList, queryContractList, queryEndpointList } from './queries'
@@ -303,6 +304,32 @@ export const availablePruntimeListAtom = atom(get => {
     return R.pathOr([], [0, 1, 'V1'], result)
   }
   return []
+})
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//
+// Registry
+//
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+export const phatRegistryAtom = atom(async (get) => {
+  const api = get(apiPromiseAtom)
+  const clusterId = get(currentClusterIdAtom)
+  const workerId = get(currentWorkerIdAtom)
+  const pruntimeURL = get(pruntimeURLAtom)
+  const registry = await OnChainRegistry.create(api, { clusterId, workerId, pruntimeURL })
+  return registry
+})
+
+export const pinkLoggerAtom = atom(async (get) => {
+  const api = get(apiPromiseAtom)
+  const registry = get(phatRegistryAtom)
+  if (!registry.systemContract) {
+    return null
+  }
+  const pinkLogger = await PinkLoggerContractPromise.create(api, registry, registry.systemContract)
+  return pinkLogger
 })
 
 

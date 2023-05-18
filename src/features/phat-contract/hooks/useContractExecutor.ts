@@ -24,7 +24,6 @@ import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
 import { queryPinkLoggerContract } from '../queries'
-
 import {
   pruntimeURLAtom,
   currentMethodAtom,
@@ -33,6 +32,8 @@ import {
   pinkLoggerResultAtom,
   currentSystemContractIdAtom,
   currentWorkerIdAtom,
+  phatRegistryAtom,
+  pinkLoggerAtom,
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
@@ -128,7 +129,7 @@ export enum ExecResult {
 
 export default function useContractExecutor(): [boolean, (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
   const toast = useToast()
-  const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
+  const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer, registry, pinkLogger] = useAtomValue(waitForAll([
     apiPromiseAtom,
     pruntimeURLAtom,
     currentMethodAtom,
@@ -136,6 +137,8 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     currentAccountAtom,
     queryClientAtom,
     signerAtom,
+    phatRegistryAtom,
+    pinkLoggerAtom,
   ]))
   const remotePubkey = useAtomValue(currentWorkerIdAtom)
   // const data = useAtomValue(remotePubkeyAtom)
@@ -262,6 +265,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           cert as unknown as string,
           // querySignCache as unknown as string,
           { value: 0, gasLimit: -1 },
+          // @ts-ignore
           ...args
         )
         debug('query result: ', queryResult)
@@ -295,44 +299,15 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         isClosable: true,
       })
     } finally {
-      if (api && signer && account && systemContractId && remotePubkey) {
-        try {
-          const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
-          const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
-          if (result) {
-            const { sidevmQuery } = result
-            const params = {
-              action: 'GetLog',
-              contract: contract.contractId,
-            }
-            const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
-            const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
-            if (resp.result.Ok) {
-              const response: PinkLoggerResposne = JSON.parse(resp.result.Ok.InkMessageReturn)
-              response.records.forEach(r => {
-                if (r.type == 'MessageOutput' && r.output.startsWith('0x')) {
-                  try {
-                    let decoded = api.createType('ContractExecResult', r.output)
-                    r.decoded = JSON.stringify(decoded.toHuman())
-                  } catch {
-                    console.info('Failed to decode MessageOutput', r.output)
-                  }
-                }
-              })
-              // console.log('response', response.records[0].output)
-              // const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
-              setLogs(R.reverse(response.records))
-            }
-          }
-        } catch (err) {
-          console.error('PinkLogger failed: ', err)
-        }
+      if (pinkLogger) {
+        const { records } = await pinkLogger.getLog(contract.contractId)
+        setLogs(R.reverse(records))
       }
       setIsLoading(false)
     }
   }, [
     api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, setLogs, systemContractId, currentArgsForm
+    signer, setLogs, systemContractId, currentArgsForm, registry, pinkLogger
   ])
   return [isLoading, fn]
 }
