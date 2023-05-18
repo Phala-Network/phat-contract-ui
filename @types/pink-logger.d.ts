@@ -18,7 +18,18 @@ interface PinkLoggerMessageOutput {
   decoded?: string
 }
 
-type PinkLoggerRecord = PinkLoggerEvent | PinkLoggerMessageOutput
+interface PinkLoggerLogRecord {
+  blockNumber: number
+  contract: string
+  sequence: number
+  type: "Log"
+  entry: string
+  execMode: string
+  timestamp: number
+  message: string
+}
+
+type PinkLoggerRecord = PinkLoggerEvent | PinkLoggerMessageOutput | PinkLoggerLogRecord
 
 
 interface PinkLoggerResposne {

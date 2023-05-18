@@ -1,7 +1,7 @@
 import type { FC } from 'react'
 import type { ContractExecuteResult } from '@/features/phat-contract/atoms'
 
-import React, { Suspense } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { Link } from "@tanstack/react-location"
 import tw from 'twin.macro'
 import { atom, useAtom } from 'jotai'
@@ -16,6 +16,7 @@ import {
   TiCloudStorageOutline,
   TiMessage,
 } from 'react-icons/ti'
+import { IoIosRefresh } from 'react-icons/io'
 import {
   Badge,
   Tabs,
@@ -28,14 +29,9 @@ import {
   Flex,
   Text,
   Tooltip,
-  Accordion,
-  AccordionItem,
-  AccordionButton,
-  AccordionIcon,
   Spacer,
   Center,
   Box,
-  AccordionPanel,
 } from '@chakra-ui/react'
 import * as R from 'ramda'
 
@@ -50,6 +46,7 @@ import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
 import { Text as TextType } from '@polkadot/types'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import ScrollContainer from './ScrollContainer'
+import { pinkLoggerAtom, currentContractIdAtom } from '@/features/phat-contract/atoms'
 
 
 export enum TabIndex {
@@ -60,7 +57,7 @@ export enum TabIndex {
   RecentEvents,
 }
 
-const toggleEventListAtom = atom<boolean>(false)
+const toggleEventListAtom = atom<boolean>(true)
 const currentTabAtom = atom<number>(0)
 
 const eventCountsAtom = atom(get => get(eventsAtom).length)
@@ -74,15 +71,59 @@ export const dispatchOpenTabAtom = atom(null, (_, set, tabIndex: TabIndex) => {
   set(currentTabAtom, tabIndex)
 })
 
+function useRefreshCurrentContractLog() {
+  const pinkLogger = useAtomValue(pinkLoggerAtom)
+  const currentContractId = useAtomValue(currentContractIdAtom)
+  const setLogs = useUpdateAtom(pinkLoggerResultAtom)
+  return useMemo(() => {
+    if (!currentContractId || !pinkLogger) {
+      return null
+    }
+    return async function() {
+      const { records } = await pinkLogger.getLog(currentContractId)
+      setLogs(R.reverse(records))
+    }
+  }, [pinkLogger, currentContractId, setLogs])
+}
+
+function AdditionalButtonGroup() {
+  const refresh = useRefreshCurrentContractLog()
+  const currentTab = useAtomValue(currentTabAtom)
+  const [isLoading, setIsLoading] = useState(false)
+  if (!refresh || currentTab !== 2) {
+    return null
+  }
+  return (
+    <Tooltip label="Reload logs">
+      <button
+        tw="p-0.5 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
+        onClick={async () => {
+          setIsLoading(true)
+          await refresh()
+          setIsLoading(false)
+        }}
+      >
+        <IoIosRefresh css={[tw`text-xs`, isLoading ? tw`animate-spin` : null]} />
+      </button>
+    </Tooltip>
+  )
+}
+
+
 const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
   return (
-    <button
-      tw="absolute top-2 right-0 p-0.5 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
-      onClick={() => setShowEventList(false)}
-    >
-      <TiTimes tw="text-base" />
-    </button>
+    <div tw="absolute top-2 right-0 flex flex-row gap-2 items-center">
+      <Suspense fallback={<div />}>
+        <AdditionalButtonGroup />
+      </Suspense>
+      <button
+        tw="p-0.5 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
+        onClick={() => setShowEventList(false)}
+      >
+        <TiTimes tw="text-base" />
+      </button>
+    </div>
   )
 }
 
@@ -94,13 +135,13 @@ const RecentHeadersCounter = ({ onClick }: { onClick: () => void }) => {
       onClick={onClick}
     >
       <TiCloudStorageOutline tw="text-base" />
-      <span tw="text-sm font-mono">{recentBlockCounts}</span>
+      <span tw="text-xs font-mono">{recentBlockCounts}</span>
     </CounterButton>
   )
 }
 
 const CounterButton = tw.button`
-  flex gap-1 min-w-[2.5rem] justify-center items-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black
+  flex gap-0.5 px-0.5 justify-center items-center transition-colors text-gray-400 hover:bg-phalaDark-500 hover:text-black rounded-sm
 `
 
 const Counters = () => {
@@ -111,7 +152,7 @@ const Counters = () => {
   const logCounts = useAtomValue(logCountsAtom)
   const keyedEventsCounts = useAtomValue(keyedEventsCountsAtom)
   return (
-    <div tw="flex flex-row gap-1">
+    <div tw="flex flex-row gap-2.5">
       <CounterButton
         onClick={() => {
           setShowEventList(true)
@@ -119,7 +160,7 @@ const Counters = () => {
         }}
       >
         <TiArrowRepeat tw="text-base" />
-        <span tw="text-sm font-mono">{eventCounts}</span>
+        <span tw="text-xs font-mono">{eventCounts}</span>
       </CounterButton>
       <CounterButton
         onClick={() => {
@@ -128,7 +169,7 @@ const Counters = () => {
         }}
       >
         <TiMessageTyping tw="text-base" />
-        <span tw="text-sm font-mono">{resultCounts}</span>
+        <span tw="text-xs font-mono">{resultCounts}</span>
       </CounterButton>
       <CounterButton
         onClick={() => {
@@ -137,7 +178,7 @@ const Counters = () => {
         }}
       >
         <TiCogOutline tw="text-base" />
-        <span tw="text-sm font-mono">{logCounts}</span>
+        <span tw="text-xs font-mono">{logCounts}</span>
       </CounterButton>
       <Suspense>
         <RecentHeadersCounter onClick={() => {
@@ -152,7 +193,7 @@ const Counters = () => {
         }}
       >
         <TiMessage tw="text-base" />
-        <span tw="text-sm font-mono">{keyedEventsCounts}</span>
+        <span tw="text-xs font-mono">{keyedEventsCounts}</span>
       </CounterButton>
     </div>
   )
@@ -248,8 +289,21 @@ const Logs = () => {
   return (
     <div tw="flex flex-col gap-2 my-4">
       {logs.map((log, i) => {
+        if (log.type === 'Log') {
+          return (
+            <div key={i} tw="font-mono text-sm flex flex-row gap-1">
+              <div tw="text-gray-500 flex flex-row gap-0.5">
+                <span>[#{log.blockNumber}]</span>
+                <span>[{(new Date(log.timestamp)).toISOString()}]</span>
+              </div>
+              <pre>
+                {log.message}
+              </pre>
+            </div>
+          )
+        }
         if (log.type !== 'MessageOutput') {
-        return <div key={i} tw="font-mono text-sm">{JSON.stringify(log)}</div>
+          return <div key={i} tw="font-mono text-sm">{JSON.stringify(log)}</div>
         }
         return (
           <div key={i} tw="font-mono text-sm">
