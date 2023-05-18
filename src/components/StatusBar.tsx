@@ -57,7 +57,7 @@ export enum TabIndex {
   RecentEvents,
 }
 
-const toggleEventListAtom = atom<boolean>(true)
+const toggleEventListAtom = atom<boolean>(false)
 const currentTabAtom = atom<number>(0)
 
 const eventCountsAtom = atom(get => get(eventsAtom).length)
