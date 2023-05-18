@@ -49,6 +49,8 @@ import keyring from '@polkadot/ui-keyring'
 import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
 import { Text as TextType } from '@polkadot/types'
 import { endpointAtom } from '@/atoms/endpointsAtom'
+import ScrollContainer from './ScrollContainer'
+
 
 export enum TabIndex {
   Events,
@@ -76,10 +78,10 @@ const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
   return (
     <button
-      tw="absolute top-2 right-0 p-1 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
+      tw="absolute top-2 right-0 p-0.5 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
       onClick={() => setShowEventList(false)}
     >
-      <TiTimes tw="text-lg" />
+      <TiTimes tw="text-base" />
     </button>
   )
 }
@@ -168,7 +170,7 @@ const QueryResultHistoryItem: FC<ContractExecuteResult> = (result) => {
         <article tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
           <header tw="flex justify-between pb-2 mb-2 border-b border-solid border-gray-700">
             <Link to={`/contracts/view/${result.contract.contractId}`}>
-              <h4 tw="text-sm font-mono px-2 py-1 bg-black rounded-lg inline-block">
+              <h4 tw="text-[13px] font-mono px-2 py-1 bg-black rounded-lg inline-block">
                 {result.contract.metadata.contract.name}
                 .
                 {result.methodSpec.label}
@@ -177,7 +179,7 @@ const QueryResultHistoryItem: FC<ContractExecuteResult> = (result) => {
             </Link>
             <time tw="text-sm text-gray-400 mt-1">{completedAtString}</time>
           </header>
-          <pre tw="text-base font-mono">
+          <pre tw="text-[13px] font-mono">
             {typeof result.output === 'string' ? result.output : JSON.stringify(result.output, null, 2)}
           </pre>
         </article>
@@ -190,36 +192,34 @@ const EventPanel = () => {
   const events = useAtomValue(eventsAtom)
   // const reset = useResetAtom(eventsAtom)
   return (
-    <div tw="overflow-y-scroll h-[26vh] px-6">
-      <div tw="flex flex-col gap-4">
-        {!events.length && (
-          <div tw="text-gray-600 text-sm flex items-center">
-            <TiInfoOutline tw="mr-1 text-lg" />
-            Empty.
-          </div>
-        )}
-        {events.map((event, index) => {
-          const pairs = R.toPairs(event.data)
-          return (
-            <article key={index} tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
-              <div>
-                <Badge borderRadius='full' px='2' colorScheme='phala' mr="2">{event.section}</Badge>
-                <Badge borderRadius='full' px='2' colorScheme='phalaDark'>{event.method}</Badge>
-              </div>
-              {(pairs.length > 0) && (
-                <dl tw="mt-2 px-1 text-xs font-mono">
-                  {pairs.map(([key, value]) => (
-                    <div tw="my-2 flex flex-row" key={key}>
-                      <dt tw="mr-2">{key}:</dt>
-                      <dd>{(typeof value === 'string') ? value : JSON.stringify(value)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </article>
-          )
-        })}
-      </div>
+    <div tw="flex flex-col gap-4">
+      {!events.length && (
+        <div tw="text-gray-600 text-sm flex items-center">
+          <TiInfoOutline tw="mr-1 text-lg" />
+          Empty.
+        </div>
+      )}
+      {events.map((event, index) => {
+        const pairs = R.toPairs(event.data)
+        return (
+          <article key={index} tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
+            <div>
+              <Badge borderRadius='full' px='2' colorScheme='phala' mr="2">{event.section}</Badge>
+              <Badge borderRadius='full' px='2' colorScheme='phalaDark'>{event.method}</Badge>
+            </div>
+            {(pairs.length > 0) && (
+              <dl tw="mt-2 px-1 text-xs font-mono">
+                {pairs.map(([key, value]) => (
+                  <div tw="my-2 flex flex-row" key={key}>
+                    <dt tw="mr-2">{key}:</dt>
+                    <dd>{(typeof value === 'string') ? value : JSON.stringify(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </article>
+        )
+      })}
     </div>
   )
 }
@@ -227,20 +227,18 @@ const EventPanel = () => {
 function ResultPanel() {
   const queryResults = useAtomValue(resultsAtom)
   return (
-    <div tw="h-[30vh] overflow-y-scroll px-6">
-      <div tw="flex flex-col gap-4">
-        {!queryResults.length && (
-          <div tw="text-gray-600 text-sm flex items-center">
-            <TiInfoOutline tw="mr-1 text-lg" />
-            Empty.
-          </div>
-        )}
-        {queryResults.map((result, index) => (
-          <div key={index}>
-            <QueryResultHistoryItem {...result} />
-          </div>
-        ))}
-      </div>
+    <div tw="flex flex-col gap-4">
+      {!queryResults.length && (
+        <div tw="text-gray-600 text-sm flex items-center">
+          <TiInfoOutline tw="mr-1 text-lg" />
+          Empty.
+        </div>
+      )}
+      {queryResults.map((result, index) => (
+        <div key={index}>
+          <QueryResultHistoryItem {...result} />
+        </div>
+      ))}
     </div>
   )
 }
@@ -309,7 +307,7 @@ const AccountName = ({ value }: AccountNameProps) => {
 
   return (
     <Tooltip label={tip}>
-      <Text noOfLines={1}>{displayName}</Text>
+      <Text noOfLines={1} fontSize="13">{displayName}</Text>
     </Tooltip>
   )
 }
@@ -328,17 +326,20 @@ const RecentBlocksPanel = () => {
 
           return (
             <ListItem key={header.number.toString()}>
-              <Flex>
-                <Text as="a" href={blockDetailHref} target="_blank" tw="hover:opacity-80" marginRight={2} cursor="pointer">{formatNumber(header.number)}</Text>
-                <Tooltip label={hashHex}>
-                  <Text flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2}>{hashHex}</Text>
-                </Tooltip>
-                <Identicon
-                  size={24}
-                  value={author}
-                  tw="mr-2"
-                />
-                <AccountName value={author as unknown as AccountId} />
+              <Flex my="1">
+                <Text as="a" href={blockDetailHref} target="_blank" tw="hover:opacity-80" marginRight={4} cursor="pointer" fontSize="14">
+                  {formatNumber(header.number)}
+                </Text>
+                <Text as="a" href={blockDetailHref} target="_blank" tw="hover:opacity-80" flexGrow={1} noOfLines={1} maxWidth="100%" marginRight={2} fontSize="14">
+                  {hashHex}
+                </Text>
+                <span tw="inline-flex flex-row gap-1 items-center">
+                  <Identicon
+                    size={16}
+                    value={author}
+                  />
+                  <AccountName value={author as unknown as AccountId} />
+                </span>
               </Flex>
             </ListItem>
           )
@@ -461,12 +462,14 @@ const RecentEventsPanel = () => {
   )
 }
 
+const TabLabel = tw.span`text-[13px] uppercase`
+
 export default function StatusBar() {
   const showEventList = useAtomValue(toggleEventListAtom)
   const [currentTab, setCurrentTab] = useAtom(currentTabAtom)
 
   return (
-    <footer css={[tw`flex-shrink bg-black max-w-full px-4`]}>
+    <footer css={[tw`flex-shrink bg-black max-w-full px-4 border-t-[0.5px] border-solid border-gray-700`]}>
       <div css={[showEventList ? tw`h-0 hidden` : tw`h-8`]}>
         <div tw="mx-auto h-full w-full max-w-7xl transition-all flex items-center">
           <Suspense>
@@ -483,52 +486,56 @@ export default function StatusBar() {
         <Tabs tw="w-full" colorScheme="phalaDark" index={currentTab} onChange={i => setCurrentTab(i)}>
           <TabList tw="relative">
             <Tab>
-              <TiArrowRepeat tw="text-gray-400 text-base mr-1" />
-              Events
+              <TiArrowRepeat css={[tw`text-gray-400 text-base mr-1`, currentTab === 0 ? tw`text-phalaDark-300` : '']} />
+              <TabLabel>Events</TabLabel>
             </Tab>
             <Tab>
-              <TiMessageTyping tw="text-gray-400 text-base mr-1" />
-              Result
+              <TiMessageTyping css={[tw`text-gray-400 text-base mr-1`, currentTab === 1 ? tw`text-phalaDark-300` : '']} />
+              <TabLabel>Result</TabLabel>
             </Tab>
             <Tab>
-              <TiCogOutline tw="text-gray-400 text-base mr-1" />
-              Log
+              <TiCogOutline css={[tw`text-gray-400 text-base mr-1`, currentTab === 2 ? tw`text-phalaDark-300` : '']} />
+              <TabLabel>Log</TabLabel>
             </Tab>
             <Tab>
-              <TiCloudStorageOutline tw="text-gray-400 text-base mr-1" />
-              Recent blocks
+              <TiCloudStorageOutline css={[tw`text-gray-400 text-base mr-1`, currentTab === 3 ? tw`text-phalaDark-300` : '']} />
+              <TabLabel>Recent blocks</TabLabel>
             </Tab>
             <Tab>
-              <TiMessage tw="text-gray-400 text-base mr-1" />
-              Recent events
+              <TiMessage css={[tw`text-gray-400 text-base mr-1`, currentTab === 4 ? tw`text-phalaDark-300` : '']}/>
+              <TabLabel>Recent events</TabLabel>
             </Tab>
             <CloseButton />
           </TabList>
           <TabPanels>
             <TabPanel px="0">
-              <EventPanel />
+              <ScrollContainer tw="overflow-y-scroll h-[26vh] px-6">
+                <EventPanel />
+              </ScrollContainer>
             </TabPanel>
             <TabPanel px="0">
-              <ResultPanel />
+              <ScrollContainer tw="overflow-y-scroll h-[26vh] px-6">
+                <ResultPanel />
+              </ScrollContainer>
             </TabPanel>
             <TabPanel px="0">
-              <div tw="overflow-y-scroll h-[26vh] px-6">
+              <ScrollContainer tw="overflow-y-scroll h-[26vh] px-6">
                 <Logs />
-              </div>
+              </ScrollContainer>
             </TabPanel>
             <TabPanel px="0">
-              <div tw="overflow-y-scroll h-[26vh] px-6">
+              <ScrollContainer tw="overflow-y-scroll h-[26vh] px-6">
                 <Suspense>
                   <RecentBlocksPanel />
                 </Suspense>
-              </div>
+              </ScrollContainer>
             </TabPanel>
             <TabPanel px="0">
-              <div tw="overflow-y-scroll h-[26vh] px-6">
+              <ScrollContainer tw="overflow-y-scroll h-[26vh] px-6">
                 <Suspense>
                   <RecentEventsPanel />
                 </Suspense>
-              </div>
+              </ScrollContainer>
             </TabPanel>
           </TabPanels>
         </Tabs>
