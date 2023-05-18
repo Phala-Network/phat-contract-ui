@@ -1,4 +1,3 @@
-import type {Bytes} from '@polkadot/types-codec'
 import type {ContractOptions} from '@polkadot/api-contract/types'
 import type { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
@@ -11,7 +10,6 @@ import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useReducerAtom, waitForAll } from "jotai/utils"
 import { queryClientAtom, atomWithQuery } from 'jotai/query'
 import { ContractPromise } from '@polkadot/api-contract'
-import { stringToHex } from '@polkadot/util'
 import { ApiPromise } from '@polkadot/api'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/keyring'
@@ -23,7 +21,6 @@ import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
-import { queryPinkLoggerContract } from '../queries'
 import {
   pruntimeURLAtom,
   currentMethodAtom,
@@ -37,15 +34,6 @@ import {
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
-
-interface InkResponse {
-  nonce: string
-  result: {
-    Ok?: {
-      InkMessageReturn: string
-    }
-  }
-}
 
 const debug = createLogger('chain', 'debug')
 
@@ -63,8 +51,6 @@ async function estimateGas(contract: ContractPromise, method: string, cert: Cert
   }
   return options
 }
-
-const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
 
 type CreateOptions = Parameters<typeof create>[0]
 
