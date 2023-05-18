@@ -306,9 +306,11 @@ const Logs = () => {
           return <div key={i} tw="font-mono text-sm">{JSON.stringify(log)}</div>
         }
         return (
-          <div key={i} tw="font-mono text-sm">
-            <span tw="mr-1">[#{log.blockNumber}]</span>
-            <span tw="mr-1">MessageOutput</span>
+          <div key={i} tw="font-mono text-sm flex flex-row gap-1">
+            <div tw="text-gray-500 flex flex-row gap-0.5">
+              <span>[#{log.blockNumber}]</span>
+              <span>MessageOutput</span>
+            </div>
             {log.decoded ? log.decoded : log.output}
           </div>
         )
