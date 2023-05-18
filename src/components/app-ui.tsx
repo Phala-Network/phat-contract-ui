@@ -11,6 +11,7 @@ import { WalletSelectModal, AccountSelectModal } from '@/features/identity/compo
 import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
 import Logo from './Logo'
 import { isClosedBetaEnv } from '@/vite-env'
+import ScrollContainer from '@/components/ScrollContainer'
 
 export const walletSelectModalVisibleAtom = atom(false) 
 
@@ -71,7 +72,7 @@ export const AppHeader: FC<{
 
 export const AppContainer: FC<{ children: ReactNode }> = ({ children }) => {
   return (
-    <div css={tw`
+    <ScrollContainer css={tw`
       py-8
       flex-grow
       flex-col items-start justify-start
@@ -80,6 +81,6 @@ export const AppContainer: FC<{ children: ReactNode }> = ({ children }) => {
       <div tw='mx-auto w-full max-w-7xl'>
         {children}
       </div>
-    </div>
+    </ScrollContainer>
   )
 }
