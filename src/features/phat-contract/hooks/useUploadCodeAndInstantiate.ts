@@ -8,25 +8,26 @@ import { useToast } from '@chakra-ui/react'
 import * as R from 'ramda'
 
 import signAndSend from '@/functions/signAndSend'
-import { checkUntil, checkUntilEq } from '@/functions/polling'
 import { signerAtom } from '@/features/identity/atoms'
-import { apiPromiseAtom, dispatchEventAtom, eventsAtom } from '@/features/parachain/atoms'
+import { apiPromiseAtom, eventsAtom } from '@/features/parachain/atoms'
 
 import {
   contractSelectedInitSelectorAtom,
   localContractsAtom,
   instantiateTimeoutAtom,
+  phatRegistryAtom,
 } from '../atoms'
+import { PinkCodePromise, signCertificate } from '@phala/sdk'
 
 export default function useUploadCodeAndInstantiate() {
   const api = useAtomValue(apiPromiseAtom)
   const signer = useAtomValue(signerAtom)
-  const dispatch = useSetAtom(dispatchEventAtom)
   const reset = useResetAtom(eventsAtom)
   const instantiateTimeout = useAtomValue(instantiateTimeoutAtom)
   const toast = useToast()
   const saveContract = useSetAtom(localContractsAtom)
   const chooseInitSelector = useAtomValue(contractSelectedInitSelectorAtom)
+  const registry = useAtomValue(phatRegistryAtom)
 
   return useCallback(async (account: InjectedAccountWithMeta, contract:ContractMetadata, clusterId: string, depositSettings?: DepositSettingsValue) => {
     console.group('Instantiate Contract:', clusterId)
@@ -38,8 +39,6 @@ export default function useUploadCodeAndInstantiate() {
       // Clear the Event Panel.
       reset()
   
-      const salt = '0x' + new Date().getTime()
-
       const spec = contract.V3 ? contract.V3.spec : contract.spec
       if (spec.constructors.length === 0) {
         throw new Error('No constructor found.')
@@ -57,6 +56,8 @@ export default function useUploadCodeAndInstantiate() {
       if (!initSelector) {
         throw new Error('No valid initSelector specified.')
       }
+      const methodName = R.prop('label', R.find(i => i.selector === initSelector, spec.constructors)) as string
+      console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId, 'constructorName', methodName)
 
       const [gasLimit, storageDepositLimit] = (() => {
         if (!depositSettings || depositSettings.autoDeposit) {
@@ -65,91 +66,57 @@ export default function useUploadCodeAndInstantiate() {
         return [(depositSettings.gasLimit || 0) < 1e12 ? 1e12 : depositSettings.gasLimit, depositSettings.storageDepositLimit]
       })()
       console.log('transaction gasLimit & storageDepositLimit: ', gasLimit, storageDepositLimit, depositSettings)
-  
-      // Upload & instantiate contract
-      console.info('Final initSelector: ', initSelector, 'clusterId: ', clusterId)
-      const result = await signAndSend(
-        // @ts-ignore
-        api.tx.utility.batchAll([
-          api.tx.phalaPhatContracts.transferToCluster(
-              2e12,  // transfer 2 PHA to the user's cluster wallet, assuming it's enough to pay gas fee
-              clusterId,
-              account.address,  // user's own account
-          ),
-          api.tx.phalaPhatContracts.clusterUploadResource(clusterId, 'InkCode',contract.source.wasm),
-          api.tx.phalaPhatContracts.instantiateContract(
-            { 'WasmCode': contract.source.hash }, initSelector, salt, clusterId,
-            0,  // not transfer any token to the contract during initialization
-            gasLimit,
-            storageDepositLimit,
-            // 1e12,  // a high enough gasLimit to satisfy most of the execution
-            // null,  // don't put any storageDepositLimit
-            0
-          ),
-        ]),
+
+      const clusterBalance = await registry.getClusterBalance({ signer, address: account.address, account } as any, account.address)
+      if ((clusterBalance.free.toNumber() / 1e12) < 10) {
+        await signAndSend(registry.transferToCluster(account.address, 1e12 * 10), account.address, signer)
+      }
+
+      // TODO It's cacheable.
+      const cert = await signCertificate({ signer, account, api })
+
+      const codePromise = new PinkCodePromise(api, registry, contract, contract.source.wasm)
+      // @ts-ignore
+      const { result: uploadResult } = await signAndSend(codePromise.tx[methodName]({}), account.address, signer)
+      await uploadResult.waitFinalized(account, cert, 120_000)
+      console.log('Uploaded. Wait for the contract to be instantiated...', uploadResult)
+
+      const { blueprint } = uploadResult
+      const { gasRequired, storageDeposit, salt } = await blueprint.query[methodName](account.address, { cert }) // Support instantiate arguments.
+      // @ts-ignore
+      const { result: instantiateResult }= await signAndSend(
+        blueprint.tx[methodName]({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
         account.address,
         signer
       )
-      // @ts-ignore
-      dispatch(result.events)
-      console.log('Uploaded. Wait for the contract to be instantiated...', result)
-  
-      // @ts-ignore
-      const instantiateEvent = R.find(R.pathEq("Instantiating", ['event', 'method']), result.events)
-      if (instantiateEvent && instantiateEvent.event.data && instantiateEvent.event.data.contract) {
-        const contractId = instantiateEvent.event.data.contract
-        const metadata = R.dissocPath(['source', 'wasm'], contract)
-  
-        // Check contracts in cluster or not.
-        console.log(`Pooling: Check contracts in cluster (${instantiateTimeout} secs timeout): ${clusterId}`)
-        try {
-          await checkUntilEq(
-            async () => {
-              const result = await api.query.phalaPhatContracts.clusterContracts(clusterId)
-              const contractIds = result.map(i => i.toString())
-              return contractIds.filter((id) => id === contractId).length
-            },
-            1,
-            1000 * instantiateTimeout
-          )
-        } catch (err) {
-          throw new Error('Failed to check contract in cluster: may be initialized failed in cluster')
-        }
+      await instantiateResult.waitFinalized()
+      console.log('Contract uploaded & instantiated: ', instantiateResult)
 
-        console.log(`Pooling: ensure contract exists in registry (${instantiateTimeout * 4} secs timeout)`)
-        await checkUntil(
-          async () => (await api.query.phalaRegistry.contractKeys(contractId)).isSome,
-          4 * instantiateTimeout
-        )
-  
-        // Save contract metadata to local storage
-        console.log('Save contract metadata to local storage.')
-        saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
+      // Save contract metadata to local storage
+      const { contractId } = instantiateResult
+      const metadata = R.dissocPath(['source', 'wasm'], contract)
+      console.log('Save contract metadata to local storage.')
+      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
 
-        console.info('Auto staking to the contract...');
-        const stakeResult = await signAndSend(
-          // @ts-ignore
-          api.tx.phalaPhatTokenomic.adjustStake(
-            contractId,
-            1e10,  // stake 1 cent
-          ),
-          account.address,
-          signer
-        )
+      console.info('Auto staking to the contract...');
+      const stakeResult = await signAndSend(
         // @ts-ignore
-        dispatch(stakeResult.events)
-        console.log('Stake submitted', stakeResult)
-  
-        toast({
-          title: 'Instantiate Requested.',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
-        return contractId
-      } else {
-        throw new Error('Contract instantiation failed.')
-      }
+        api.tx.phalaPhatTokenomic.adjustStake(
+          contractId,
+          1e10,  // stake 1 cent
+        ),
+        account.address,
+        signer
+      )
+      console.log('Stake submitted', stakeResult)
+
+      toast({
+        title: 'Instantiate Requested.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+      return contractId
     } catch (err) {
       console.error(err)
       toast({
@@ -160,5 +127,5 @@ export default function useUploadCodeAndInstantiate() {
     } finally {
       console.groupEnd()
     }
-  }, [api, dispatch, reset, toast, saveContract, chooseInitSelector, instantiateTimeout])
+  }, [api, registry, reset, toast, saveContract, chooseInitSelector, instantiateTimeout])
 }
