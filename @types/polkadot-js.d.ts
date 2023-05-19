@@ -175,9 +175,9 @@
      }
 
      phalaPhatContracts: {
-      contracts: AugmentedQueryAt<
+      contracts: AugmentedQuery<
         ApiType,
-        (contractId?: string) => Observable<MethodResult<Option<ContractInfo>>>,
+        (contractId?: string) => Observable<Option<ContractInfo>>,
         [string]
       >
 
