@@ -4,22 +4,6 @@ import { ApiPromise } from "@polkadot/api"
 import { QueryFunctionContext } from "@tanstack/query-core"
 
 
-export function queryContractList(api: ApiPromise) {
-  return {
-    queryKey: ['phalaPhatContracts.contracts'],
-    queryFn: async (ctx: any) => {
-      const result = await api.query.phalaPhatContracts.contracts.entries()
-      const transformed: Pairs<string, ContractInfo>[] = result.map(([storageKey, value]) => {
-        const keys = storageKey.toHuman() as string[]
-        return [keys[0], value.unwrap().toHuman()]
-      })
-      return R.fromPairs(transformed)
-    },
-    refetchInterval: 1000 * 60 * 15, // every 15 minutes
-    refetchIntervalInBackground: true,
-  }
-}
-
 export function queryClusterList(api: ApiPromise) {
   return {
     queryKey: ['phalaPhatContracts.clusters'],

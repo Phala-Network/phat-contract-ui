@@ -645,7 +645,8 @@ export const singleInputValidator = (
       }
 
       case TypeDefInfo.Si:
-        return singleInputValidator(registry, registry.lookup.getTypeDef(type), inputValue)
+        type getTypeDefArgs = Parameters<typeof registry.lookup.getTypeDef>
+        return singleInputValidator(registry, registry.lookup.getTypeDef(type as getTypeDefArgs[0]), inputValue)
 
       case TypeDefInfo.Struct:
         return validateStructType(registry, typeDef, inputValue)

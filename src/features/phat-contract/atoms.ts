@@ -1,23 +1,22 @@
-import { Abi } from '@polkadot/api-contract'
 import type { ContractPromise } from '@polkadot/api-contract'
 import type { AnyJson } from '@polkadot/types/types'
+import type { Option } from '@polkadot/types'
 
+import { isClosedBetaEnv } from '@/vite-env'
 import { useMemo, useCallback } from 'react'
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { useQuery } from '@tanstack/react-query'
-import { atomWithReset, atomWithStorage, waitForAll, loadable } from 'jotai/utils'
+import { atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
+import { Abi } from '@polkadot/api-contract'
 import { OnChainRegistry, PinkLoggerContractPromise } from '@phala/sdk'
+import { validateHex } from '@phala/ink-validator'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
-import { queryClusterList, queryContractList, queryEndpointList } from './queries'
+import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 
-import { validateHex } from '@phala/ink-validator'
-import { isClosedBetaEnv } from '@/vite-env'
-import { Option, Struct } from '@polkadot/types'
-import { AccountId32 } from '@polkadot/types/interfaces'
 
 export interface SelectorOption {
   value: string
