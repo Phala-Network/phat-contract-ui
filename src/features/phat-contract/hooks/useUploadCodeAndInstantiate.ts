@@ -95,7 +95,7 @@ export default function useUploadCodeAndInstantiate() {
       console.log('Uploaded. Wait for the contract to be instantiated...', result)
   
       // @ts-ignore
-      const instantiateEvent = R.find(R.pathEq(['event', 'method'], 'Instantiating'), result.events)
+      const instantiateEvent = R.find(R.pathEq("Instantiating", ['event', 'method']), result.events)
       if (instantiateEvent && instantiateEvent.event.data && instantiateEvent.event.data.contract) {
         const contractId = instantiateEvent.event.data.contract
         const metadata = R.dissocPath(['source', 'wasm'], contract)
