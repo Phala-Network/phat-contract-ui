@@ -34,6 +34,7 @@ import {
   Box,
 } from '@chakra-ui/react'
 import * as R from 'ramda'
+import { ErrorBoundary } from 'react-error-boundary'
 
 import { eventsAtom } from '@/features/parachain/atoms'
 import { resultsAtom, pinkLoggerResultAtom } from '@/features/phat-contract/atoms'
@@ -114,9 +115,11 @@ const CloseButton = () => {
   const setShowEventList = useUpdateAtom(toggleEventListAtom)
   return (
     <div tw="absolute top-2 right-0 flex flex-row gap-2 items-center">
-      <Suspense fallback={<div />}>
-        <AdditionalButtonGroup />
-      </Suspense>
+      <ErrorBoundary fallback={<div />}>
+        <Suspense fallback={<div />}>
+          <AdditionalButtonGroup />
+        </Suspense>
+      </ErrorBoundary>
       <button
         tw="p-0.5 rounded bg-gray-900 hover:bg-phalaDark-500 hover:text-black"
         onClick={() => setShowEventList(false)}
