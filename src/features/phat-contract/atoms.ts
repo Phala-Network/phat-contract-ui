@@ -2,8 +2,10 @@ import { Abi } from '@polkadot/api-contract'
 import type { ContractPromise } from '@polkadot/api-contract'
 import type { AnyJson } from '@polkadot/types/types'
 
-import { atom } from 'jotai'
-import { atomWithReset, atomWithStorage, waitForAll } from 'jotai/utils'
+import { useMemo, useCallback } from 'react'
+import { atom, useAtomValue, useSetAtom } from 'jotai'
+import { useQuery } from '@tanstack/react-query'
+import { atomWithReset, atomWithStorage, waitForAll, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
 import { OnChainRegistry, PinkLoggerContractPromise } from '@phala/sdk'
@@ -14,6 +16,8 @@ import { endpointAtom } from '@/atoms/endpointsAtom'
 
 import { validateHex } from '@phala/ink-validator'
 import { isClosedBetaEnv } from '@/vite-env'
+import { Option, Struct } from '@polkadot/types'
+import { AccountId32 } from '@polkadot/types/interfaces'
 
 export interface SelectorOption {
   value: string
@@ -157,25 +161,53 @@ export const contractAttachTargetAtom = atom('')
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+type ContractKey = string
+
 export const localContractsAtom = atomWithStorage<
-  Record<string, LocalContractInfo>
+  Record<ContractKey, LocalContractInfo>
 >('owned-contracts', {})
 
-export const onChainContractsAtom = atomWithQuery(get => {
-  const api = get(apiPromiseAtom)
-  return queryContractList(api)
-})
+export function useContractList() {
+  const localContracts = useAtomValue(localContractsAtom)
+  const apiQuery = useAtomValue(loadable(apiPromiseAtom))
+  const instantiatedContractListQuery = useQuery(
+    ['phalaPhatContracts.contracts', apiQuery.state, localContracts],
+    async () => {
+      const contractKeys = R.keys(localContracts)
+      if (apiQuery.state !== 'hasData' || !apiQuery.data || contractKeys.length === 0) {
+        return {}
+      }
+      const api = apiQuery.data
+      const queries = R.map(i => [api.query.phalaPhatContracts.contracts, i], contractKeys)
+      // @ts-ignore
+      const results: Option<BasicContractInfo>[] = await (api.queryMulti(queries) as unknown as Promise<Option<BasicContractInfo>[]>)
+      const pairs = R.map(
+        ([contractKey, info]) => info.isSome ? [contractKey, true] : [contractKey, false],
+        R.zip(contractKeys, results)
+      ) as [string, boolean][]
+      return R.fromPairs<boolean>(pairs)
+    }
+  )
+  return useMemo(() => {
+    const { isLoading, data } = instantiatedContractListQuery
+    const availableChecks = data || {}
+    return R.pipe(
+      R.toPairs,
+      R.sortBy(i => R.propOr(0, 'savedAt', i[1])),
+      lst => R.reverse(lst) as unknown as [ContractKey, LocalContractInfo][],
+      R.map(([k, info]) => {
+        return [k, { ...info, isLoading, isAvailable: availableChecks[k] as boolean }] as [ContractKey, LocalContractInfo & { isLoading: boolean, isAvailable: boolean }]
+      }),
+    )(localContracts)
+  }, [localContracts, instantiatedContractListQuery])
+}
 
-export const availableContractsAtom = atom(get => {
-  const onLocal = get(localContractsAtom)
-  const onChain = get(onChainContractsAtom)
-  const onChainKeys = Object.keys(onChain)
-  return R.pipe(
-    R.filter((i: Pairs<string, LocalContractInfo>) => R.includes(i[0], onChainKeys)),
-    R.sortBy((i) => R.propOr(0, 'savedAt', i[1])),
-    lst => R.reverse<Pairs<string, LocalContractInfo>>(lst),
-  )(Object.entries(onLocal))
-})
+export function useRemoveLocalContract(contractKey: ContractKey) {
+  const updateLocalContracts = useSetAtom(localContractsAtom)
+  return useCallback(() => {
+    updateLocalContracts(data => R.omit([contractKey], data))
+  }, [contractKey, updateLocalContracts])
+}
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -395,7 +427,7 @@ export const phalaFatContractQueryAtom = atom(async get => {
     return null
   }
   const result = await api.query.phalaPhatContracts.contracts(info.contractId)
-  return result.toHuman() as ContractInfo
+  return result.toHuman() as unknown as ContractInfo
 })
 
 export const contractInstanceAtom = atom<ContractPromise | null>(null)
