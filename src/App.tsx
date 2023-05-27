@@ -10,7 +10,6 @@ import ContractAddPage from '@/pages/contract-add-page'
 import ContractAttachPage from '@/pages/contract-attach-page'
 import ContractListPage from '@/pages/contract-list-page'
 import ContractInfoPage from '@/pages/contract-info-page'
-import ComponentListPage from '@/pages/component-list-page'
 
 export default function PhalaContractsUI() {
   return (
@@ -21,7 +20,6 @@ export default function PhalaContractsUI() {
         { path: "/contracts/add", element: <ContractAddPage /> },
         { path: "/contracts/attach", element: <ContractAttachPage /> },
         { path: "/contracts/view/:contractId", element: <ContractInfoPage /> },
-        { path: "/components", element: <ComponentListPage /> },
       ]}
     >
       <AppUI>
