@@ -1,10 +1,13 @@
 import { camelizeKeys } from 'humps'
+import type { Abi } from '@polkadot/api-contract'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { TypeDefInfo } from '@polkadot/types'
-import { Registry, TypeDef } from '@polkadot/types/types'
+import { TypeDef } from '@polkadot/types/types'
 import { BN } from 'bn.js'
 import { z } from 'zod'
 import * as R from 'ramda'
+
+type Registry = Abi['registry']
 
 /**
  * -----------------------------------------------------------

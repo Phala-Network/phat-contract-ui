@@ -104,6 +104,7 @@ function AdditionalButtonGroup() {
           setIsLoading(false)
         }}
       >
+        {/* @ts-ignore */}
         <IoIosRefresh css={[tw`text-xs`, isLoading ? tw`animate-spin` : null]} />
       </button>
     </Tooltip>
@@ -545,22 +546,27 @@ export default function StatusBar() {
         <Tabs tw="w-full" colorScheme="phalaDark" index={currentTab} onChange={i => setCurrentTab(i)}>
           <TabList tw="relative">
             <Tab>
+              {/* @ts-ignore */}
               <TiArrowRepeat css={[tw`text-gray-400 text-base mr-1`, currentTab === 0 ? tw`text-phalaDark-300` : '']} />
               <TabLabel>Events</TabLabel>
             </Tab>
             <Tab>
+              {/* @ts-ignore */}
               <TiMessageTyping css={[tw`text-gray-400 text-base mr-1`, currentTab === 1 ? tw`text-phalaDark-300` : '']} />
               <TabLabel>Result</TabLabel>
             </Tab>
             <Tab>
+              {/* @ts-ignore */}
               <TiCogOutline css={[tw`text-gray-400 text-base mr-1`, currentTab === 2 ? tw`text-phalaDark-300` : '']} />
               <TabLabel>Log</TabLabel>
             </Tab>
             <Tab>
+              {/* @ts-ignore */}
               <TiCloudStorageOutline css={[tw`text-gray-400 text-base mr-1`, currentTab === 3 ? tw`text-phalaDark-300` : '']} />
               <TabLabel>Recent blocks</TabLabel>
             </Tab>
             <Tab>
+              {/* @ts-ignore */}
               <TiMessage css={[tw`text-gray-400 text-base mr-1`, currentTab === 4 ? tw`text-phalaDark-300` : '']}/>
               <TabLabel>Recent events</TabLabel>
             </Tab>
