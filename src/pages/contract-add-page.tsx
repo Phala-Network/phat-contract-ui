@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import tw from 'twin.macro'
 import {
   Breadcrumb,
@@ -25,7 +25,9 @@ const ContractAddPage = () => {
         <Heading tw="mb-4">
           Upload a contract
         </Heading>
-        <FatContractUploadForm />
+        <Suspense>
+          <FatContractUploadForm />
+        </Suspense>
       </Box>
     </div>
   )

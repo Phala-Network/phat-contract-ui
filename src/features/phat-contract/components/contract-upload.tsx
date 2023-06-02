@@ -83,27 +83,27 @@ const Dropzone = ({ isCheckWASM = true }: DropzoneProps) => {
   const {getRootProps, getInputProps, isDragActive} = useDropzone({ onDrop })
   return (
     <div tw="mt-1 relative">
-      <div tw="flex justify-center px-6 pt-5 pb-6 bg-gray-300 rounded-sm">
+      <div tw="flex justify-center px-6 pt-5 pb-6 rounded-sm">
         <Box
           {...getRootProps()}
-          tw="w-full h-full p-6 border border-dashed border-gray-600 rounded-sm hover:cursor-pointer hover:bg-gray-100"
+          tw="w-full h-full p-6 border border-dashed border-gray-600 rounded-sm hover:cursor-pointer hover:bg-gray-600/50"
           bg={isDragActive ? 'gray.100' : ''}
         >
           <div tw="space-y-1 w-full">
-            <IoCloudUploadOutline tw="h-8 w-8 text-black mx-auto mb-3" />
-            <Text textAlign="center" fontSize={16} color="black">
+            <IoCloudUploadOutline tw="h-8 w-8 text-phala-500 mx-auto mb-3" />
+            <Text textAlign="center" fontSize={16} color="phala.500">
               Click or drag file to this area to upload
             </Text>
-            <Text textAlign="center" fontSize={12} color="gray.600">
+            <Text textAlign="center" fontSize={12} color="gray.100">
               {'The file name of Contract Bundle is ends with '}
               {
                 isCheckWASM
-                  ? <Code color="gray.600">.contract</Code>
+                  ? <Code color="gray.200">.contract</Code>
                   : (
                     <>
-                      <Code color="gray.600">.contract</Code>
+                      <Code color="gray.200">.contract</Code>
                       or
-                      <Code color="gray.600">.json</Code>
+                      <Code color="gray.200">.json</Code>
                     </>
                   )
               }
@@ -142,32 +142,14 @@ type ContractFileUploadProps = DropzoneProps
 
 const ContractFileUpload = ({ isCheckWASM } : ContractFileUploadProps) => {
   const finfo = useAtomValue(candidateFileInfoAtom)
-  // const [allowIndeterminismAtom, setAllowIndeterminismAtom] = useAtom(candidateAllowIndeterminismAtom)
 
   return (
     <FormControl>
-      <FormLabel>Contract File</FormLabel>
       {finfo.size ? (
         <CandidatePreview />
       ) : (
         <Dropzone isCheckWASM={isCheckWASM} />
       )}
-      {/* {
-        isCheckWASM
-          ? (
-            <Checkbox
-              mt={2}
-              size="sm"
-              isChecked={allowIndeterminismAtom}
-              onChange={() => {
-                setAllowIndeterminismAtom(!allowIndeterminismAtom);
-              }}
-            >
-              Allow indeterminism
-            </Checkbox>
-          )
-          : null
-      } */}
     </FormControl>
   )
 }

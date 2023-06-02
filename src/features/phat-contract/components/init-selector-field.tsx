@@ -24,27 +24,22 @@ const InitSelectorField = () => {
   const selected = chooseSelectors || defaultSelectors
   return (
     <FormControl>
-      <FormLabel tw="bg-[#000] text-phala-500 p-4 w-full">Init Selector</FormLabel>
-      <div tw="px-4 mt-4">
-        <Select
-          variant='outline'
-          size="sm"
-          tw="border border-solid border-black"
-          defaultValue={selected?.value}
-          onChange={evt => {
-            setInitSelector(evt.target.value)
-          }}
-        >
-          {selectors.map((item, idx) => (
-            <option value={item.value} key={idx}>
-              {item.value} | {item.label}
-            </option>
-            ))}
-        </Select>
-        <FormHelperText tw="text-gray-500">
-          You don't need change it if you don't know what it means.
-        </FormHelperText>
-      </div>
+      <FormLabel>Constructor</FormLabel>
+      <Select
+        variant='outline'
+        size="sm"
+        tw="border border-solid border-black"
+        defaultValue={selected?.value}
+        onChange={evt => {
+          setInitSelector(evt.target.value)
+        }}
+      >
+        {selectors.map((item, idx) => (
+          <option value={item.value} key={idx}>
+            {item.value} | {item.label}
+          </option>
+          ))}
+      </Select>
     </FormControl>
   )
 }
