@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import type { EstimateResultLike } from '../atomsWithDepositSettings'
 import type { Result, U64 } from '@polkadot/types'
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react'
@@ -7,12 +6,12 @@ import tw from 'twin.macro'
 import {
   Button,
   Spinner,
-  FormControl,
-  FormLabel,
   Text,
   Alert,
   AlertIcon,
   AlertTitle,
+  FormControl,
+  FormLabel,
   Step,
   StepIcon,
   StepIndicator,
@@ -22,20 +21,22 @@ import {
   Stepper,
   NumberInput,
   NumberInputField,
+  ButtonGroup,
+  useToast,
+  IconButton,
 } from '@chakra-ui/react'
+import { VscClose, VscCopy } from 'react-icons/vsc'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
-// import { useNavigate } from '@tanstack/react-location'
-import { find, path } from 'ramda'
+import CopyToClipboard from 'react-copy-to-clipboard'
+import { Link } from '@tanstack/react-location'
+import { find } from 'ramda'
 import { CertificateData, PinkCodePromise, PinkBlueprintPromise, create, signCertificate } from '@phala/sdk'
-import { Keyring } from '@polkadot/keyring'
-import { ApiPromise } from '@polkadot/api'
 import { Abi } from '@polkadot/api-contract'
-import { BN } from '@polkadot/util'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
 
 import { Select } from '@/components/inputs/select'
-import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
+import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import {
   candidateAtom,
   currentClusterIdAtom,
@@ -49,6 +50,7 @@ import ContractFileUpload from './contract-upload'
 import InitSelectorField from './init-selector-field'
 import { apiPromiseAtom } from '../../parachain/atoms'
 import signAndSend from '@/functions/signAndSend'
+import { RESET } from 'jotai/utils'
 
 
 const ClusterIdSelect = () => {
@@ -145,20 +147,6 @@ const RequestCertButton = ({children}: { children: ReactNode }) => {
 //
 //
 
-const clusterStorageDepositeMinRequiredAtom = atom(get => {
-  const registry = get(phatRegistryAtom)
-  const finfo = get(candidateFileInfoAtom)
-  if (!registry.clusterInfo || !finfo.size) {
-    return new Decimal(0)
-  }
-  const depositePerByte = new Decimal((registry.clusterInfo.depositPerByte?.toNumber() || 0))
-  const result = depositePerByte.mul(finfo.size * 5).div(1e8)
-  // if (result.toNumber() < 1) {
-  //   return new Decimal(1)
-  // }
-  return result
-})
-
 const selectedContructorAtom = atom((get) => {
   const contract = get(candidateAtom)
   const chooseInitSelector = get(contractSelectedInitSelectorAtom)
@@ -207,18 +195,6 @@ function getDefaultInitSelector(abi: Abi) {
   return defaultInitSelector || R.head(abi.constructors)?.selector
 }
 
-const chooseInitSelectorAtom = atom(get => {
-  const abi = get(currentAbiAtom)
-  if (!abi || !abi.constructors.length) {
-    return false
-  }
-  const chooseInitSelector = get(contractSelectedInitSelectorAtom)
-  const defaultInitSelector = getDefaultInitSelector(abi)
-  const initSelector = chooseInitSelector || defaultInitSelector
-  const target = R.find(i => i.selector === initSelector, abi.constructors)
-  return target?.identifier
-}) 
-
 const hasParametersAtom = atom(get => {
   const abi = get(currentAbiAtom)
   if (!abi || !abi.constructors.length) {
@@ -243,7 +219,7 @@ const currentStepAtom = atom(get => {
   if (!finfo.size) {
     return 0
   }
-  if (hasParameters) {
+  if (hasParameters || !blueprint) {
     return 1
   }
   if (cachedCert[1] === null) {
@@ -258,9 +234,10 @@ const currentStepAtom = atom(get => {
   return 2
 })
 
-const useClusterBalance = (min: number) => {
-  const [currentBalance, setCurrentBalance] = useState(0)
-  const [isSatisfied, setIsSatisfied] = useState(false)
+const currentBalanceAtom = atom(0)
+
+function useClusterBalance() {
+  const [currentBalance, setCurrentBalance] = useAtom(currentBalanceAtom)
   const [isLoading, setIsLoading] = useState(false)
 
   const [,cert] = useAtomValue(cachedCertAtom)
@@ -284,18 +261,20 @@ const useClusterBalance = (min: number) => {
       const free = (freeBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
       return { total, free }
     } catch (err) {
-      console.log('getBalance', err)
       return { total: 0, free: 0 }
     }
   }, [registry, currentAccount, cert])
+
+  const refreshBalance = useCallback(async () => {
+    const result = await getBalance()
+    setCurrentBalance(result.free)
+  }, [getBalance, setCurrentBalance])
 
   useEffect(() => {
     (async function() {
       setIsLoading(true)
       const result = await getBalance()
       setCurrentBalance(result.free)
-      console.log('isSatisfied', result, min)
-      setIsSatisfied(result.free >= min)
       setIsLoading(false)
     })();
   }, [getBalance])
@@ -309,16 +288,15 @@ const useClusterBalance = (min: number) => {
     try {
       const { address } = currentAccount
       await signAndSend(registry.transferToCluster(address, rounded), address, signer)
-      const result = await getBalance()
-      setCurrentBalance(result.free)
-      console.log('isSatisfied 2', result, min)
-      setIsSatisfied(result.free >= min)
+      // @FIXME wait for next block
+      await new Promise(resolve => setTimeout(resolve, 5000))
+      await refreshBalance()
     } finally {
       setIsLoading(false)
     }
-  }, [registry, currentAccount, signer, setCurrentBalance, setIsLoading])
+  }, [registry, currentAccount, signer, setCurrentBalance, setIsLoading, refreshBalance])
 
-  return { currentBalance, isSatisfied, isLoading, transfer }
+  return { currentBalance, isLoading, transfer, getBalance, refreshBalance }
 }
 
 function useUploadCode() {
@@ -360,153 +338,28 @@ function useUploadCode() {
   return { isLoading, upload }
 }
 
-//
-
-
-const TransferToCluster = () => {
-  const hasCert = useAtomValue(hasCertAtom)
-  const storageDepositMinRequired = useAtomValue(clusterStorageDepositeMinRequiredAtom)
-  const { isLoading, transfer, isSatisfied } = useClusterBalance(storageDepositMinRequired.toNumber())
-  const atLeast = storageDepositMinRequired.toNumber()
-  const [value, setValue] = useState(storageDepositMinRequired)
-  if (!hasCert) {
-    return null
-  }
-  return (
-    <div tw="flex flex-col gap-2">
-      <div tw="flex gap-4 items-center">
-        <NumberInput
-          size="sm"
-          defaultValue={isSatisfied ? 1 : atLeast}
-          min={isSatisfied ? undefined : atLeast}
-          onChange={(num) => setValue(new Decimal(num))}
-        >
-          <NumberInputField />
-        </NumberInput>
-        <Button
-          // isDisabled={isLoading || value.lessThan(atLeast)}
-          colorScheme="phalaDark"
-          size="sm"
-          onClick={() => transfer(value)}
-        >
-          Transfer
-        </Button> 
-      </div>
-      <div tw="flex gap-2">
-        {isLoading ? (<Spinner colorScheme="pbalaDark" size="sm" />) : null } 
-      </div>
-      {(!isLoading && !isSatisfied) ? (
-        <div tw="text-sm px-4 py-2 border border-solid border-red-300 rounded-sm bg-red-400">You need transfer at least {atLeast} PHA to the cluster first.</div>
-      ) : null}
-    </div>
-  )
-}
-
-const DepositionField = () => {
-  const hasCert = useAtomValue(hasCertAtom)
-  const storageDepositMinRequired = useAtomValue(clusterStorageDepositeMinRequiredAtom)
-  const { currentBalance, isSatisfied } = useClusterBalance(storageDepositMinRequired.toNumber())
-  const [showTransfer, setShowTransfer] = useState(false)
-  return (
-    <div tw="flex flex-col gap-4">
-      <div tw="flex gap-4 items-center">
-        <Suspense>
-          <ClusterIdSelect />
-        </Suspense>
-        <Suspense>
-        {hasCert ? (
-          <div tw="flex flex-row items-center gap-2 h-full min-w-[14rem]">
-            <span tw="text-sm">{currentBalance.toFixed(4)} PHA</span>
-            <Button size="sm" onClick={() => setShowTransfer(i => !i)}>
-              {showTransfer ? 'Hide' : 'Add More'}
-            </Button>
-          </div>
-        ) : null}
-        </Suspense>
-      </div>
-      {!isSatisfied || showTransfer ? (
-        <TransferToCluster />
-      ) : null}
-      <div>
-        {hasCert && isSatisfied ? (
-          <Suspense fallback={<Button><Spinner /></Button>}>
-            <UploadCodeButton />
-          </Suspense>
-        ) : (
-          <RequestCertButton>
-            <span tw="px-1">Check Balance</span>
-          </RequestCertButton>
-        )}
-      </div>
-    </div>
-  )
-}
-
-
-function UploadCodeButton() {
-  const hasCert = useAtomValue(hasCertAtom)
-  const { isLoading, upload } = useUploadCode()
-  return (
-    <Button isLoading={isLoading} onClick={upload}>
-      {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
-    </Button>
-  )
-}
-
-
-function InstantiateButton() {
-  const [isLoading, setIsLoading] = useState(false)
-  const blueprint = useAtomValue(blueprintPromiseAtom)
-  const constructor = useAtomValue(selectedContructorAtom)
-  const currentAccount = useAtomValue(currentAccountAtom)
-  const [, cert] = useAtomValue(cachedCertAtom)
-  const signer = useAtomValue(signerAtom)
-  const contract = useAtomValue(candidateAtom)
-  const saveContract = useSetAtom(localContractsAtom)
+function useReset() {
+  const setCandidate = useSetAtom(candidateAtom)
+  const setCandidateFileInfo = useSetAtom(candidateFileInfoAtom)
+  const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
   const setInstantiatedContractId = useSetAtom(instantiatedContractIdAtom)
-  const registry = useAtomValue(phatRegistryAtom)
-
-  const instantiate = async () => {
-    if (!blueprint || !currentAccount || !constructor) {
-      return
-    }
-    setIsLoading(true)
-    try {
-      // @ts-ignore
-      const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }) // Support instantiate arguments.
-      console.log(registry.clusterInfo)
-      let d = new Decimal(gasRequired.refTime.toNumber())
-      d = d.div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
-      // @ts-ignore
-      const { result: instantiateResult }= await signAndSend(
-      // @ts-ignore
-        blueprint.tx[constructor]({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
-        currentAccount.address,
-        signer
-      )
-      await instantiateResult.waitFinalized()
-
-      const { contractId } = instantiateResult
-      const metadata = R.dissocPath(['source', 'wasm'], contract)
-      console.log('Save contract metadata to local storage.')
-      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
-      setInstantiatedContractId(contractId)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  return (
-    <Button disabled={!blueprint} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
-  )
+  const reset = useCallback(() => {
+    setCandidate(null)
+    setCandidateFileInfo(RESET)
+    setBlueprintPromise(null)
+    setInstantiatedContractId(null)
+  }, [setCandidate, setBlueprintPromise, setInstantiatedContractId, setCandidateFileInfo])
+  return reset
 }
 
-//
+
+// Step Container
 
 function StepSection({ children, index, isEnd }: { children: ReactNode, index: number, isEnd?: boolean }) {
   const currentStep = useAtomValue(currentStepAtom)
-  // if (currentStep < index) {
-  //   return null
-  // }
+  if (currentStep < index) {
+    return null
+  }
   return (
     <Step tw="w-full">
       <StepIndicator tw="mt-0.5">
@@ -532,6 +385,18 @@ function StepSection({ children, index, isEnd }: { children: ReactNode, index: n
 }
 
 // Step 2
+
+function UploadCodeButton() {
+  const hasCert = useAtomValue(hasCertAtom)
+  const { isLoading, upload } = useUploadCode()
+  const currentStep = useAtomValue(currentStepAtom)
+  return (
+    <Button isDisabled={currentStep > 2} isLoading={isLoading} onClick={upload}>
+      {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
+    </Button>
+  )
+}
+
 function CodeUploadStep() {
   return (
     <div tw="flex flex-col gap-2">
@@ -548,6 +413,72 @@ function CodeUploadStep() {
 
 // Step 3: Blueprint Promise - instantiate contract.
 
+function ContractId() {
+  const blueprintPromise = useAtomValue(blueprintPromiseAtom)
+  const toast = useToast()
+  if (!blueprintPromise) {
+    return null
+  }
+  const codeHash = blueprintPromise.codeHash.toHex()
+  return (
+    <FormControl>
+      <FormLabel>
+        Contract ID
+      </FormLabel>
+      <div tw="flex flex-row gap-2 items-center">
+        <code tw="font-mono text-xs p-1 bg-black rounded">{codeHash}</code>
+        <CopyToClipboard
+          text={codeHash}
+          onCopy={() => toast({
+            title: 'Copied',
+            status: 'success',
+            duration: 2000,
+            isClosable: true,
+          })}
+        >
+          <IconButton aria-label='Copy' size="sm">
+            <VscCopy tw="h-4 w-4" />
+          </IconButton>
+        </CopyToClipboard>
+      </div>
+    </FormControl>
+  )
+}
+
+const TransferToCluster = () => {
+  const hasCert = useAtomValue(hasCertAtom)
+  const { isLoading, transfer, refreshBalance } = useClusterBalance()
+  const [value, setValue] = useState(new Decimal(0))
+  if (!hasCert) {
+    return null
+  }
+  return (
+    <div tw="flex flex-row gap-2 items-center">
+      <NumberInput
+        size="xs"
+        onChange={(num) => setValue(new Decimal(num))}
+      >
+        <NumberInputField />
+      </NumberInput>
+      <Button
+        isDisabled={isLoading}
+        colorScheme="phalaDark"
+        size="xs"
+        onClick={() => transfer(value)}
+      >
+        Transfer
+      </Button> 
+      {isLoading ? (<Spinner colorScheme="pbalaDark" size="sm" />) : null } 
+      <Button
+        size="xs"
+        onClick={refreshBalance}
+      >
+        Refresh
+      </Button>
+    </div>
+  )
+}
+
 function InstantiateGasElimiation() {
   const blueprint = useAtomValue(blueprintPromiseAtom)
   const constructor = useAtomValue(selectedContructorAtom)
@@ -556,75 +487,52 @@ function InstantiateGasElimiation() {
   const signer = useAtomValue(signerAtom)
   const registry = useAtomValue(phatRegistryAtom)
   const finfo = useAtomValue(candidateFileInfoAtom)
+  const currentStep = useAtomValue(currentStepAtom)
 
-  const [txOptions, setTxOptions] = useState({})
+  const [txOptions, setTxOptions] = useState<any>(null)
   const [minClusterBalance, setMinClusterBalance] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
-  const [clusterBalance, setClusterBalance] = useState({total: 0, free: 0})
+  const { currentBalance, refreshBalance, transfer, isLoading: isUpdatingClusterBalance } = useClusterBalance()
 
-  const getBalance = useCallback(async () => {
-    if (!registry || !currentAccount || !cert) {
-      return { total: 0, free: 0 }
-    }
-    const { address } = currentAccount
-    const system = registry.systemContract
-    if (!system) {
-      return { total: 0, free: 0 }
-    }
-    try {
-      const { output: totalBalanceOf } = await system.query['system::totalBalanceOf'](address, { cert }, address)
-      const { output: freeBalanceOf } = await system.query['system::freeBalanceOf'](address, { cert }, address)
-      const total = (totalBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
-      const free = (freeBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
-      return { total, free }
-    } catch (err) {
-      return { total: 0, free: 0 }
-    }
-  }, [registry, currentAccount, cert])
+  const [inlineChargeVisible, setInlineChargeVisible] = useState(false)
 
   useEffect(() => {
-    if (blueprint && constructor && currentAccount && cert && signer && registry) {
+    if (blueprint && constructor && currentAccount && cert && registry) {
       (async () => {
-          setIsLoading(true)
-          try {
+        setIsLoading(true)
+        try {
+          setTxOptions(null)
           // @ts-ignore
           const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }) // Support instantiate arguments.
           const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
           const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 5).div(1e8)
           setTxOptions({
-            gasLimit: gasLimit.toNumber(),
+            gasLimit: gasRequired.refTime,
             storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
             salt
           })
           setMinClusterBalance(gasLimit.plus(storageDepositeFee).toNumber())
-          const result = await getBalance()
-          setClusterBalance(result)
+          await refreshBalance()
         } finally {
           setIsLoading(false)
         }
       })();
     }
-  }, [blueprint, constructor, currentAccount, cert, signer, registry, getBalance, setTxOptions, setMinClusterBalance, setIsLoading, setClusterBalance])
+  }, [blueprint, constructor, currentAccount, cert, registry, refreshBalance, setTxOptions, setMinClusterBalance, setIsLoading])
 
   const contract = useAtomValue(candidateAtom)
   const saveContract = useSetAtom(localContractsAtom)
   const setInstantiatedContractId = useSetAtom(instantiatedContractIdAtom)
 
   const instantiate = async () => {
-    if (!blueprint || !currentAccount || !constructor) {
+    if (!blueprint || !currentAccount || !constructor || !txOptions) {
       return
     }
     setIsLoading(true)
     try {
       // @ts-ignore
-      const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }) // Support instantiate arguments.
-      console.log(registry.clusterInfo)
-      let d = new Decimal(gasRequired.refTime.toNumber())
-      d = d.div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
-      // @ts-ignore
       const { result: instantiateResult }= await signAndSend(
-      // @ts-ignore
-        blueprint.tx[constructor]({ gasLimit: gasRequired.refTime, storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null, salt }),
+        blueprint.tx[constructor](txOptions),
         currentAccount.address,
         signer
       )
@@ -632,7 +540,6 @@ function InstantiateGasElimiation() {
 
       const { contractId } = instantiateResult
       const metadata = R.dissocPath(['source', 'wasm'], contract)
-      console.log('Save contract metadata to local storage.')
       saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
       setInstantiatedContractId(contractId)
     } finally {
@@ -642,34 +549,78 @@ function InstantiateGasElimiation() {
 
   return (
     <div tw="mt-2 flex flex-col gap-2">
-      <div tw="flex flex-row items-center">
-        <label tw="mr-2">Minimal Cluster Balance Required:</label>
-        {isLoading ? <Spinner /> : <span tw="text-sm whitespace-nowrap" title={minClusterBalance.toString()}>{minClusterBalance.toFixed(6)} PHA</span>}
-      </div>
-      <div tw="flex flex-row items-center">
-        <label tw="mr-2">Cluster Balance:</label>
-        <span tw="text-sm whitespace-nowrap" title={clusterBalance.free.toString()}>{clusterBalance.free.toFixed(6)} PHA</span>
-        <Button size="xs" tw="ml-4">Charge</Button>
-      </div>
+      <table tw="inline-flex">
+        <tbody>
+          <tr>
+            <td tw="pr-2.5 text-right">Minimal Required:</td>
+            <td>{isUpdatingClusterBalance ? <Spinner /> : <span tw="text-sm whitespace-nowrap" title={minClusterBalance.toString()}>{minClusterBalance.toFixed(6)} PHA</span>}</td>
+          </tr>
+          <tr>
+            <td tw="pr-2.5 text-right">Cluster Balance:</td>
+            <td>
+              <span tw="text-sm whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
+            </td>
+            <td>
+              <div tw="ml-2.5 flex flex-row gap-2 items-center">
+                {inlineChargeVisible ? (
+                  <>
+                    <TransferToCluster />
+                    <Button size="xs" onClick={() => setInlineChargeVisible(false)}><VscClose /></Button>
+                  </>
+                ) : (
+                  <Button size="xs" onClick={() => setInlineChargeVisible(true)}>Transfer</Button>
+                )}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <div>
-        <Button disabled={!blueprint || clusterBalance.free < minClusterBalance} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
+        {(currentBalance < minClusterBalance) ? (
+          <Button
+            isDisabled={!blueprint || currentStep > 3}
+            isLoading={isLoading}
+            onClick={async () => {
+              await transfer(new Decimal(minClusterBalance))
+              await instantiate()
+            }}
+          >
+            Transfer minimal and instantiate
+          </Button>
+        ) : (
+          <Button isDisabled={!blueprint || currentStep > 3} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
+        )}
       </div>
     </div>
   )
 }
 
+// Step 4
+
 function InstantiatedFinish() {
   const instantiatedContractId = useAtomValue(instantiatedContractIdAtom)
+  const reset = useReset()
   if (!instantiatedContractId) {
     return null
   }
-  // const resetContractFileInfo = useResetAtom(candidateFileInfoAtom)
-  // resetContractFileInfo()
-  // resetAllowIndeterminismAtom()
-  // navigate({ to: `/contracts/view/${contractId}` })
   return (
-    <div>
-      I will staking for computation resource later. <a href={`/contracts/view/${instantiatedContractId}`}>View it now</a>
+    <div tw="flex flex-col gap-4">
+      <Alert status='success'>
+        <AlertIcon />
+        <div>
+          <p>Contract Uploaded and instantiated successfully. You need staking computation resource to run the contract.</p>
+        </div>
+      </Alert>
+      <ButtonGroup>
+        <Link to={`/contracts/view/${instantiatedContractId}`}>
+          <Button
+            colorScheme="phalaDark"
+            onClick={() => reset()}
+          >
+            Go next
+          </Button>
+        </Link>
+      </ButtonGroup>
     </div>
   )
 }
@@ -689,13 +640,16 @@ export default function FatContractUploadForm() {
         <StepSection index={1}>
           <CodeUploadStep />
         </StepSection>
-        <StepSection index={2}>
+        <StepSection index={3}>
+          <Suspense>
+            <ContractId />
+          </Suspense>
           <InitSelectorField />
           <Suspense>
             <InstantiateGasElimiation />
           </Suspense>
         </StepSection>
-        <StepSection index={3}>
+        <StepSection index={4}>
             <Suspense>
               <InstantiatedFinish />
             </Suspense>
