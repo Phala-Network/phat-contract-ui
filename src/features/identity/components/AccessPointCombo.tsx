@@ -58,7 +58,7 @@ const Balance = () => {
   if ((whole === null || whole === '0') && fragction === null) {
     const href = isClosedBetaEnv
       ? 'https://discord.com/channels/697726436211163147/1052518183766073354'
-      : 'https://docs.phala.world/geting-started/where-to-get-pha-khala-chain'
+      : 'https://docs.phala.network/introduction/basic-guidance/get-pha-and-transfer'
     return (
       <div tw="hidden xl:block">
         <BalanceMotionContainer initial={{ width: 0 }} animate={{ width: 'auto' }} exit={{ width: 0 }} tw="mx-0">
