@@ -22,8 +22,10 @@ import {
   Button,
   ButtonGroup,
   FormErrorMessage,
+  Tooltip,
 } from '@chakra-ui/react'
 import { atom, useAtomValue, useAtom } from 'jotai'
+import * as R from 'ramda'
 
 import { Select } from '@/components/inputs/select'
 import EndpointAddressInput from '@/features/parachain/components/EndpointAddressInput'
@@ -35,8 +37,10 @@ import {
   availableWorkerListAtom,
   availablePruntimeListAtom,
   currentClusterAtom,
+  phatRegistryAtom,
 } from '@/features/phat-contract/atoms'
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
+import Code from './code'
 import { isClosedBetaEnv } from '@/vite-env'
 
 export const connectionDetailModalVisibleAtom = atom(false)
@@ -80,12 +84,32 @@ const SuspenseFormField: FC<{ label: string, children: ReactNode }> = ({ label, 
 const WorkerSelect = () => {
   const [currentWorkerId, setCurrentWorkerId] = useAtom(currentWorkerIdAtom)
   const availableWorkerList = useAtomValue(availableWorkerListAtom)
-  const options = useMemo(() => availableWorkerList.map(i => ({ value: i, label: i.substring(0, 12) + '...' + i.substring(i.length - 12) })), [availableWorkerList])
+  const options = useMemo(() => availableWorkerList.map(
+    i => ({
+      value: i,
+      // label: i.substring(0, 12) + '...' + i.substring(i.length - 12),
+      label: i,
+    })
+  ), [availableWorkerList])
+  
   if (options.length === 0) {
     return <RPCNotReadyAlert />
   }
   return (
-    <Select value={currentWorkerId} onChange={setCurrentWorkerId} options={options} />
+    <div tw="flex flex-col gap-1 max-h-[40vh] overflow-y-scroll pr-4">
+      {options.map((i, idx) => (
+        <div key={idx} tw="flex flex-row justify-between">
+          <Tooltip label={i.value} placement="top">
+            <Code>{i.label}</Code>
+          </Tooltip>
+          {i.value === currentWorkerId ? (
+            <Button size="xs" isDisabled>Selcted</Button>
+          ) : (
+            <Button size="xs" onClick={() => setCurrentWorkerId(i.value)}>Select</Button>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -120,6 +144,11 @@ const PruntimeEndpointSelect = () => {
   )
 }
 
+//
+//
+//
+
+
 export default function ConnectionDetailModal() {
   const [visible, setVisible] = useAtom(connectionDetailModalVisibleAtom)
   const machine = useAtomValue(websocketConnectionMachineAtom)
@@ -127,7 +156,7 @@ export default function ConnectionDetailModal() {
   return (
     <Modal isOpen={visible} onClose={() => setVisible(false)}>
       <ModalOverlay />
-      <ModalContent tw="xl:min-w-[540px]">
+      <ModalContent tw="xl:min-w-[720px]">
         <ModalHeader>Connection Info</ModalHeader>
         <ModalCloseButton />
           <ModalBody>
@@ -139,7 +168,7 @@ export default function ConnectionDetailModal() {
               {
                 !['error', 'disconnected'].some(machine.matches) ? 
                  <>
-                   <SuspenseFormField label="Cluster ID">
+                   <SuspenseFormField label="Cluster">
                      <ClusterIdSelect />
                    </SuspenseFormField>
                    <SuspenseFormField label="Worker">

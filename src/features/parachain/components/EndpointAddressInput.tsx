@@ -1,3 +1,4 @@
+import React from 'react';
 import tw from "twin.macro";
 import {
   FormControl,
@@ -5,25 +6,23 @@ import {
   Input,
   InputGroup,
   Button,
+  ButtonGroup,
+  Tag,
 } from "@chakra-ui/react";
 import { useAtom, useSetAtom } from "jotai";
 
 import {
   endpointAtom,
-  PARACHAIN_ENDPOINT,
   preferedEndpointAtom,
-  switchModeAtom,
 } from "@/atoms/endpointsAtom";
 import { websocketConnectionMachineAtom } from "@/features/parachain/atoms";
-import EndpointAddressSelect, { options } from "./EndpointAddressSelect";
+import Code from "@/components/code";
 
 export default function EndpointAddressInput({ label }: { label?: string }) {
   const [endpoint, setEndpoint] = useAtom(endpointAtom);
   const setPreferedEndpointAtom = useSetAtom(preferedEndpointAtom);
   const [machine, send] = useAtom(websocketConnectionMachineAtom);
 
-  const [switchMode, setSwitchMode] = useAtom(switchModeAtom);
-  
   function connect(endpoint: string) {
     if (machine.can("RECONNECT")) {
       send({ type: "RECONNECT", data: { endpoint } });
@@ -34,68 +33,70 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
   }
 
   return (
-    <FormControl>
-      <FormLabel>{label || "Khala Parachain Endpoint Address"}</FormLabel>
-
-      {switchMode === "switch" ? (
-        <EndpointAddressSelect
-          value={endpoint}
-          onChange={(value) => {
-            setEndpoint(value);
-            connect(value);
-          }}
-        />
-      ) : (
-        <InputGroup>
-          <Input
-            type="url"
-            value={endpoint}
-            onChange={(ev) => setEndpoint(ev.target.value)}
-          />
-        </InputGroup>
-      )}
-      <div tw="mt-2 flex flex-row gap-2">
-        <Button
-          h="1.75rem"
-          tw="mr-[5px]"
-          size="sm"
-          disabled={machine.matches("connecting")}
-          onClick={() => {
-            connect(endpoint);
-          }}
-        >
-          Connect
-        </Button>
-        <Button
-          h="1.75rem"
-          size="sm"
-          disabled={machine.matches("disconnected")}
-          onClick={() => {
-            send({ type: "DISCONNECTED" });
-          }}
-        >
-          Disconnect
-        </Button>
-        <Button
-          h="1.75rem"
-          size="sm"
-          disabled={machine.matches("connecting")}
-          onClick={() => {
-            if (switchMode === 'input') {
-              const isValid = options.includes(endpoint);
-
-              if (!isValid) {
-                const endpoint$1 = PARACHAIN_ENDPOINT;
-                setEndpoint(endpoint$1);
-                connect(endpoint$1);
-              }
-            }
-            setSwitchMode(switchMode === "switch" ? "input" : "switch");
-          }}
-        >
-          {switchMode === "switch" ? "Custom" : "Official Testnet"}
-        </Button>
-      </div>
-    </FormControl>
+    <>
+      <FormControl>
+        <FormLabel>{label || "Khala Parachain Endpoint Address"}</FormLabel>
+        <div tw="flex flex-col gap-2">
+          <InputGroup tw="flex flex-row items-center">
+            <Input
+              size="sm"
+              type="url"
+              value={endpoint}
+              onChange={(ev) => setEndpoint(ev.target.value)}
+            />
+            <ButtonGroup ml="2">
+              <Button
+                size="xs"
+                isDisabled={machine.matches("connecting")}
+                onClick={() => {
+                  connect(endpoint);
+                }}
+              >
+                Connect
+              </Button>
+              <Button
+                size="xs"
+                isDisabled={machine.matches("disconnected")}
+                onClick={() => {
+                  send({ type: "DISCONNECTED" });
+                }}
+              >
+                Disconnect
+              </Button>
+            </ButtonGroup>
+          </InputGroup>
+          <div tw="flex flex-row justify-between items-center">
+            <div tw="flex flex-row items-center gap-1">
+              <span tw="min-w-[7ch] inline-flex items-center">
+                <Tag size="sm" colorScheme="phalaDark" variant="solid">mainnet</Tag>
+              </span>
+              <Code>api.phala.network</Code>
+            </div>
+            <Button
+              size="xs"
+              isDisabled={endpoint === 'wss://api.phala.network/ws'}
+              onClick={() => connect('wss://api.phala.network/ws')}
+            >
+              {endpoint === 'wss://api.phala.network/ws' ? 'connected' : 'connect'}
+            </Button>
+          </div>
+          <div tw="flex flex-row justify-between items-center">
+            <div tw="flex flex-row items-center gap-1">
+              <span tw="min-w-[7ch] inline-flex items-center">
+                <Tag size="sm" colorScheme="orange" variant="solid">testnet</Tag>
+              </span>
+              <Code>poc5.phala.network</Code>
+            </div>
+            <Button
+              size="xs"
+              isDisabled={endpoint === 'wss://poc5.phala.network/ws'}
+              onClick={() => connect('wss://poc5.phala.network/ws')}
+            >
+              {endpoint === 'wss://poc5.phala.network/ws' ? 'connected' : 'connect'}
+            </Button>
+          </div>
+        </div>
+      </FormControl>
+    </>
   );
 }
