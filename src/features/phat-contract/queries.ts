@@ -1,34 +1,8 @@
-import type { Codec, AnyJson } from '@polkadot/types-codec/types'
-
 import * as R from 'ramda'
 import ms from 'ms'
 import { ApiPromise } from "@polkadot/api"
-import { ContractPromise } from "@polkadot/api-contract"
 import { QueryFunctionContext } from "@tanstack/query-core"
-import { abis } from '@phala/sdk'
 
-import { CertificateData, create } from "@phala/sdk"
-import { isClosedBetaEnv } from '@/vite-env'
-
-function toHuman(value: Codec): AnyJson {
-  return value.toHuman()
-}
-
-export function queryContractList(api: ApiPromise) {
-  return {
-    queryKey: ['phalaPhatContracts.contracts'],
-    queryFn: async (ctx: any) => {
-      const result = await api.query.phalaPhatContracts.contracts.entries()
-      const transformed: Pairs<string, ContractInfo>[] = result.map(([storageKey, value]) => {
-        const keys = storageKey.toHuman() as string[]
-        return [keys[0], value.unwrap().toHuman()]
-      })
-      return R.fromPairs(transformed)
-    },
-    refetchInterval: 1000 * 60 * 15, // every 15 minutes
-    refetchIntervalInBackground: true,
-  }
-}
 
 export function queryClusterList(api: ApiPromise) {
   return {
@@ -83,63 +57,5 @@ export function queryEndpointList(api: ApiPromise, workerId?: string) {
       return transformed
     },
     staleTime: ms('5m'),
-  }
-}
-
-
-async function createSystemContractPromise(api: ApiPromise, pruntime: string, contractId: string, remotePubkey: string) {
-  const patched = await create({
-    // @ts-ignore
-    api: await ApiPromise.create({ ...api._options }),
-    // api: await api.clone().isReady,
-    baseURL: pruntime,
-    contractId: contractId,
-    remotePubkey: remotePubkey,
-    autoDeposit: true,
-  })
-  return new ContractPromise(
-    patched.api as unknown as ApiPromise,
-    // contractSystem.metadata,
-    abis.system,
-    contractId
-  );
-}
-
-export function queryPinkLoggerContract(
-  api: ApiPromise,
-  pruntime: string,
-  cert: CertificateData,
-  systemContractId: string,
-  remotePubkey: string
-) {
-  return {
-    queryKey: ['pinkLoggerContract', pruntime, cert, systemContractId],
-    queryFn: async () => {
-      const systemContract = await createSystemContractPromise(
-        api,
-        pruntime,
-        systemContractId,
-        remotePubkey
-      )
-      const { output } = await systemContract.query['system::getDriver'](cert as unknown as string, {}, "PinkLogger")
-      if (!output) {
-        return null
-      }
-      // @ts-ignore
-      const loggerContractId = output.asOk.toHex()
-      if (!loggerContractId || loggerContractId === '0x') {
-        return null
-      }
-      return await create({
-        // api: await api.clone().isReady,
-        // @ts-ignore
-        api: await ApiPromise.create({ ...api._options }),
-        baseURL: pruntime,
-        contractId: loggerContractId,
-        remotePubkey: remotePubkey,
-        autoDeposit: true,
-      })
-    },
-    staleTime: ms('30m'),
   }
 }

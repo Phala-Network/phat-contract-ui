@@ -23,6 +23,7 @@ function signAndSend<ApiType extends ApiTypes>(target: SubmittableExtrinsic<ApiT
               hash: result.status.asInBlock.toHuman(),
               // @ts-ignore
               events: result.toHuman().events,
+              result,
             });
           }
         } else if (result.status.isInvalid) {

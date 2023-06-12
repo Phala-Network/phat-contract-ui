@@ -1,4 +1,5 @@
-import { Registry, TypeDefInfo } from '@polkadot/types/types'
+import type { Abi } from '@polkadot/api-contract'
+import { TypeDefInfo } from '@polkadot/types/types'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { decamelize } from 'humps'
 import { atom } from 'jotai'
@@ -10,6 +11,9 @@ import { subToArray, validateNotUndefined, validateSub } from '@/functions/argum
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
 import createLogger from '@/functions/createLogger'
+
+
+type Registry = Abi['registry']
 
 const debug = createLogger('contract arguments atom', 'debug')
 
@@ -297,7 +301,8 @@ const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDat
       return createFieldData(registry, sub as TypeDef)
 
     case TypeDefInfo.Si:
-      return createFieldData(registry, registry.lookup.getTypeDef(type))
+      type getTypeDefArgs = Parameters<typeof registry.lookup.getTypeDef>
+      return createFieldData(registry, registry.lookup.getTypeDef(type as getTypeDefArgs[0]))
   
     default:
       break

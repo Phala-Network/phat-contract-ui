@@ -1,4 +1,3 @@
-import type {Bytes} from '@polkadot/types-codec'
 import type {ContractOptions} from '@polkadot/api-contract/types'
 import type { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
@@ -9,42 +8,27 @@ import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useReducerAtom, waitForAll } from "jotai/utils"
-import { queryClientAtom, atomWithQuery } from 'jotai/query'
-import { ContractPromise } from '@polkadot/api-contract'
-import { stringToHex } from '@polkadot/util'
-import { ApiPromise } from '@polkadot/api'
+import { queryClientAtom } from 'jotai/query'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/keyring'
+import { CertificateData, signCertificate, PinkContractPromise } from '@phala/sdk'
 
-import { CertificateData, create, signCertificate } from '@phala/sdk'
 import createLogger from "@/functions/createLogger"
 import signAndSend from '@/functions/signAndSend'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { querySignCertificate } from '@/features/identity/queries'
-import { queryPinkLoggerContract } from '../queries'
-
 import {
-  pruntimeURLAtom,
   currentMethodAtom,
   currentContractAtom,
   dispatchResultsAtom,
   pinkLoggerResultAtom,
-  currentSystemContractIdAtom,
-  currentWorkerIdAtom,
+  phatRegistryAtom,
+  pinkLoggerAtom,
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
-
-interface InkResponse {
-  nonce: string
-  result: {
-    Ok?: {
-      InkMessageReturn: string
-    }
-  }
-}
 
 const debug = createLogger('chain', 'debug')
 
@@ -54,8 +38,8 @@ interface EstimateGasResult {
   storageDepositLimit: BN | null
 }
 
-async function estimateGas(contract: ContractPromise, method: string, cert: CertificateData, args: unknown[]) {
-  const { gasRequired, storageDeposit } = await contract.query[method](cert as any, {}, ...args)
+async function estimateGas(contract: PinkContractPromise, method: string, cert: CertificateData, args: unknown[]) {
+  const { gasRequired, storageDeposit } = await contract.query[method](cert.address, { cert }, ...args)
   const options: EstimateGasResult = {
       gasLimit: (gasRequired as any).refTime,
       storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
@@ -63,32 +47,14 @@ async function estimateGas(contract: ContractPromise, method: string, cert: Cert
   return options
 }
 
-const defaultTxConf = { gasLimit: "1000000000000", storageDepositLimit: null }
-
-type CreateOptions = Parameters<typeof create>[0]
-
 type SignOptions = Parameters<typeof signCertificate>[0]
 
 const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
-  const contract = get(currentContractAtom)
-  const pruntimeURL = get(pruntimeURLAtom)
-  const remotePubkey = get(currentWorkerIdAtom)
-  // @ts-ignore
-  const apiCopy = await ApiPromise.create({ ...api._options }) as CreateOptions['api']
-  const patched = await create({
-      api: apiCopy,
-      baseURL: pruntimeURL,
-      contractId: contract.contractId,
-      remotePubkey: remotePubkey,
-      // enable autoDeposit to pay for gas fee
-      autoDeposit: true
-    }) 
-  const contractInstance = new ContractPromise(
-    patched.api as unknown as ApiPromise,
-    contract.metadata,
-    contract.contractId
-  )
+  const registry = get(phatRegistryAtom)
+  const { metadata, contractId } = get(currentContractAtom)
+  const contractKey = await registry.getContractKeyOrFail(contractId)
+  const contractInstance = new PinkContractPromise(api, registry, metadata, contractId, contractKey)
   return contractInstance
 })
 
@@ -101,23 +67,12 @@ export const estimateGasAtom = atom(async get => {
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
   const cert = await signCertificate({ api: api as unknown as SignOptions['api'], pair })
-  // const cert = get(certQueryAtom)
   const txMethods = R.fromPairs(R.map(
     i => [i.meta.identifier, i.meta.method],
     R.values(contractInstance.tx || {})
   ))
-  // const inputs = get(inputsAtom)
   const inputs = getFormValue(get(get(currentArgsFormAtomInAtom)))
-  const args = R.map(
-    i => {
-      const value = inputs[i.label]
-      // if (i.type.type === 1 && typeof value === 'string') {
-      //   return [value]
-      // }
-      return value
-    },
-    selectedMethodSpec!.args
-  )
+  const args = R.map(i => inputs[i.label], selectedMethodSpec!.args)
   const txConf = await estimateGas(contractInstance, txMethods[selectedMethodSpec!.label], cert, args);
   return txConf
 })
@@ -128,25 +83,19 @@ export enum ExecResult {
 
 export default function useContractExecutor(): [boolean, (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => Promise<ExecResult | void>] {
   const toast = useToast()
-  const [api, pruntimeURL, selectedMethodSpec, contract, account, queryClient, signer] = useAtomValue(waitForAll([
+  const [api, selectedMethodSpec, contract, account, queryClient, signer, registry, pinkLogger] = useAtomValue(waitForAll([
     apiPromiseAtom,
-    pruntimeURLAtom,
     currentMethodAtom,
     currentContractAtom,
     currentAccountAtom,
     queryClientAtom,
     signerAtom,
+    phatRegistryAtom,
+    pinkLoggerAtom,
   ]))
-  const remotePubkey = useAtomValue(currentWorkerIdAtom)
-  // const data = useAtomValue(remotePubkeyAtom)
-  // const remotePubkey = R.path([0,1,0], data) as string
-  const systemContractId = useAtomValue(currentSystemContractIdAtom)
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
-  // const currentArgsFormValueOf = useAtomValue(currentArgsFormValueOfAtom)
-  // const currentArgsFormValidate = useSetAtom(currentArgsFormValidateAtom)
-  // const currentArgsFormErrorsOf = useAtomValue(currentArgsFormErrorsOfAtom)
   const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
   const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
   const [isLoading, setIsLoading] = useState(false)
@@ -155,26 +104,15 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
-      if (!api || !account || !methodSpec || !signer) {
+      if (!api || !account || !methodSpec || !signer || !registry) {
         debug('contractInstance or account is null')
         return
       }
       debug('contract', contract)
-      // @ts-ignore
-      const apiCopy = await ApiPromise.create({ ...api._options })
-      const patched = await create({
-          api: apiCopy as unknown as CreateOptions['api'],
-          baseURL: pruntimeURL,
-          contractId: contract.contractId,
-          remotePubkey: remotePubkey,
-          // enable autoDeposit to pay for gas fee
-          autoDeposit: true
-        })
-      const contractInstance = new ContractPromise(
-        patched.api as unknown as ApiPromise,
-        contract.metadata,
-        contract.contractId
-      )
+      const { metadata, contractId } = contract
+      const contractKey = await registry.getContractKeyOrFail(contractId)
+      const contractInstance = new PinkContractPromise(api, registry, metadata, contractId, contractKey)
+
       debug('methodSpec', methodSpec)
 
       const inputValues = getFormValue(currentArgsForm)
@@ -223,7 +161,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           return api.createType(abiArg.type.type, value)
         },
         R.zip(methodSpec.args, abiArgs!.args)
-      )
+      ) as unknown[]
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
@@ -231,7 +169,6 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
 
       // tx
       if (methodSpec.mutates) {
-        // const { signer } = await web3FromSource(account.meta.source)
         let txConf
         if (depositSettings.autoDeposit) {
           txConf = await estimateGas(contractInstance, txMethods[methodSpec.label], cert, args as unknown[]);
@@ -249,19 +186,12 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         // @ts-ignore
         dispatch(r1.events)
         debug('result: ', r1)
-        // 2022-11-01: temporary disable block barrier since that's not required for all cases.
-        // const prpc = await createPruntimeApi(pruntimeURL)
-        // const prpc = createPruntimeApi(pruntimeURL)
-        // console.log('prpc', prpc)
-        // await blockBarrier(contractInstance.api, prpc)
       }
       // query
       else {
         const queryResult = await contractInstance.query[queryMethods[methodSpec.label]](
-          // @FIXME this is a hack to make the ts compiler happy.
-          cert as unknown as string,
-          // querySignCache as unknown as string,
-          { value: 0, gasLimit: -1 },
+          account.address,
+          { cert },
           ...args
         )
         debug('query result: ', queryResult)
@@ -295,44 +225,15 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
         isClosable: true,
       })
     } finally {
-      if (api && signer && account && systemContractId && remotePubkey) {
-        try {
-          const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
-          const result = await queryClient.fetchQuery(queryPinkLoggerContract(api, pruntimeURL, cert, systemContractId, remotePubkey))
-          if (result) {
-            const { sidevmQuery } = result
-            const params = {
-              action: 'GetLog',
-              contract: contract.contractId,
-            }
-            const raw = await sidevmQuery(stringToHex(JSON.stringify(params)) as unknown as Bytes, cert)
-            const resp = api.createType('InkResponse', raw).toHuman() as unknown as InkResponse
-            if (resp.result.Ok) {
-              const response: PinkLoggerResposne = JSON.parse(resp.result.Ok.InkMessageReturn)
-              response.records.forEach(r => {
-                if (r.type == 'MessageOutput' && r.output.startsWith('0x')) {
-                  try {
-                    let decoded = api.createType('ContractExecResult', r.output)
-                    r.decoded = JSON.stringify(decoded.toHuman())
-                  } catch {
-                    console.info('Failed to decode MessageOutput', r.output)
-                  }
-                }
-              })
-              // console.log('response', response.records[0].output)
-              // const lines = hexToString(resp.result.Ok.InkMessageReturn).trim().split('\n')
-              setLogs(R.reverse(response.records))
-            }
-          }
-        } catch (err) {
-          console.error('PinkLogger failed: ', err)
-        }
+      if (pinkLogger) {
+        const { records } = await pinkLogger.getLog(contract.contractId)
+        setLogs(R.reverse(records))
       }
       setIsLoading(false)
     }
   }, [
-    api, pruntimeURL, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, setLogs, systemContractId, currentArgsForm
+    api, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
+    signer, setLogs, currentArgsForm, registry, pinkLogger
   ])
   return [isLoading, fn]
 }

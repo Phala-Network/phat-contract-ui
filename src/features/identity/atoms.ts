@@ -21,7 +21,7 @@ export interface InjectedAccountWithMetaAndName extends InjectedAccountWithMeta 
 
 function getInjectedWeb3Provider() {
   const result = map<[string, InjectedWindowProvider], Pairs<string>>(
-    ([k, v]) => [k, v.version],
+    ([k, v]) => [k, v.version || 'unknown'],
     toPairs(propOr({}, 'injectedWeb3', window) as object)
   )
   debug('Found web3 providers:', join(', ', map(nth(0), result)))
@@ -76,9 +76,9 @@ const sortedAccounts = (acc: Readonly<InjectedAccountWithMetaAndName[]>) => {
 const getAllAcountsForProvider = async (name: string, keyring: Keyring) => {
   await new Promise(resolve => setTimeout(resolve, 2000))
   const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
-  if(provider) {
+  if(provider && provider.enable) {
     try {
-      const gateway = await provider.enable('PhalaWorld')
+      const gateway = await provider.enable('Phat Contracts UI')
       const accounts = await gateway.accounts.get(true)
       return accounts.map(acc => ({
         ...acc,
@@ -159,7 +159,7 @@ export const useRestoreLastSelectedAccount = () => {
 export const signerAtom = atom(async (get) => {
   const name = get(lastSelectedWeb3ProviderAtom)
   const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
-  if(provider) {
+  if(provider && provider.enable) {
     try {
       const gateway = await provider.enable('PhatContractUI')
       return gateway.signer
