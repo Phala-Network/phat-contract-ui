@@ -6,7 +6,7 @@ import { GoPrimitiveDot } from 'react-icons/go'
 import {HiOutlineDotsVertical as MenuIcon} from 'react-icons/hi'
 import { ButtonGroup, Button, ButtonProps } from '@chakra-ui/react'
 
-import { apiPromiseAtom } from '@/features/parachain/atoms'
+import { isDevChainAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, currentProfileAtom, formatetedAccountBalanceAtom } from '../atoms'
 import { isClosedBetaEnv } from '@/vite-env'
 
@@ -19,13 +19,13 @@ const ConnectStatusDot = styled(GoPrimitiveDot)<{
 
 const StyledChainName = tw.span`text-gray-300 font-mono text-xs font-extralight ml-1`
 
-const RuntimeChainName = ({ compact }: { compact?: boolean }) => {
-  const api = useAtomValue(apiPromiseAtom)
-  if (compact) {
+const RuntimeChainName = () => {
+  const isDev = useAtomValue(isDevChainAtom)
+  if (!isDev) {
     return null
   }
   return (
-    <StyledChainName>{api.runtimeChain.toHuman()}</StyledChainName>
+    <StyledChainName>testnet</StyledChainName>
   )
 }
 
@@ -43,7 +43,7 @@ const EndpointSwitchButton = ({ compact, onClick }: { compact?: boolean, onClick
         }
       >
         <ConnectStatusDot connected="1" />
-        <RuntimeChainName compact={compact} />
+        <RuntimeChainName />
       </Suspense>
     </Button>
   )
