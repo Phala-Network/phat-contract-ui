@@ -149,6 +149,7 @@ const RequestCertButton = ({children}: { children: ReactNode }) => {
 
 const selectedContructorAtom = atom((get) => {
   const contract = get(candidateAtom)
+  const abi = get(currentAbiAtom)
   const chooseInitSelector = get(contractSelectedInitSelectorAtom)
   if (!contract) {
     return null
@@ -169,7 +170,12 @@ const selectedContructorAtom = atom((get) => {
   if (!initSelector) {
     throw new Error('No valid initSelector specified.')
   }
-  return R.prop('label', R.find(i => i.selector === initSelector, spec.constructors))
+  const label = R.prop('label', R.find(i => i.selector === initSelector, spec.constructors))
+  const method = abi?.constructors.find(i => i.identifier === label) || null
+  if (method) {
+    return method.method
+  }
+  throw new Error(`Can't find the method label as '${label}'.`)
 })
 
 const blueprintPromiseAtom = atom<PinkBlueprintPromise | null>(null)
