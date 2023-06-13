@@ -1,6 +1,6 @@
-import type { FC } from 'react'
+import { FC } from 'react'
 
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useCallback, useMemo } from 'react'
 import * as R from 'ramda'
 import tw from 'twin.macro'
 import {
@@ -26,7 +26,7 @@ import { atom, useAtom, useSetAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { TiMediaPlay, TiFlash } from 'react-icons/ti'
+import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 
 import Code from '@/components/code'
 import useContractExecutor, { estimateGasAtom, inputsAtom, ExecResult } from '../hooks/useContractExecutor'
@@ -208,10 +208,35 @@ const SimpleArgsFormModal = () => {
   )
 }
 
+const currentDocsAtom = atom<[string, string[]]>(['', []])
+
+function FunctionDocModal() {
+  const [[title, docs], setDocs] = useAtom(currentDocsAtom)
+  const visible = useMemo(() => docs.length > 0, [docs])
+  const hideModal = useCallback(() => setDocs(['', []]), [setDocs])
+  return (
+    <Modal scrollBehavior="inside" isOpen={visible} onClose={hideModal}>
+      <ModalOverlay />
+      <ModalContent minWidth="45vw" maxWidth="580px">
+        <ModalHeader>
+          <h4 tw="mr-2 font-mono text-lg">{title}</h4>
+          <ModalCloseButton tw="mt-2" />
+        </ModalHeader>
+        <ModalBody>
+          <ReactMarkdown tw="text-gray-200 prose prose-h1:text-lg prose-h1:font-semibold prose-invert" remarkPlugins={[remarkGfm]}>
+            {docs.filter(i => R.trim(i)[0] !== '@').join("\n")}
+          </ReactMarkdown>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  )
+}
+
 const ContractMethodGrid = () => {
   const messages = useAtomValue(messagesAtom)
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
+  const setDocs = useUpdateAtom(currentDocsAtom)
   if (!messages.length) {
     return null
   }
@@ -239,20 +264,34 @@ const ContractMethodGrid = () => {
                       setArgsFormModalVisible(true)
                     }}
                   >
-                    <TiMediaPlay tw="h-6 w-6 text-phala-500" />
+                    <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
                   </button>
                 ) : (
                   <InstaExecuteButton methodSpec={message} />
                 )}
               </div>
             </div>
-            <ReactMarkdown tw="text-gray-200" remarkPlugins={[remarkGfm]}>
-              {message.docs.join("")}
-            </ReactMarkdown>
+            {message.docs.length > 0 ? (
+              <div tw="text-gray-200">
+                {message.docs[0]}
+              </div>
+            ) : null}
+            <div>
+              {message.docs.length > 1 ? (
+                <Button
+                  variant="link"
+                  tw="flex flex-row gap-0.5 items-center text-sm text-gray-400"
+                  onClick={() => setDocs([message.label, message.docs])}
+                >
+                  <TiDocument tw="h-3.5 w-3.5"/>Full Docs
+                </Button>
+              ) : null}
+            </div>
           </Box>
         ))}
       </SimpleGrid>
       <SimpleArgsFormModal />
+      <FunctionDocModal />
     </>
   )
 }
