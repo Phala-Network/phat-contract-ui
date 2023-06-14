@@ -33,7 +33,8 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { useAtomValue, useAtom } from 'jotai'
+import { atom, useAtomValue, useAtom } from 'jotai'
+import { atomFamily } from 'jotai/utils'
 import {
   isNumberLikeType,
   isBoolType,
@@ -45,17 +46,14 @@ import {
 } from '@/functions/argumentsValidator'
 import {
   currentArgsFormAtomInAtom,
-  currentFieldDataSetReadOnlyAtom,
   dispatchErrors,
   dispatchValue,
   FieldData,
   FormAction,
   FormActionType,
-  formReducer,
   ValueTypeNormalized,
 } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
-import { selectAtom } from 'jotai/utils'
 import { v4 as uuidV4 } from 'uuid'
 import * as R from 'ramda'
 
@@ -71,7 +69,6 @@ export interface ArgumentField {
 
 interface FieldDataProps {
   uid: string
-  dispatch: (action: FormAction) => void
 }
 
 interface EachFieldDataProps {
@@ -281,7 +278,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} dispatch={dispatch} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} />
             </>
           )
           : null
@@ -311,14 +308,14 @@ const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
       </Flex>
       {
         enableOption
-          ? <ArgumentFieldData uid={optionField as string} dispatch={dispatch} />
+          ? <ArgumentFieldData uid={optionField as string} />
           : null
       }
     </>
   )
 }
 
-const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
   const { value } = fieldData
   const structValue = value as Record<string, string>
   const names = Object.keys(structValue)
@@ -343,7 +340,7 @@ const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
                   {name}
                 </FormLabel>
                 <Box id={id}>
-                  <ArgumentFieldData uid={structValue[name]} dispatch={dispatch} />
+                  <ArgumentFieldData uid={structValue[name]} />
                 </Box>
               </Box>
             )}
@@ -354,7 +351,7 @@ const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const TupleOrVecFixedTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
   const { value } = fieldData
   const subFieldsUid = value as string[]
 
@@ -370,7 +367,7 @@ const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProp
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentFieldData uid={uid} dispatch={dispatch} />
+                <ArgumentFieldData uid={uid} />
               </Box>
             </Flex>
           )
@@ -382,7 +379,6 @@ const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProp
 
 const VecTypeItemFieldData = ({
   uid,
-  dispatch,
   removeSubField,
   index,
   removeDisabled,
@@ -403,7 +399,7 @@ const VecTypeItemFieldData = ({
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentFieldData uid={uid} dispatch={dispatch} />
+        <ArgumentFieldData uid={uid} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -457,7 +453,6 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
         subFieldsUid.map((subUid, index) => (
           <VecTypeItemFieldData
             uid={subUid}
-            dispatch={dispatch}
             removeSubField={removeSubField}
             removeDisabled={removeDisabled}
             index={index}
@@ -590,14 +585,29 @@ function CodeMirrorWidget({ fieldData, dispatch, lang }: EachFieldDataProps & { 
 //
 //
 
-const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
-  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
-  const fieldData = useAtomValue(fieldDataAtom)
+const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
+  return atom(
+    get => {
+      const form = get(get(currentArgsFormAtomInAtom))
+      return R.path(['fieldDataSet', id], form)
+    },
+    (get, set, action: FormAction) => {
+      const theAtom = get(currentArgsFormAtomInAtom)
+      set(theAtom, action)
+    }
+  )
+})
+
+//
+//
+
+const ArgumentFieldData = ({ uid }: { uid: string }) => {
+  const [fieldData, dispatch] = useAtom(currentMessageArgumentAtomFamily(uid))
 
   const { typeDef: { info } } = fieldData
   const uiSchema = fieldData.uiSchema || {}
 
-  console.log('[Top] ArgumentFieldData render', fieldDataAtom, uid, uiSchema)
+  console.log('[Top] ArgumentFieldData render', uid, uiSchema)
 
   if (uiSchema['ui:widget'] === 'textarea') {
     return <TextAreaWidget fieldData={fieldData} dispatch={dispatch} rows={Number(uiSchema['ui:rows']) || 6} />
@@ -640,15 +650,13 @@ const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
 const ArgumentField = memo(({
   name,
   uid,
-  dispatch,
 }: {
   name: string
-} & FieldDataProps) => {
-  // If no useMemo, component will re-render always.
-  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
-  const { displayType = '', value  } = useAtomValue(fieldDataAtom)
+  uid: string
+}) => {
+  const { displayType = '', value  } = useAtomValue(currentMessageArgumentAtomFamily(uid))
 
-  debug('[Each] ArgumentField render', fieldDataAtom, value, uid)
+  debug('[Each] ArgumentField render', value, uid)
 
   return (
     <FormControl>
@@ -656,13 +664,13 @@ const ArgumentField = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} dispatch={dispatch} />
+      <ArgumentFieldData uid={uid} />
     </FormControl>
   )
 })
 
 const ArgumentsForm = () => {
-  const [currentArgsForm, dispatch] = useAtom(useAtomValue(currentArgsFormAtomInAtom))
+  const currentArgsForm = useAtomValue(useAtomValue(currentArgsFormAtomInAtom))
   const { formData } = currentArgsForm
   const args = Object.keys(formData)
 
@@ -678,7 +686,6 @@ const ArgumentsForm = () => {
               key={index}
               name={name}
               uid={uid}
-              dispatch={dispatch}
             />
           )
         })

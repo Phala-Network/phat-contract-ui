@@ -429,13 +429,6 @@ export const currentArgsFormAtomInAtom = atom(get => {
   return atomWithReducer(form, formReducer)
 })
 
-export const currentArgsFormAtom = atom(get => get(get(currentArgsFormAtomInAtom)), (get, set, update: FormNormalized) => {
-  const currentArgsFormAtom = get(currentArgsFormAtomInAtom)
-  // set(currentArgsFormAtom, update)
-})
-
-export const currentFieldDataSetReadOnlyAtom = selectAtom(currentArgsFormAtom, form => form.fieldDataSet)
-
 export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
   const fieldData = fieldDataSet[uid]
 
