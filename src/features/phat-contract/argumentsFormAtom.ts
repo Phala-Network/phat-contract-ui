@@ -6,7 +6,7 @@ import { atom } from 'jotai'
 import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
-import { selectAtom, waitForAll } from 'jotai/utils'
+import { atomWithReducer, selectAtom, waitForAll } from 'jotai/utils'
 import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
@@ -426,14 +426,12 @@ export const currentArgsFormAtomInAtom = atom(get => {
 
   debug('form', form)
 
-  const formAtom = atom(form)
-
-  return formAtom
+  return atomWithReducer(form, formReducer)
 })
 
 export const currentArgsFormAtom = atom(get => get(get(currentArgsFormAtomInAtom)), (get, set, update: FormNormalized) => {
   const currentArgsFormAtom = get(currentArgsFormAtomInAtom)
-  set(currentArgsFormAtom, update)
+  // set(currentArgsFormAtom, update)
 })
 
 export const currentFieldDataSetReadOnlyAtom = selectAtom(currentArgsFormAtom, form => form.fieldDataSet)

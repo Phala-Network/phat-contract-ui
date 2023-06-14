@@ -33,7 +33,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useAtom } from 'jotai'
 import {
   isNumberLikeType,
   isBoolType,
@@ -55,7 +55,7 @@ import {
   ValueTypeNormalized,
 } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
-import { selectAtom, useReducerAtom } from 'jotai/utils'
+import { selectAtom } from 'jotai/utils'
 import { v4 as uuidV4 } from 'uuid'
 import * as R from 'ramda'
 
@@ -662,8 +662,7 @@ const ArgumentField = memo(({
 })
 
 const ArgumentsForm = () => {
-  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
-  const [currentArgsForm, dispatch] = useReducerAtom(currentArgsFormAtom, formReducer)
+  const [currentArgsForm, dispatch] = useAtom(useAtomValue(currentArgsFormAtomInAtom))
   const { formData } = currentArgsForm
   const args = Object.keys(formData)
 
