@@ -35,6 +35,7 @@ export interface FieldData<T = ValueType> {
   displayType?: string
   enumFields?: (FieldData<T> | string)[]
   optionField?: FieldData<T> | string
+  uiSchema?: UISchemaRecord
 }
 export type FieldDataNormalized = FieldData<ValueTypeNormalized>
 type EachTypeFieldData = Omit<FieldData<ValueTypeNormalized>, 'typeDef' | 'uid'>
@@ -265,7 +266,8 @@ const createOptionTypeFieldData = (registry: Registry, typeDef: TypeDef): EachTy
 export interface FieldDataOptions {
   isDisplayType?: boolean
 }
-const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDataOptions = {}): FieldDataResult => {
+
+function createFieldData(registry: Registry, typeDef: TypeDef, options: FieldDataOptions = {}): FieldDataResult {
   const { info, sub, type } = typeDef
 
   validateSub(typeDef)
@@ -319,6 +321,8 @@ const createFieldData = (registry: Registry, typeDef: TypeDef, options: FieldDat
         typeDef,
         displayType: options.isDisplayType ? formatTypeName(typeDef.type) : undefined,
         ...fieldResult.fieldData,
+        //
+        //
       }
     }
   }
@@ -334,7 +338,10 @@ export const formatTypeName = (typeName: string) => {
     .replace(/(?<![0-9a-zA-Z])Bytes(?![0-9a-zA-Z])/g, 'Vec<u8>')
 }
 
-interface FormNormalizedBuild {
+type UISchemaRecord = Record<string, any>
+type UISchema<TFieldName extends string = string> = Record<TFieldName, UISchemaRecord>
+
+interface FormNormalizedBuild<TFieldName extends string = string> {
   formData: Record<string, string>
   fieldDataSet: FieldDataSet
 }
@@ -343,27 +350,56 @@ interface FormNormalized extends FormNormalizedBuild {
   registry: Registry
 }
 
+function unsafeParseDocStringToUISchema<TFieldName extends string>(docs: string[]): UISchema<TFieldName> {
+  if (!docs.length) {
+    return {} as UISchema<TFieldName>
+  }
+  return R.pipe(
+    R.filter((i: string) => i.indexOf('@ui') !== -1),
+    R.map((i: string) => R.slice(1, 4, R.split(' ', R.trim(i)))),
+    R.groupWith((a: string[], b: string[]) => a[0] === b[0]),
+    R.map((lst) => {
+      const name = lst[0][0]
+      let obj = {}
+      for (let idx in lst) {
+        const [, key, value] = lst[idx]
+        const path = R.split('.', key)
+        path[0] = `ui:${path[0]}`
+        const lensPath = R.lensPath(path)
+        obj = R.set(lensPath, value, obj)
+      }
+      return [name, obj] as Pairs<string, UISchemaRecord>
+    }),
+    (x: Pairs<string, UISchemaRecord>[]) => R.fromPairs(x) as UISchema,
+  )(docs)
+}
 
-const createFormData = (registry: Registry, id: string, abiParams: AbiParam[]): FormNormalizedBuild => {
-  const initResult: FormNormalizedBuild = { formData: {}, fieldDataSet: {} }
 
+const createFormData = (registry: Registry, id: string, abiParams: AbiParam[], docs: string[]): FormNormalizedBuild => {
+  const uiSchema = unsafeParseDocStringToUISchema(docs)
 
-  return R.reduce((result, abiParam) => {
-    const { name, type } = abiParam
+  const result: FormNormalizedBuild = {
+    formData: {},
+    fieldDataSet: {},
+  }
+
+  for (let apiParam of abiParams) {
+    const { name, type } = apiParam
     const displayName = decamelize(name)
     const { uid, fieldDataSet } = createFieldData(registry, type, { isDisplayType: true })
-
-    return {
-      formData: {
-        ...result.formData,
-        [displayName]: uid,
-      },
-      fieldDataSet: {
-        ...result.fieldDataSet,
-        ...fieldDataSet,
-      }
+    if (uiSchema[displayName]) {
+      fieldDataSet[uid].uiSchema = uiSchema[displayName]
     }
-  }, initResult, abiParams)
+
+    result.formData[displayName] = uid
+    result.fieldDataSet = {
+      ...result.fieldDataSet,
+      ...fieldDataSet,
+    }
+  }
+  console.log('createFormData', result, docs)
+
+  return result
 }
 
 // Use an object represent the form.
@@ -380,8 +416,7 @@ export const currentArgsFormAtomInAtom = atom(get => {
   }
 
   if (message) {
-    const { args: abiParams, identifier: id } = message
-    formBuild = createFormData(registry, id, abiParams)
+    formBuild = createFormData(registry, message.identifier, message.args, message.docs)
   }
   
   const form: FormNormalized = {

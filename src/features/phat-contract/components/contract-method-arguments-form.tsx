@@ -3,7 +3,35 @@ import { ChangeEvent, memo, useEffect, useState } from 'react'
 import React, { useMemo } from 'react'
 import tw from 'twin.macro'
 import { TypeDefInfo } from '@polkadot/types'
-import { Box, Button, Center, Flex, FormControl, FormErrorMessage, FormHelperText, FormLabel, Input, ListItem, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, Stack, Switch, Text, UnorderedList } from '@chakra-ui/react'
+import {
+  Box,
+  Button,
+  Center,
+  Flex,
+  FormControl,
+  FormErrorMessage,
+  FormHelperText,
+  FormLabel,
+  Input,
+  ListItem,
+  NumberDecrementStepper,
+  NumberIncrementStepper,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  Select,
+  Stack,
+  Switch,
+  Text,
+  Textarea,
+  type TextareaProps,
+  UnorderedList
+} from '@chakra-ui/react'
+import CodeMirror from '@uiw/react-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { markdown } from '@codemirror/lang-markdown'
+import { json } from '@codemirror/lang-json'
+import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
 import { useAtomValue } from 'jotai'
 import { isNumberLikeType, isBoolType, subToArray, PlainType, validateNotUndefined, convertToBN, cantToNumberMessage } from '@/functions/argumentsValidator'
@@ -11,6 +39,7 @@ import { currentArgsFormAtomInAtom, currentFieldDataSetReadOnlyAtom, dispatchErr
 import createLogger from '@/functions/createLogger'
 import { selectAtom, useReducerAtom } from 'jotai/utils'
 import { v4 as uuidV4 } from 'uuid'
+import * as R from 'ramda'
 
 const debug = createLogger('contract arguments', 'debug')
 
@@ -477,13 +506,87 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
+function TextAreaWidget({ fieldData, dispatch, ...props }: EachFieldDataProps & TextareaProps) {
+  const { uid, value, errors = [] } = fieldData
+  const isInvalid = errors.length > 0
+  const [innerValue, setInnerValue] = useState('')
+
+  useEffect(() => {
+    if (!innerValue) {
+      dispatchValue(dispatch, uid, undefined)
+    } else {
+      let nextValue: ValueTypeNormalized = innerValue
+      dispatchValue(dispatch, uid, nextValue)
+    }
+  }, [innerValue])
+
+  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setInnerValue(event.target.value)
+  }
+
+  const handleBlur = () => {
+    const errors = validateNotUndefined(value)
+    dispatchErrors(dispatch, uid, errors)
+  }
+
+  return (
+    <FormControl isInvalid={isInvalid}>
+      <Textarea {...props} value={innerValue} onChange={handleChange} onBlur={handleBlur} placeholder="Input a string" />
+      <ArgumentErrors errors={errors} />
+    </FormControl>
+  )
+}
+
+function CodeMirrorWidget({ fieldData, dispatch, lang }: EachFieldDataProps & { lang: 'javascript' | 'json' | 'markdown'}) {
+  const { uid, value, errors = [] } = fieldData
+  const isInvalid = errors.length > 0
+  const extensions = useMemo(() => {
+    if (lang === 'json') {
+      return [json()]
+    } else if (lang === 'markdown') {
+      return [markdown()]
+    } else {
+      return [javascript()]
+    }
+  }, [lang])
+
+  return (
+    <FormControl isInvalid={isInvalid}>
+      <CodeMirror
+        tw="font-mono"
+        value={(value as string) || ''}
+        onChange={(value) => {
+          dispatchValue(dispatch, uid, value)
+          const errors = validateNotUndefined(value)
+          dispatchErrors(dispatch, uid, errors)
+        }}
+        extensions={extensions}
+        theme={vscodeDark}
+      />
+      <ArgumentErrors errors={errors} />
+    </FormControl>
+  )
+}
+
+
+//
+//
+
 const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
   const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
   const fieldData = useAtomValue(fieldDataAtom)
 
   const { typeDef: { info } } = fieldData
+  const uiSchema = fieldData.uiSchema || {}
 
-  console.log('[Top] ArgumentFieldData render', fieldDataAtom, uid)
+  console.log('[Top] ArgumentFieldData render', fieldDataAtom, uid, uiSchema)
+
+  if (uiSchema['ui:widget'] === 'textarea') {
+    return <TextAreaWidget fieldData={fieldData} dispatch={dispatch} rows={Number(uiSchema['ui:rows']) || 6} />
+  }
+  if (uiSchema['ui:widget'] === 'codemirror') {
+    return <CodeMirrorWidget fieldData={fieldData} dispatch={dispatch} lang={R.pathOr('javascript', ['ui:options', 'lang'], uiSchema)} />
+  }
 
   switch (info) {
     case TypeDefInfo.Plain:
@@ -516,7 +619,7 @@ const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
   }
 }
 
-const ArgumentForm = memo(({
+const ArgumentField = memo(({
   name,
   uid,
   dispatch,
@@ -527,7 +630,7 @@ const ArgumentForm = memo(({
   const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
   const { displayType = '', value  } = useAtomValue(fieldDataAtom)
 
-  debug('[Each] ArgumentForm render', fieldDataAtom, value, uid)
+  debug('[Each] ArgumentField render', fieldDataAtom, value, uid)
 
   return (
     <FormControl>
@@ -554,7 +657,7 @@ const ArgumentsForm = () => {
         args.map((name, index) => {
           const uid = formData[name]
           return (
-            <ArgumentForm
+            <ArgumentField
               key={index}
               name={name}
               uid={uid}
