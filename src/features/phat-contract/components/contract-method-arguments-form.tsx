@@ -431,7 +431,7 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
     }
   })
 
-  const removeDisabled = subFieldsUid.length <= 1
+  const removeDisabled = subFieldsUid.length <= 0
 
   return (
     <Stack spacing={FIELD_GAP}>
