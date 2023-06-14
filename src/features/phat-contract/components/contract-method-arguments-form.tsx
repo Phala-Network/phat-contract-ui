@@ -34,8 +34,26 @@ import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
 import { useAtomValue } from 'jotai'
-import { isNumberLikeType, isBoolType, subToArray, PlainType, validateNotUndefined, convertToBN, cantToNumberMessage } from '@/functions/argumentsValidator'
-import { currentArgsFormAtomInAtom, currentFieldDataSetReadOnlyAtom, dispatchErrors, dispatchValue, FieldData, FormAction, FormActionType, formReducer, ValueTypeNormalized } from '../argumentsFormAtom'
+import {
+  isNumberLikeType,
+  isBoolType,
+  subToArray,
+  PlainType,
+  validateNotUndefined,
+  convertToBN,
+  cantToNumberMessage
+} from '@/functions/argumentsValidator'
+import {
+  currentArgsFormAtomInAtom,
+  currentFieldDataSetReadOnlyAtom,
+  dispatchErrors,
+  dispatchValue,
+  FieldData,
+  FormAction,
+  FormActionType,
+  formReducer,
+  ValueTypeNormalized,
+} from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
 import { selectAtom, useReducerAtom } from 'jotai/utils'
 import { v4 as uuidV4 } from 'uuid'
