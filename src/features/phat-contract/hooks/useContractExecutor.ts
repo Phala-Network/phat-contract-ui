@@ -7,7 +7,7 @@ import type { DepositSettings } from '../atomsWithDepositSettings'
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
 import { atom, useAtomValue, useSetAtom, useAtom } from "jotai"
-import { useReducerAtom, waitForAll } from "jotai/utils"
+import { waitForAll } from "jotai/utils"
 import { queryClientAtom } from 'jotai/query'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/keyring'
@@ -27,7 +27,7 @@ import {
   phatRegistryAtom,
   pinkLoggerAtom,
 } from '../atoms'
-import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
+import { currentArgsFormAtomInAtom, FormActionType, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
 
 const debug = createLogger('chain', 'debug')

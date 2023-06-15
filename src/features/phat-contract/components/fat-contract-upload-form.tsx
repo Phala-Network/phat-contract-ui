@@ -47,7 +47,7 @@ import {
   localContractsAtom,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
-import InitSelectorField from './init-selector-field'
+import InitSelectorField, { constructorArgumentsAtom } from './init-selector-field'
 import { apiPromiseAtom } from '../../parachain/atoms'
 import signAndSend from '@/functions/signAndSend'
 import { RESET } from 'jotai/utils'
@@ -499,6 +499,7 @@ function InstantiateGasElimiation() {
   const [minClusterBalance, setMinClusterBalance] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const { currentBalance, refreshBalance, transfer, isLoading: isUpdatingClusterBalance } = useClusterBalance()
+  const args = useAtomValue(constructorArgumentsAtom)
 
   const [inlineChargeVisible, setInlineChargeVisible] = useState(false)
 
@@ -509,7 +510,7 @@ function InstantiateGasElimiation() {
         try {
           setTxOptions(null)
           // @ts-ignore
-          const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }) // Support instantiate arguments.
+          const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }, ...args) // Support instantiate arguments.
           const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
           const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 5).div(1e8)
           setTxOptions({
@@ -524,7 +525,7 @@ function InstantiateGasElimiation() {
         }
       })();
     }
-  }, [blueprint, constructor, currentAccount, cert, registry, refreshBalance, setTxOptions, setMinClusterBalance, setIsLoading])
+  }, [blueprint, constructor, currentAccount, cert, registry, refreshBalance, setTxOptions, setMinClusterBalance, setIsLoading, args])
 
   const contract = useAtomValue(candidateAtom)
   const saveContract = useSetAtom(localContractsAtom)
@@ -538,7 +539,7 @@ function InstantiateGasElimiation() {
     try {
       // @ts-ignore
       const { result: instantiateResult }= await signAndSend(
-        blueprint.tx[constructor](txOptions),
+        blueprint.tx[constructor](txOptions, ...args),
         currentAccount.address,
         signer
       )
