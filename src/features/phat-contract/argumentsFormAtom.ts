@@ -464,7 +464,7 @@ export function argumentFormAtomsWithAbiAndLabel(
     return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
   })
 
-  return [formAtom, formFieldListAtom]
+  return [formAtom, formFieldListAtom] as [typeof formAtom, typeof formFieldListAtom]
 }
 
 export const [currentArgsFormAtomInAtom, currentMessageArgumentAtomListAtom] = argumentFormAtomsWithAbiAndLabel(
