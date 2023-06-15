@@ -6,7 +6,7 @@ import { atom, type WritableAtom } from 'jotai'
 import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
-import { atomWithReducer, waitForAll } from 'jotai/utils'
+import { atomWithReducer, waitForAll, atomFamily } from 'jotai/utils'
 import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
@@ -411,25 +411,43 @@ export const currentArgsFormAtomInAtom = atom(get => {
     currentMethodAtom,
   ]))
   const message = messages.find(message => message.identifier === selectedMethodSpec?.label)
-
-  let formBuild: FormNormalizedBuild = {
-    formData: {},
-    fieldDataSet: {},
+  if (!message) {
+    return atomWithReducer({ registry, formData: {}, fieldDataSet: {} } as FormNormalized, formReducer)
   }
-
-  if (message) {
-    formBuild = createFormData(registry, message.identifier, message.args, message.docs)
-  }
-  
-  const form: FormNormalized = {
-    ...formBuild,
+  return atomWithReducer({
+    ...createFormData(registry, message.identifier, message.args, message.docs),
     registry,
-  }
-
-  debug('form', form)
-
-  return atomWithReducer(form, formReducer)
+  } as FormNormalized, formReducer)
 })
+
+const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
+  return atom(
+    get => {
+      const form = get(get(currentArgsFormAtomInAtom))
+      return R.path(['fieldDataSet', id], form)
+    },
+    (get, set, action: FormAction) => {
+      const theAtom = get(currentArgsFormAtomInAtom)
+      set(theAtom, action)
+    }
+  )
+})
+
+export const currentMessageArgumentAtomListAtom = atom(get => {
+  const { formData, fieldDataSet } = get(get(currentArgsFormAtomInAtom))
+  const firstLevel = R.toPairs(formData).map(([name, uid]) => {
+    return {
+      name,
+      uid,
+      theAtom: currentMessageArgumentAtomFamily(uid),
+    }
+  })
+  const fullList = R.fromPairs(R.keys(fieldDataSet).map(uid => [uid, currentMessageArgumentAtomFamily(uid)]))
+  return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
+})
+
+export type ArgumentFormAtom = typeof currentMessageArgumentAtomListAtom
+
 
 export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
   const fieldData = fieldDataSet[uid]

@@ -30,10 +30,9 @@ import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 
 import Code from '@/components/code'
 import useContractExecutor, { estimateGasAtom, inputsAtom, ExecResult } from '../hooks/useContractExecutor'
+import { currentMessageArgumentAtomListAtom } from '../argumentsFormAtom'
 import { currentMethodAtom, messagesAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
-// import { clearAtomsCache, currentArgsFormClearValidationAtom } from '../argumentsFormAtom'
-// import { useRunner, currentMethodAtom, messagesAtom } from '@/features/chain/atoms'
 import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
 
 
@@ -190,7 +189,7 @@ const SimpleArgsFormModal = () => {
           <ModalCloseButton tw="mt-2" />
         </ModalHeader>
         <ModalBody>
-          <ArgumentsForm />
+          <ArgumentsForm theAtom={currentMessageArgumentAtomListAtom} />
           {currentMethod.mutates ? <DepositSettingsField /> : null}
         </ModalBody>
         <ModalFooter>

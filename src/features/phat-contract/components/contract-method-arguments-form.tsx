@@ -33,8 +33,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { atom, useAtomValue, useAtom, WritableAtom } from 'jotai'
-import { atomFamily } from 'jotai/utils'
+import { useAtomValue, useAtom, WritableAtom } from 'jotai'
 import {
   isNumberLikeType,
   isBoolType,
@@ -45,7 +44,7 @@ import {
   cantToNumberMessage
 } from '@/functions/argumentsValidator'
 import {
-  currentArgsFormAtomInAtom,
+  type ArgumentFormAtom,
   dispatchErrors,
   dispatchValue,
   type FieldData,
@@ -107,37 +106,6 @@ const ArgumentErrors = ({
     )
     : <ArgumentHelpText helpText={helpText} />
 }
-
-
-//
-//
-
-const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
-  return atom(
-    get => {
-      const form = get(get(currentArgsFormAtomInAtom))
-      return R.path(['fieldDataSet', id], form)
-    },
-    (get, set, action: FormAction) => {
-      const theAtom = get(currentArgsFormAtomInAtom)
-      set(theAtom, action)
-    }
-  )
-})
-
-const currentMessageArgumentAtomListAtom = atom(get => {
-  const { formData, fieldDataSet } = get(get(currentArgsFormAtomInAtom))
-  const firstLevel = R.toPairs(formData).map(([name, uid]) => {
-    return {
-      name,
-      uid,
-      theAtom: currentMessageArgumentAtomFamily(uid),
-    }
-  })
-  const fullList = R.fromPairs(R.keys(fieldDataSet).map(uid => [uid, currentMessageArgumentAtomFamily(uid)]))
-  return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
-})
-
 
 /**
  * ---------------------------------------
@@ -713,8 +681,8 @@ const ArgumentField = memo(({
   )
 })
 
-const ArgumentsForm = () => {
-  const [argAtoms, allAtoms] = useAtomValue(currentMessageArgumentAtomListAtom)
+const ArgumentsForm = ({ theAtom }: { theAtom: ArgumentFormAtom }) => {
+  const [argAtoms, allAtoms] = useAtomValue(theAtom)
   return (
     <Stack spacing="16px">
       {
