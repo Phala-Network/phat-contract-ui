@@ -165,8 +165,6 @@ const selectedContructorAtom = atom((get) => {
     (i) => i ? i.selector : undefined,
   )(spec.constructors)
   const initSelector = chooseInitSelector || defaultInitSelector || R.head(spec.constructors)?.selector
-  console.log('user choose initSelector: ', chooseInitSelector)
-  console.log('default initSelector: ', defaultInitSelector)
   if (!initSelector) {
     throw new Error('No valid initSelector specified.')
   }
@@ -191,41 +189,15 @@ const currentAbiAtom = atom(get => {
   return abi
 })
 
-function getDefaultInitSelector(abi: Abi) {
-  const defaultInitSelector = R.pipe(
-    R.filter((c: ContractMetaConstructor) => c.label === 'default' || c.label === 'new'),
-    R.sortBy((c: ContractMetaConstructor) => c.args.length),
-    i => R.head<ContractMetaConstructor>(i),
-    (i) => i ? i.selector : undefined,
-  )(abi.constructors)
-  return defaultInitSelector || R.head(abi.constructors)?.selector
-}
-
-const hasParametersAtom = atom(get => {
-  const abi = get(currentAbiAtom)
-  if (!abi || !abi.constructors.length) {
-    return false
-  }
-  const chooseInitSelector = get(contractSelectedInitSelectorAtom)
-  const defaultInitSelector = getDefaultInitSelector(abi)
-  const initSelector = chooseInitSelector || defaultInitSelector
-  const target = R.find(i => i.selector === initSelector, abi.constructors)
-  if (target && target.args.length > 0) {
-    return true
-  }
-  return false
-})
-
 const currentStepAtom = atom(get => {
   const cachedCert = get(cachedCertAtom)
   const finfo = get(candidateFileInfoAtom)
-  const hasParameters = get(hasParametersAtom)
   const blueprint = get(blueprintPromiseAtom)
   const instantiatedContractId = get(instantiatedContractIdAtom)
   if (!finfo.size) {
     return 0
   }
-  if (hasParameters || !blueprint) {
+  if (!blueprint) {
     return 1
   }
   if (cachedCert[1] === null) {
@@ -333,7 +305,7 @@ function useUploadCode() {
       }
       const codePromise = new PinkCodePromise(registry.api, registry, contract, contract.source.wasm)
       // @ts-ignore
-      const { result: uploadResult } = await signAndSend(codePromise.tx.new({}), currentAccount.address, signer)
+      const { result: uploadResult } = await signAndSend(codePromise.upload({}), currentAccount.address, signer)
       await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
       setBlueprintPromise(uploadResult.blueprint)
     } finally {
