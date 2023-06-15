@@ -6,7 +6,7 @@ import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
-import { atom, useAtomValue, useSetAtom } from "jotai"
+import { atom, useAtomValue, useSetAtom, useAtom } from "jotai"
 import { useReducerAtom, waitForAll } from "jotai/utils"
 import { queryClientAtom } from 'jotai/query'
 import * as R from 'ramda'
@@ -96,8 +96,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
-  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
-  const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
+  const [currentArgsForm, dispatchForm] = useAtom(useAtomValue(currentArgsFormAtomInAtom))
   const [isLoading, setIsLoading] = useState(false)
 
   const fn = useCallback(async (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => {
