@@ -55,7 +55,6 @@ import {
   type ArgumentFieldAtom,
 } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
-import { v4 as uuidV4 } from 'uuid'
 import * as R from 'ramda'
 
 const debug = createLogger('contract arguments', 'debug')
@@ -127,12 +126,16 @@ const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
 })
 
 const currentMessageArgumentAtomListAtom = atom(get => {
-  const { formData } = get(get(currentArgsFormAtomInAtom))
-  return R.toPairs(formData).map(([name, uid]) => ({
-    name,
-    uid,
-    theAtom: currentMessageArgumentAtomFamily(uid),
-  }))
+  const { formData, fieldDataSet } = get(get(currentArgsFormAtomInAtom))
+  const firstLevel = R.toPairs(formData).map(([name, uid]) => {
+    return {
+      name,
+      uid,
+      theAtom: currentMessageArgumentAtomFamily(uid),
+    }
+  })
+  const fullList = R.fromPairs(R.keys(fieldDataSet).map(uid => [uid, currentMessageArgumentAtomFamily(uid)]))
+  return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
 })
 
 
@@ -241,7 +244,7 @@ const PlainTypeFieldData = (props: EachFieldDataProps) => {
   return <OtherTypeFieldData {...props} />
 }
 
-const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, typeDef, enumFields, errors = [] } = fieldData
   const subFieldData = enumFields as string[]
 
@@ -272,7 +275,12 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   }, [variant, variantIndex, selectedVariantName, subFieldData])
 
   console.log('subFieldData', subFieldData, variantIndex)
-  const theAtom = useMemo(() => subFieldData && variantIndex ? currentMessageArgumentAtomFamily(subFieldData[variantIndex]) : atom<any>(null), [subFieldData, variantIndex])
+  const theAtom = useMemo(() => {
+    if (subFieldData && variantIndex !== undefined) {
+      return allAtoms[subFieldData[variantIndex]]
+    }
+    return undefined
+  }, [allAtoms, subFieldData, variantIndex])
 
   const isInvalid = errors.length > 0
 
@@ -305,7 +313,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
         <ArgumentErrors errors={errors} />
       </FormControl>
       {
-        variant && variant.type !== 'Null' && variantIndex !== undefined
+        variant && variant.type !== 'Null' && variantIndex !== undefined && theAtom
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
@@ -318,15 +326,14 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const OptionTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, value, optionField } = fieldData
 
-  const theAtom = useMemo(() => currentMessageArgumentAtomFamily(optionField as string), [optionField])
+  const theAtom = useMemo(() => allAtoms[optionField as string], [allAtoms, optionField])
 
   debug('OptionTypeFieldData render: fieldData', fieldData)
 
   const enableOption = Boolean(value)
-  console.log('is enable', enableOption)
 
   const handleSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked
@@ -349,7 +356,7 @@ const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
+const StructTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { value } = fieldData
   const structValue = value as Record<string, string>
   const names = Object.keys(structValue)
@@ -358,7 +365,7 @@ const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
     return names.map(name => ({
       name,
       uid: structValue[name],
-      theAtom: currentMessageArgumentAtomFamily(structValue[name]),
+      theAtom: allAtoms[structValue[name]],
     }))
   }, [structValue, names])
 
@@ -392,13 +399,13 @@ const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
   )
 }
 
-const TupleOrVecFixedTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
+const TupleOrVecFixedTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { value } = fieldData
   const subFieldsUid = value as string[]
   const atoms = useMemo(() => subFieldsUid.map((uid) => ({
     uid,
-    theAtom: currentMessageArgumentAtomFamily(uid)
-  })), [subFieldsUid])
+    theAtom: allAtoms[uid]
+  })), [allAtoms, subFieldsUid])
 
   debug('TupleOrVecFixedTypeFieldData render: fieldData', fieldData)
 
@@ -427,14 +434,16 @@ const VecTypeItemFieldData = ({
   removeSubField,
   index,
   removeDisabled,
+  allAtoms,
 }: {
   uid: string
   index: number
   removeDisabled: boolean
   removeSubField: (uid: string) => void
+  allAtoms: Record<string, ArgumentFieldAtom>
 } & FieldDataProps) => {
 
-  const theAtom = useMemo(() => currentMessageArgumentAtomFamily(uid), [uid])
+  const theAtom = useMemo(() => allAtoms[uid], [uid, allAtoms])
 
   const handleRemove = () => {
     removeSubField(uid)
@@ -469,7 +478,7 @@ const VecTypeItemFieldData = ({
   )
 }
 
-const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const VecTypeDataEntry = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, typeDef: { sub }, value } = fieldData
   const subFieldsUid = value as string[]
   const subTypeDef = subToArray(sub)[0]
@@ -504,6 +513,7 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
             removeDisabled={removeDisabled}
             index={index}
             key={index}
+            allAtoms={allAtoms}
           />
         ))
       }
@@ -631,7 +641,7 @@ function CodeMirrorWidget({ fieldData, dispatch, lang }: EachFieldDataProps & { 
 //
 //
 
-const ArgumentFieldData = ({ uid, theAtom }: { uid: string, theAtom: ArgumentFieldAtom }) => {
+const ArgumentFieldData = ({ uid, theAtom, allAtoms = {} }: { uid: string, theAtom: ArgumentFieldAtom, allAtoms?: Record<string, ArgumentFieldAtom> }) => {
   const [fieldData, dispatch] = useAtom(theAtom)
 
   const { typeDef: { info } } = fieldData
@@ -651,26 +661,26 @@ const ArgumentFieldData = ({ uid, theAtom }: { uid: string, theAtom: ArgumentFie
       return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       
     case TypeDefInfo.Enum:
-      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.Option:
-      return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
     
     case TypeDefInfo.Struct:
-      return <StructTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <StructTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
     
     case TypeDefInfo.Tuple:
-      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.VecFixed:
       // [u8;32] or [u8;29]
       if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
         return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       }
-      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.Vec:
-      return <VecTypeDataEntry fieldData={fieldData} dispatch={dispatch} />
+      return <VecTypeDataEntry fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
   
     default:
       return <OtherTypeFieldData fieldData={fieldData} dispatch={dispatch} />
@@ -681,10 +691,12 @@ const ArgumentField = memo(({
   name,
   uid,
   theAtom,
+  allAtoms = {},
 }: {
   name: string
   uid: string
   theAtom: ArgumentFieldAtom,
+  allAtoms?: Record<string, ArgumentFieldAtom>,
 }) => {
   const { displayType = '', value } = useAtomValue(theAtom)
 
@@ -696,13 +708,13 @@ const ArgumentField = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} theAtom={theAtom} />
+      <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
     </FormControl>
   )
 })
 
 const ArgumentsForm = () => {
-  const argAtoms = useAtomValue(currentMessageArgumentAtomListAtom)
+  const [argAtoms, allAtoms] = useAtomValue(currentMessageArgumentAtomListAtom)
   return (
     <Stack spacing="16px">
       {
@@ -712,6 +724,7 @@ const ArgumentsForm = () => {
             uid={uid}
             name={name}
             theAtom={theAtom}
+            allAtoms={allAtoms}
           />
         ))
       }
