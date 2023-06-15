@@ -33,7 +33,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { atom, useAtomValue, useAtom } from 'jotai'
+import { atom, useAtomValue, useAtom, WritableAtom } from 'jotai'
 import { atomFamily } from 'jotai/utils'
 import {
   isNumberLikeType,
@@ -48,10 +48,11 @@ import {
   currentArgsFormAtomInAtom,
   dispatchErrors,
   dispatchValue,
-  FieldData,
-  FormAction,
-  FormActionType,
-  ValueTypeNormalized,
+  type FieldData,
+  type FormAction,
+  FormActionType, // Enum
+  type ValueTypeNormalized,
+  type ArgumentFieldAtom,
 } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
 import { v4 as uuidV4 } from 'uuid'
@@ -107,6 +108,33 @@ const ArgumentErrors = ({
     )
     : <ArgumentHelpText helpText={helpText} />
 }
+
+
+//
+//
+
+const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
+  return atom(
+    get => {
+      const form = get(get(currentArgsFormAtomInAtom))
+      return R.path(['fieldDataSet', id], form)
+    },
+    (get, set, action: FormAction) => {
+      const theAtom = get(currentArgsFormAtomInAtom)
+      set(theAtom, action)
+    }
+  )
+})
+
+const currentMessageArgumentAtomListAtom = atom(get => {
+  const { formData } = get(get(currentArgsFormAtomInAtom))
+  return R.toPairs(formData).map(([name, uid]) => ({
+    name,
+    uid,
+    theAtom: currentMessageArgumentAtomFamily(uid),
+  }))
+})
+
 
 /**
  * ---------------------------------------
@@ -243,6 +271,9 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
     }
   }, [variant, variantIndex, selectedVariantName, subFieldData])
 
+  console.log('subFieldData', subFieldData, variantIndex)
+  const theAtom = useMemo(() => subFieldData && variantIndex ? currentMessageArgumentAtomFamily(subFieldData[variantIndex]) : atom<any>(null), [subFieldData, variantIndex])
+
   const isInvalid = errors.length > 0
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -278,7 +309,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} />
             </>
           )
           : null
@@ -290,9 +321,12 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
 const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const { uid, value, optionField } = fieldData
 
+  const theAtom = useMemo(() => currentMessageArgumentAtomFamily(optionField as string), [optionField])
+
   debug('OptionTypeFieldData render: fieldData', fieldData)
 
   const enableOption = Boolean(value)
+  console.log('is enable', enableOption)
 
   const handleSwitchChange = (event: ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked
@@ -308,7 +342,7 @@ const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
       </Flex>
       {
         enableOption
-          ? <ArgumentFieldData uid={optionField as string} />
+          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} />
           : null
       }
     </>
@@ -319,6 +353,14 @@ const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
   const { value } = fieldData
   const structValue = value as Record<string, string>
   const names = Object.keys(structValue)
+
+  const atoms = useMemo(() => {
+    return names.map(name => ({
+      name,
+      uid: structValue[name],
+      theAtom: currentMessageArgumentAtomFamily(structValue[name]),
+    }))
+  }, [structValue, names])
 
   debug('StructTypeFieldData render: fieldData', fieldData)
 
@@ -332,15 +374,14 @@ const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
     >
       <Stack spacing={FIELD_GAP}>
         {
-          names.map((name, index) => {
-            const id = uuidV4()
+          atoms.map(({name, uid, theAtom}, index) => {
             return (
               <Box key={index}>
-                <FormLabel htmlFor={id}>
+                <FormLabel htmlFor={uid}>
                   {name}
                 </FormLabel>
-                <Box id={id}>
-                  <ArgumentFieldData uid={structValue[name]} />
+                <Box id={uid}>
+                  <ArgumentFieldData uid={uid} theAtom={theAtom} />
                 </Box>
               </Box>
             )}
@@ -354,20 +395,24 @@ const StructTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
 const TupleOrVecFixedTypeFieldData = ({ fieldData }: EachFieldDataProps) => {
   const { value } = fieldData
   const subFieldsUid = value as string[]
+  const atoms = useMemo(() => subFieldsUid.map((uid) => ({
+    uid,
+    theAtom: currentMessageArgumentAtomFamily(uid)
+  })), [subFieldsUid])
 
   debug('TupleOrVecFixedTypeFieldData render: fieldData', fieldData)
 
   return (
     <Stack spacing={FIELD_GAP}>
       {
-        subFieldsUid.map((uid, index) => {
+        atoms.map(({ uid, theAtom }, index) => {
           return (
             <Flex key={index}>
               <Center w="40px" bgColor="whiteAlpha.200" borderRadius="md">
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentFieldData uid={uid} />
+                <ArgumentFieldData uid={uid} theAtom={theAtom} />
               </Box>
             </Flex>
           )
@@ -389,6 +434,8 @@ const VecTypeItemFieldData = ({
   removeSubField: (uid: string) => void
 } & FieldDataProps) => {
 
+  const theAtom = useMemo(() => currentMessageArgumentAtomFamily(uid), [uid])
+
   const handleRemove = () => {
     removeSubField(uid)
   }
@@ -399,7 +446,7 @@ const VecTypeItemFieldData = ({
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentFieldData uid={uid} />
+        <ArgumentFieldData uid={uid} theAtom={theAtom} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -581,28 +628,11 @@ function CodeMirrorWidget({ fieldData, dispatch, lang }: EachFieldDataProps & { 
   )
 }
 
-
 //
 //
 
-const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
-  return atom(
-    get => {
-      const form = get(get(currentArgsFormAtomInAtom))
-      return R.path(['fieldDataSet', id], form)
-    },
-    (get, set, action: FormAction) => {
-      const theAtom = get(currentArgsFormAtomInAtom)
-      set(theAtom, action)
-    }
-  )
-})
-
-//
-//
-
-const ArgumentFieldData = ({ uid }: { uid: string }) => {
-  const [fieldData, dispatch] = useAtom(currentMessageArgumentAtomFamily(uid))
+const ArgumentFieldData = ({ uid, theAtom }: { uid: string, theAtom: ArgumentFieldAtom }) => {
+  const [fieldData, dispatch] = useAtom(theAtom)
 
   const { typeDef: { info } } = fieldData
   const uiSchema = fieldData.uiSchema || {}
@@ -650,11 +680,13 @@ const ArgumentFieldData = ({ uid }: { uid: string }) => {
 const ArgumentField = memo(({
   name,
   uid,
+  theAtom,
 }: {
   name: string
   uid: string
+  theAtom: ArgumentFieldAtom,
 }) => {
-  const { displayType = '', value  } = useAtomValue(currentMessageArgumentAtomFamily(uid))
+  const { displayType = '', value } = useAtomValue(theAtom)
 
   debug('[Each] ArgumentField render', value, uid)
 
@@ -664,31 +696,24 @@ const ArgumentField = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} />
+      <ArgumentFieldData uid={uid} theAtom={theAtom} />
     </FormControl>
   )
 })
 
 const ArgumentsForm = () => {
-  const currentArgsForm = useAtomValue(useAtomValue(currentArgsFormAtomInAtom))
-  const { formData } = currentArgsForm
-  const args = Object.keys(formData)
-
-  debug('[Total] ArgumentsForm render', currentArgsForm)
-
+  const argAtoms = useAtomValue(currentMessageArgumentAtomListAtom)
   return (
     <Stack spacing="16px">
       {
-        args.map((name, index) => {
-          const uid = formData[name]
-          return (
-            <ArgumentField
-              key={index}
-              name={name}
-              uid={uid}
-            />
-          )
-        })
+        argAtoms.map(({ name, uid, theAtom }) => (
+          <ArgumentField
+            key={uid}
+            uid={uid}
+            name={name}
+            theAtom={theAtom}
+          />
+        ))
       }
     </Stack>
   )

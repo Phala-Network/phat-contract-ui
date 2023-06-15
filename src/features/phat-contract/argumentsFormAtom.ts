@@ -1,12 +1,12 @@
 import type { Abi } from '@polkadot/api-contract'
 import { TypeDefInfo } from '@polkadot/types/types'
-import { AbiParam } from '@polkadot/api-contract/types'
+import { AbiParam, AbiMessage, AbiConstructor } from '@polkadot/api-contract/types'
 import { decamelize } from 'humps'
-import { atom } from 'jotai'
+import { atom, type WritableAtom } from 'jotai'
 import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
-import { atomWithReducer, selectAtom, waitForAll } from 'jotai/utils'
+import { atomWithReducer, waitForAll } from 'jotai/utils'
 import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
@@ -78,6 +78,8 @@ export interface FormAction {
   type: FormActionType
   payload?: PayloadType
 }
+
+export type ArgumentFieldAtom = WritableAtom<FieldDataNormalized, FormAction>
 
 export const formReducer = (prev: FormNormalized, action: FormAction): FormNormalized => {
   const { type, payload = {} } = action
