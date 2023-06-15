@@ -2,7 +2,7 @@ import type { Abi } from '@polkadot/api-contract'
 import { TypeDefInfo } from '@polkadot/types/types'
 import { AbiParam, AbiMessage, AbiConstructor } from '@polkadot/api-contract/types'
 import { decamelize } from 'humps'
-import { atom, type WritableAtom } from 'jotai'
+import { atom, type WritableAtom, type Atom } from 'jotai'
 import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
@@ -343,12 +343,12 @@ export const formatTypeName = (typeName: string) => {
 type UISchemaRecord = Record<string, any>
 type UISchema<TFieldName extends string = string> = Record<TFieldName, UISchemaRecord>
 
-interface FormNormalizedBuild<TFieldName extends string = string> {
+export interface FormNormalizedBuild<TFieldName extends string = string> {
   formData: Record<string, string>
   fieldDataSet: FieldDataSet
 }
 
-interface FormNormalized extends FormNormalizedBuild {
+export interface FormNormalized extends FormNormalizedBuild {
   registry: Registry
 }
 
@@ -404,50 +404,80 @@ const createFormData = (registry: Registry, id: string, abiParams: AbiParam[], d
   return result
 }
 
-// Use an object represent the form.
-export const currentArgsFormAtomInAtom = atom(get => {
-  const [{ registry, messages }, selectedMethodSpec] = get(waitForAll([
-    currentAbiAtom,
-    currentMethodAtom,
-  ]))
-  const message = messages.find(message => message.identifier === selectedMethodSpec?.label)
-  if (!message) {
-    return atomWithReducer({ registry, formData: {}, fieldDataSet: {} } as FormNormalized, formReducer)
-  }
-  return atomWithReducer({
-    ...createFormData(registry, message.identifier, message.args, message.docs),
-    registry,
-  } as FormNormalized, formReducer)
-})
 
-const currentMessageArgumentAtomFamily = atomFamily(function(id: string) {
-  return atom(
-    get => {
-      const form = get(get(currentArgsFormAtomInAtom))
-      return R.path(['fieldDataSet', id], form)
-    },
-    (get, set, action: FormAction) => {
-      const theAtom = get(currentArgsFormAtomInAtom)
-      set(theAtom, action)
+export function argumentFormAtomsWithAbiAndLabel(
+  abiAtom: Atom<Nullable<Abi>>,
+  labelAtom: Atom<Nullable<string>> | WritableAtom<Nullable<string>, any>,
+  type: 'message' | 'constructor'
+) {
+  //
+  // The form atom is holding everything derived from the abi and label.
+  //
+  const formAtom = atom(get => {
+    const abi = get(abiAtom)
+    const label = get(labelAtom)
+    if (!abi || !label) {
+      return atomWithReducer({ formData: {}, fieldDataSet: {} } as FormNormalized, formReducer)
     }
-  )
-})
+    let message
+    if (type === 'message') {
+      message = abi.messages.find(message => message.identifier === label)
+    } else {
+      message = abi.constructors.find(message => message.identifier === label)
+    }
+    if (!message) {
+      return atomWithReducer({ formData: {}, fieldDataSet: {} } as FormNormalized, formReducer)
+    }
+    return atomWithReducer({
+      ...createFormData(abi.registry, message.identifier, message.args, message.docs),
+      registry: abi.registry,
+    } as FormNormalized, formReducer)
+  })
 
-export const currentMessageArgumentAtomListAtom = atom(get => {
-  const { formData, fieldDataSet } = get(get(currentArgsFormAtomInAtom))
-  const firstLevel = R.toPairs(formData).map(([name, uid]) => {
-    return {
+  //
+  // We need atom family here as form field atom factory fucntion.
+  //
+  const formFieldAtomFamily = atomFamily(function(id: string) {
+    return atom(
+      get => {
+        const form = get(get(formAtom))
+        return R.path(['fieldDataSet', id], form)
+      },
+      (get, set, action: FormAction) => {
+        const theAtom = get(formAtom)
+        set(theAtom, action)
+      }
+    )
+  })
+
+  //
+  // An atom returns a tuple, the first one is array of top-level form field atoms, the second one is a map of all form field atoms.
+  //
+  const formFieldListAtom = atom(get => {
+    const { formData, fieldDataSet } = get(get(formAtom))
+    const firstLevel = R.toPairs(formData).map(([name, uid]) => ({
       name,
       uid,
-      theAtom: currentMessageArgumentAtomFamily(uid),
-    }
+      theAtom: formFieldAtomFamily(uid),
+    }))
+    const fullList = R.fromPairs(R.keys(fieldDataSet).map(uid => [uid, formFieldAtomFamily(uid)]))
+    return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
   })
-  const fullList = R.fromPairs(R.keys(fieldDataSet).map(uid => [uid, currentMessageArgumentAtomFamily(uid)]))
-  return [firstLevel, fullList] as [typeof firstLevel, typeof fullList]
-})
+
+  return [formAtom, formFieldListAtom]
+}
+
+export const [currentArgsFormAtomInAtom, currentMessageArgumentAtomListAtom] = argumentFormAtomsWithAbiAndLabel(
+  currentAbiAtom,
+  atom(get => get(currentMethodAtom)?.label || ''),
+  'message'
+)
 
 export type ArgumentFormAtom = typeof currentMessageArgumentAtomListAtom
 
+//
+// Helper functions.
+//
 
 export const getFieldValue = (fieldDataSet: FieldDataSet, uid: string): unknown => {
   const fieldData = fieldDataSet[uid]
