@@ -27,10 +27,11 @@ import {
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { RESET } from 'jotai/utils'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link } from '@tanstack/react-location'
 import { find } from 'ramda'
-import { CertificateData, PinkCodePromise, PinkBlueprintPromise, create, signCertificate } from '@phala/sdk'
+import { PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
@@ -45,12 +46,13 @@ import {
   contractSelectedInitSelectorAtom,
   phatRegistryAtom,
   localContractsAtom,
+  cachedCertAtom,
+  hasCertAtom,
+  useRequestSign,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentsAtom } from './init-selector-field'
-import { apiPromiseAtom } from '../../parachain/atoms'
 import signAndSend from '@/functions/signAndSend'
-import { RESET } from 'jotai/utils'
 
 
 const ClusterIdSelect = () => {
@@ -86,53 +88,6 @@ const ClusterIdSelect = () => {
 //
 //
 //
-
-const cachedCertAtom = atom<Pairs<string, CertificateData | null>>(['', null])
-
-const hasCertAtom = atom(get => {
-  const current = get(cachedCertAtom)
-  const account = get(currentAccountAtom)
-  return account?.address === current[0] && current[1] !== null
-})
-
-function useRequestSign() {
-  const [isWaiting, setIsWaiting] = useState(false)
-  const [isReady, setIsReady] = useState(false)
-
-  const api = useAtomValue(apiPromiseAtom)
-  const account = useAtomValue(currentAccountAtom)
-  const signer = useAtomValue(signerAtom)
-  const setCachedCert = useSetAtom(cachedCertAtom)
-
-  useEffect(() => {
-    if (api && account && signer) {
-      setIsReady(true)
-    } else {
-      setIsReady(false)
-    }
-  }, [setIsReady, api, account, signer])
-
-  const requestSign = useCallback(async () => {
-    if (!api || !account) {
-      throw new Error('You need connected to an endpoint & pick a account first.')
-    }
-    if (!signer) {
-      throw new Error('Unexpected Error: you might not approve the access to the wallet extension or the wallet extension initialization failed.')
-    }
-    try {
-      setIsWaiting(true)
-      const cert = await signCertificate({ signer, account, api })
-      setCachedCert([account.address, cert])
-      return cert
-    } catch (err) {
-      return null
-    } finally {
-      setIsWaiting(false)
-    }
-  }, [api, account, signer, setIsWaiting, setCachedCert])
-
-  return { isReady, isWaiting, requestSign }
-}
 
 const RequestCertButton = ({children}: { children: ReactNode }) => {
   const { isReady, isWaiting, requestSign } = useRequestSign()
