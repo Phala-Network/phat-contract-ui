@@ -129,7 +129,8 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       
       debug('inputValues & errors', inputValues, isInvalid)
       
-      if (isInvalid) {
+      // Instant Execution will set `overrideMethodSpec`, and we need skip the check in this case.
+      if (isInvalid && !overrideMethodSpec) {
         return ExecResult.Stop
       }
 
