@@ -6,8 +6,8 @@ import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
 import { useState, useCallback } from 'react'
-import { atom, useAtomValue, useSetAtom } from "jotai"
-import { useReducerAtom, waitForAll } from "jotai/utils"
+import { atom, useAtomValue, useSetAtom, useAtom } from "jotai"
+import { waitForAll } from "jotai/utils"
 import { queryClientAtom } from 'jotai/query'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/keyring'
@@ -26,8 +26,9 @@ import {
   pinkLoggerResultAtom,
   phatRegistryAtom,
   pinkLoggerAtom,
+  useRequestSign,
 } from '../atoms'
-import { currentArgsFormAtomInAtom, FormActionType, formReducer, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
+import { currentArgsFormAtomInAtom, FormActionType, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
 
 const debug = createLogger('chain', 'debug')
@@ -96,9 +97,9 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
   const appendResult = useSetAtom(dispatchResultsAtom)
   const dispatch = useSetAtom(dispatchEventAtom)
   const setLogs = useSetAtom(pinkLoggerResultAtom)
-  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
-  const [currentArgsForm, dispatchForm] = useReducerAtom(currentArgsFormAtom, formReducer)
+  const [currentArgsForm, dispatchForm] = useAtom(useAtomValue(currentArgsFormAtomInAtom))
   const [isLoading, setIsLoading] = useState(false)
+  const { getCert } = useRequestSign()
 
   const fn = useCallback(async (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
@@ -128,7 +129,8 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       
       debug('inputValues & errors', inputValues, isInvalid)
       
-      if (isInvalid) {
+      // Instant Execution will set `overrideMethodSpec`, and we need skip the check in this case.
+      if (isInvalid && !overrideMethodSpec) {
         return ExecResult.Stop
       }
 
@@ -165,7 +167,12 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
-      const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
+      // const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
+      const cert = await getCert()
+      if (!cert) {
+        console.log('User cancelled signing')
+        return
+      }
 
       // tx
       if (methodSpec.mutates) {

@@ -3,14 +3,58 @@ import { ChangeEvent, memo, useEffect, useState } from 'react'
 import React, { useMemo } from 'react'
 import tw from 'twin.macro'
 import { TypeDefInfo } from '@polkadot/types'
-import { Box, Button, Center, Flex, FormControl, FormErrorMessage, FormHelperText, FormLabel, Input, ListItem, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, Stack, Switch, Text, UnorderedList } from '@chakra-ui/react'
+import {
+  Box,
+  Button,
+  Center,
+  Flex,
+  FormControl,
+  FormErrorMessage,
+  FormHelperText,
+  FormLabel,
+  Input,
+  ListItem,
+  NumberDecrementStepper,
+  NumberIncrementStepper,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  Select,
+  Stack,
+  Switch,
+  Text,
+  Textarea,
+  type TextareaProps,
+  UnorderedList
+} from '@chakra-ui/react'
+import CodeMirror from '@uiw/react-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { markdown } from '@codemirror/lang-markdown'
+import { json } from '@codemirror/lang-json'
+import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { useAtomValue } from 'jotai'
-import { isNumberLikeType, isBoolType, subToArray, PlainType, validateNotUndefined, convertToBN, cantToNumberMessage } from '@/functions/argumentsValidator'
-import { currentArgsFormAtomInAtom, currentFieldDataSetReadOnlyAtom, dispatchErrors, dispatchValue, FieldData, FormAction, FormActionType, formReducer, ValueTypeNormalized } from '../argumentsFormAtom'
+import { useAtomValue, useAtom, WritableAtom } from 'jotai'
+import {
+  isNumberLikeType,
+  isBoolType,
+  subToArray,
+  PlainType,
+  validateNotUndefined,
+  convertToBN,
+  cantToNumberMessage
+} from '@/functions/argumentsValidator'
+import {
+  type ArgumentFormAtom,
+  dispatchErrors,
+  dispatchValue,
+  type FieldData,
+  type FormAction,
+  FormActionType, // Enum
+  type ValueTypeNormalized,
+  type ArgumentFieldAtom,
+} from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
-import { selectAtom, useReducerAtom } from 'jotai/utils'
-import { v4 as uuidV4 } from 'uuid'
+import * as R from 'ramda'
 
 const debug = createLogger('contract arguments', 'debug')
 
@@ -24,7 +68,6 @@ export interface ArgumentField {
 
 interface FieldDataProps {
   uid: string
-  dispatch: (action: FormAction) => void
 }
 
 interface EachFieldDataProps {
@@ -169,7 +212,7 @@ const PlainTypeFieldData = (props: EachFieldDataProps) => {
   return <OtherTypeFieldData {...props} />
 }
 
-const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, typeDef, enumFields, errors = [] } = fieldData
   const subFieldData = enumFields as string[]
 
@@ -198,6 +241,14 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
       dispatchValue(dispatch, uid, undefined)
     }
   }, [variant, variantIndex, selectedVariantName, subFieldData])
+
+  console.log('subFieldData', subFieldData, variantIndex)
+  const theAtom = useMemo(() => {
+    if (subFieldData && variantIndex !== undefined) {
+      return allAtoms[subFieldData[variantIndex]]
+    }
+    return undefined
+  }, [allAtoms, subFieldData, variantIndex])
 
   const isInvalid = errors.length > 0
 
@@ -230,11 +281,11 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
         <ArgumentErrors errors={errors} />
       </FormControl>
       {
-        variant && variant.type !== 'Null' && variantIndex !== undefined
+        variant && variant.type !== 'Null' && variantIndex !== undefined && theAtom
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} dispatch={dispatch} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} />
             </>
           )
           : null
@@ -243,8 +294,10 @@ const EnumTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const OptionTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, value, optionField } = fieldData
+
+  const theAtom = useMemo(() => allAtoms[optionField as string], [allAtoms, optionField])
 
   debug('OptionTypeFieldData render: fieldData', fieldData)
 
@@ -264,17 +317,25 @@ const OptionTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
       </Flex>
       {
         enableOption
-          ? <ArgumentFieldData uid={optionField as string} dispatch={dispatch} />
+          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} />
           : null
       }
     </>
   )
 }
 
-const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const StructTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { value } = fieldData
   const structValue = value as Record<string, string>
   const names = Object.keys(structValue)
+
+  const atoms = useMemo(() => {
+    return names.map(name => ({
+      name,
+      uid: structValue[name],
+      theAtom: allAtoms[structValue[name]],
+    }))
+  }, [structValue, names])
 
   debug('StructTypeFieldData render: fieldData', fieldData)
 
@@ -288,15 +349,14 @@ const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
     >
       <Stack spacing={FIELD_GAP}>
         {
-          names.map((name, index) => {
-            const id = uuidV4()
+          atoms.map(({name, uid, theAtom}, index) => {
             return (
               <Box key={index}>
-                <FormLabel htmlFor={id}>
+                <FormLabel htmlFor={uid}>
                   {name}
                 </FormLabel>
-                <Box id={id}>
-                  <ArgumentFieldData uid={structValue[name]} dispatch={dispatch} />
+                <Box id={uid}>
+                  <ArgumentFieldData uid={uid} theAtom={theAtom} />
                 </Box>
               </Box>
             )}
@@ -307,23 +367,27 @@ const StructTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const TupleOrVecFixedTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { value } = fieldData
   const subFieldsUid = value as string[]
+  const atoms = useMemo(() => subFieldsUid.map((uid) => ({
+    uid,
+    theAtom: allAtoms[uid]
+  })), [allAtoms, subFieldsUid])
 
   debug('TupleOrVecFixedTypeFieldData render: fieldData', fieldData)
 
   return (
     <Stack spacing={FIELD_GAP}>
       {
-        subFieldsUid.map((uid, index) => {
+        atoms.map(({ uid, theAtom }, index) => {
           return (
             <Flex key={index}>
               <Center w="40px" bgColor="whiteAlpha.200" borderRadius="md">
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentFieldData uid={uid} dispatch={dispatch} />
+                <ArgumentFieldData uid={uid} theAtom={theAtom} />
               </Box>
             </Flex>
           )
@@ -335,16 +399,19 @@ const TupleOrVecFixedTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProp
 
 const VecTypeItemFieldData = ({
   uid,
-  dispatch,
   removeSubField,
   index,
   removeDisabled,
+  allAtoms,
 }: {
   uid: string
   index: number
   removeDisabled: boolean
   removeSubField: (uid: string) => void
+  allAtoms: Record<string, ArgumentFieldAtom>
 } & FieldDataProps) => {
+
+  const theAtom = useMemo(() => allAtoms[uid], [uid, allAtoms])
 
   const handleRemove = () => {
     removeSubField(uid)
@@ -356,7 +423,7 @@ const VecTypeItemFieldData = ({
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentFieldData uid={uid} dispatch={dispatch} />
+        <ArgumentFieldData uid={uid} theAtom={theAtom} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -379,7 +446,7 @@ const VecTypeItemFieldData = ({
   )
 }
 
-const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
+const VecTypeDataEntry = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, typeDef: { sub }, value } = fieldData
   const subFieldsUid = value as string[]
   const subTypeDef = subToArray(sub)[0]
@@ -402,7 +469,7 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
     }
   })
 
-  const removeDisabled = subFieldsUid.length <= 1
+  const removeDisabled = subFieldsUid.length <= 0
 
   return (
     <Stack spacing={FIELD_GAP}>
@@ -410,11 +477,11 @@ const VecTypeDataEntry = ({ fieldData, dispatch }: EachFieldDataProps) => {
         subFieldsUid.map((subUid, index) => (
           <VecTypeItemFieldData
             uid={subUid}
-            dispatch={dispatch}
             removeSubField={removeSubField}
             removeDisabled={removeDisabled}
             index={index}
             key={index}
+            allAtoms={allAtoms}
           />
         ))
       }
@@ -477,57 +544,131 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   )
 }
 
-const ArgumentFieldData = ({ uid, dispatch }: FieldDataProps) => {
-  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
-  const fieldData = useAtomValue(fieldDataAtom)
+function TextAreaWidget({ fieldData, dispatch, ...props }: EachFieldDataProps & TextareaProps) {
+  const { uid, value, errors = [] } = fieldData
+  const isInvalid = errors.length > 0
+  const [innerValue, setInnerValue] = useState('')
+
+  useEffect(() => {
+    if (!innerValue) {
+      dispatchValue(dispatch, uid, undefined)
+    } else {
+      let nextValue: ValueTypeNormalized = innerValue
+      dispatchValue(dispatch, uid, nextValue)
+    }
+  }, [innerValue])
+
+  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setInnerValue(event.target.value)
+  }
+
+  const handleBlur = () => {
+    const errors = validateNotUndefined(value)
+    dispatchErrors(dispatch, uid, errors)
+  }
+
+  return (
+    <FormControl isInvalid={isInvalid}>
+      <Textarea {...props} value={innerValue} onChange={handleChange} onBlur={handleBlur} placeholder="Input a string" />
+      <ArgumentErrors errors={errors} />
+    </FormControl>
+  )
+}
+
+function CodeMirrorWidget({ fieldData, dispatch, lang }: EachFieldDataProps & { lang: 'javascript' | 'json' | 'markdown'}) {
+  const { uid, value, errors = [] } = fieldData
+  const isInvalid = errors.length > 0
+  const extensions = useMemo(() => {
+    if (lang === 'json') {
+      return [json()]
+    } else if (lang === 'markdown') {
+      return [markdown()]
+    } else {
+      return [javascript()]
+    }
+  }, [lang])
+
+  return (
+    <FormControl isInvalid={isInvalid}>
+      <CodeMirror
+        tw="font-mono"
+        value={(value as string) || ''}
+        onChange={(value) => {
+          dispatchValue(dispatch, uid, value)
+          const errors = validateNotUndefined(value)
+          dispatchErrors(dispatch, uid, errors)
+        }}
+        extensions={extensions}
+        theme={vscodeDark}
+      />
+      <ArgumentErrors errors={errors} />
+    </FormControl>
+  )
+}
+
+//
+//
+
+const ArgumentFieldData = ({ uid, theAtom, allAtoms = {} }: { uid: string, theAtom: ArgumentFieldAtom, allAtoms?: Record<string, ArgumentFieldAtom> }) => {
+  const [fieldData, dispatch] = useAtom(theAtom)
 
   const { typeDef: { info } } = fieldData
+  const uiSchema = fieldData.uiSchema || {}
 
-  console.log('[Top] ArgumentFieldData render', fieldDataAtom, uid)
+  console.log('[Top] ArgumentFieldData render', uid, uiSchema)
+
+  if (uiSchema['ui:widget'] === 'textarea') {
+    return <TextAreaWidget fieldData={fieldData} dispatch={dispatch} rows={Number(uiSchema['ui:rows']) || 6} />
+  }
+  if (uiSchema['ui:widget'] === 'codemirror') {
+    return <CodeMirrorWidget fieldData={fieldData} dispatch={dispatch} lang={R.pathOr('javascript', ['ui:options', 'lang'], uiSchema)} />
+  }
 
   switch (info) {
     case TypeDefInfo.Plain:
       return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       
     case TypeDefInfo.Enum:
-      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.Option:
-      return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
     
     case TypeDefInfo.Struct:
-      return <StructTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <StructTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
     
     case TypeDefInfo.Tuple:
-      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.VecFixed:
       // [u8;32] or [u8;29]
       if (fieldData.typeDef.type.indexOf('[u8;') === 0) {
         return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       }
-      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} />
+      return <TupleOrVecFixedTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.Vec:
-      return <VecTypeDataEntry fieldData={fieldData} dispatch={dispatch} />
+      return <VecTypeDataEntry fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
   
     default:
       return <OtherTypeFieldData fieldData={fieldData} dispatch={dispatch} />
   }
 }
 
-const ArgumentForm = memo(({
+const ArgumentField = memo(({
   name,
   uid,
-  dispatch,
+  theAtom,
+  allAtoms = {},
 }: {
   name: string
-} & FieldDataProps) => {
-  // If no useMemo, component will re-render always.
-  const fieldDataAtom = useMemo(() => selectAtom(currentFieldDataSetReadOnlyAtom, sets => sets[uid]), [uid])
-  const { displayType = '', value  } = useAtomValue(fieldDataAtom)
+  uid: string
+  theAtom: ArgumentFieldAtom,
+  allAtoms?: Record<string, ArgumentFieldAtom>,
+}) => {
+  const { displayType = '', value } = useAtomValue(theAtom)
 
-  debug('[Each] ArgumentForm render', fieldDataAtom, value, uid)
+  debug('[Each] ArgumentField render', value, uid)
 
   return (
     <FormControl>
@@ -535,33 +676,25 @@ const ArgumentForm = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} dispatch={dispatch} />
+      <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
     </FormControl>
   )
 })
 
-const ArgumentsForm = () => {
-  const currentArgsFormAtom = useAtomValue(currentArgsFormAtomInAtom)
-  const [currentArgsForm, dispatch] = useReducerAtom(currentArgsFormAtom, formReducer)
-  const { formData } = currentArgsForm
-  const args = Object.keys(formData)
-
-  debug('[Total] ArgumentsForm render', currentArgsForm)
-
+const ArgumentsForm = ({ theAtom }: { theAtom: ArgumentFormAtom }) => {
+  const [argAtoms, allAtoms] = useAtomValue(theAtom)
   return (
     <Stack spacing="16px">
       {
-        args.map((name, index) => {
-          const uid = formData[name]
-          return (
-            <ArgumentForm
-              key={index}
-              name={name}
-              uid={uid}
-              dispatch={dispatch}
-            />
-          )
-        })
+        argAtoms.map(({ name, uid, theAtom }) => (
+          <ArgumentField
+            key={uid}
+            uid={uid}
+            name={name}
+            theAtom={theAtom}
+            allAtoms={allAtoms}
+          />
+        ))
       }
     </Stack>
   )

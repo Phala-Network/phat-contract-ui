@@ -1,3 +1,5 @@
+const typography = require('@tailwindcss/typography')
+
 module.exports = {
   theme: {
     extend: {
@@ -77,4 +79,7 @@ module.exports = {
       '4xl': '1920px',
     },
   },
+  plugins: [
+    typography,
+  ],
 }

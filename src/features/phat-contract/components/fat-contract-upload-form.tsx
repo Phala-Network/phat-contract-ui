@@ -27,10 +27,11 @@ import {
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { RESET } from 'jotai/utils'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link } from '@tanstack/react-location'
 import { find } from 'ramda'
-import { CertificateData, PinkCodePromise, PinkBlueprintPromise, create, signCertificate } from '@phala/sdk'
+import { PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
@@ -45,12 +46,13 @@ import {
   contractSelectedInitSelectorAtom,
   phatRegistryAtom,
   localContractsAtom,
+  cachedCertAtom,
+  hasCertAtom,
+  useRequestSign,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
-import InitSelectorField from './init-selector-field'
-import { apiPromiseAtom } from '../../parachain/atoms'
+import InitSelectorField, { constructorArgumentsAtom } from './init-selector-field'
 import signAndSend from '@/functions/signAndSend'
-import { RESET } from 'jotai/utils'
 
 
 const ClusterIdSelect = () => {
@@ -87,53 +89,6 @@ const ClusterIdSelect = () => {
 //
 //
 
-const cachedCertAtom = atom<Pairs<string, CertificateData | null>>(['', null])
-
-const hasCertAtom = atom(get => {
-  const current = get(cachedCertAtom)
-  const account = get(currentAccountAtom)
-  return account?.address === current[0] && current[1] !== null
-})
-
-function useRequestSign() {
-  const [isWaiting, setIsWaiting] = useState(false)
-  const [isReady, setIsReady] = useState(false)
-
-  const api = useAtomValue(apiPromiseAtom)
-  const account = useAtomValue(currentAccountAtom)
-  const signer = useAtomValue(signerAtom)
-  const setCachedCert = useSetAtom(cachedCertAtom)
-
-  useEffect(() => {
-    if (api && account && signer) {
-      setIsReady(true)
-    } else {
-      setIsReady(false)
-    }
-  }, [setIsReady, api, account, signer])
-
-  const requestSign = useCallback(async () => {
-    if (!api || !account) {
-      throw new Error('You need connected to an endpoint & pick a account first.')
-    }
-    if (!signer) {
-      throw new Error('Unexpected Error: you might not approve the access to the wallet extension or the wallet extension initialization failed.')
-    }
-    try {
-      setIsWaiting(true)
-      const cert = await signCertificate({ signer, account, api })
-      setCachedCert([account.address, cert])
-      return cert
-    } catch (err) {
-      return null
-    } finally {
-      setIsWaiting(false)
-    }
-  }, [api, account, signer, setIsWaiting, setCachedCert])
-
-  return { isReady, isWaiting, requestSign }
-}
-
 const RequestCertButton = ({children}: { children: ReactNode }) => {
   const { isReady, isWaiting, requestSign } = useRequestSign()
   return (
@@ -165,8 +120,6 @@ const selectedContructorAtom = atom((get) => {
     (i) => i ? i.selector : undefined,
   )(spec.constructors)
   const initSelector = chooseInitSelector || defaultInitSelector || R.head(spec.constructors)?.selector
-  console.log('user choose initSelector: ', chooseInitSelector)
-  console.log('default initSelector: ', defaultInitSelector)
   if (!initSelector) {
     throw new Error('No valid initSelector specified.')
   }
@@ -191,41 +144,15 @@ const currentAbiAtom = atom(get => {
   return abi
 })
 
-function getDefaultInitSelector(abi: Abi) {
-  const defaultInitSelector = R.pipe(
-    R.filter((c: ContractMetaConstructor) => c.label === 'default' || c.label === 'new'),
-    R.sortBy((c: ContractMetaConstructor) => c.args.length),
-    i => R.head<ContractMetaConstructor>(i),
-    (i) => i ? i.selector : undefined,
-  )(abi.constructors)
-  return defaultInitSelector || R.head(abi.constructors)?.selector
-}
-
-const hasParametersAtom = atom(get => {
-  const abi = get(currentAbiAtom)
-  if (!abi || !abi.constructors.length) {
-    return false
-  }
-  const chooseInitSelector = get(contractSelectedInitSelectorAtom)
-  const defaultInitSelector = getDefaultInitSelector(abi)
-  const initSelector = chooseInitSelector || defaultInitSelector
-  const target = R.find(i => i.selector === initSelector, abi.constructors)
-  if (target && target.args.length > 0) {
-    return true
-  }
-  return false
-})
-
 const currentStepAtom = atom(get => {
   const cachedCert = get(cachedCertAtom)
   const finfo = get(candidateFileInfoAtom)
-  const hasParameters = get(hasParametersAtom)
   const blueprint = get(blueprintPromiseAtom)
   const instantiatedContractId = get(instantiatedContractIdAtom)
   if (!finfo.size) {
     return 0
   }
-  if (hasParameters || !blueprint) {
+  if (!blueprint) {
     return 1
   }
   if (cachedCert[1] === null) {
@@ -333,7 +260,7 @@ function useUploadCode() {
       }
       const codePromise = new PinkCodePromise(registry.api, registry, contract, contract.source.wasm)
       // @ts-ignore
-      const { result: uploadResult } = await signAndSend(codePromise.tx.new({}), currentAccount.address, signer)
+      const { result: uploadResult } = await signAndSend(codePromise.upload({}), currentAccount.address, signer)
       await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
       setBlueprintPromise(uploadResult.blueprint)
     } finally {
@@ -499,6 +426,7 @@ function InstantiateGasElimiation() {
   const [minClusterBalance, setMinClusterBalance] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const { currentBalance, refreshBalance, transfer, isLoading: isUpdatingClusterBalance } = useClusterBalance()
+  const args = useAtomValue(constructorArgumentsAtom)
 
   const [inlineChargeVisible, setInlineChargeVisible] = useState(false)
 
@@ -509,7 +437,7 @@ function InstantiateGasElimiation() {
         try {
           setTxOptions(null)
           // @ts-ignore
-          const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }) // Support instantiate arguments.
+          const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }, ...args) // Support instantiate arguments.
           const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
           const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 5).div(1e8)
           setTxOptions({
@@ -524,7 +452,7 @@ function InstantiateGasElimiation() {
         }
       })();
     }
-  }, [blueprint, constructor, currentAccount, cert, registry, refreshBalance, setTxOptions, setMinClusterBalance, setIsLoading])
+  }, [blueprint, constructor, currentAccount, cert, registry, refreshBalance, setTxOptions, setMinClusterBalance, setIsLoading, args])
 
   const contract = useAtomValue(candidateAtom)
   const saveContract = useSetAtom(localContractsAtom)
@@ -538,7 +466,7 @@ function InstantiateGasElimiation() {
     try {
       // @ts-ignore
       const { result: instantiateResult }= await signAndSend(
-        blueprint.tx[constructor](txOptions),
+        blueprint.tx[constructor](txOptions, ...args),
         currentAccount.address,
         signer
       )
