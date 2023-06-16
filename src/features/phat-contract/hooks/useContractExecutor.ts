@@ -26,6 +26,7 @@ import {
   pinkLoggerResultAtom,
   phatRegistryAtom,
   pinkLoggerAtom,
+  useRequestSign,
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
@@ -98,6 +99,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
   const setLogs = useSetAtom(pinkLoggerResultAtom)
   const [currentArgsForm, dispatchForm] = useAtom(useAtomValue(currentArgsFormAtomInAtom))
   const [isLoading, setIsLoading] = useState(false)
+  const { getCert } = useRequestSign()
 
   const fn = useCallback(async (depositSettings: DepositSettings, overrideMethodSpec?: ContractMetaMessage) => {
     setIsLoading(true)
@@ -164,7 +166,12 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
-      const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
+      // const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
+      const cert = await getCert()
+      if (!cert) {
+        console.log('User cancelled signing')
+        return
+      }
 
       // tx
       if (methodSpec.mutates) {
