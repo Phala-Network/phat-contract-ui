@@ -1,7 +1,5 @@
-import type { ReactNode } from 'react'
 import type { Result, U64 } from '@polkadot/types'
-
-import React, { Suspense, useState, useEffect, useCallback } from 'react'
+import React, { type ReactNode, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import {
   Button,
@@ -234,6 +232,7 @@ function useClusterBalance() {
 
 function useUploadCode() {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<{message: string, level: 'info' | 'error'} | null>(null)
   const { requestSign } = useRequestSign()
 
   const [, cert] = useAtomValue(cachedCertAtom)
@@ -242,10 +241,11 @@ function useUploadCode() {
   const currentAccount = useAtomValue(currentAccountAtom)
   const signer = useAtomValue(signerAtom)
   const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
-  const constructor = useAtomValue(selectedContructorAtom)
 
   const upload = useCallback(async () => {
-    if (!contract || !constructor) {
+    setError(null)
+    if (!contract) {
+      setError({ message: 'Plase choose the contract file to continue.', level: 'info' })
       return
     }
     setIsLoading(true)
@@ -255,6 +255,7 @@ function useUploadCode() {
         _cert = await requestSign()
       }
       if (!_cert) {
+        setError({ message: 'You need sign the certificate to continue.', level: 'info' })
         // TODO show toast.
         return
       }
@@ -263,12 +264,19 @@ function useUploadCode() {
       const { result: uploadResult } = await signAndSend(codePromise.upload({}), currentAccount.address, signer)
       await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
       setBlueprintPromise(uploadResult.blueprint)
+    } catch (err) {
+      // TODO: better error handling?
+      console.error(err)
+      setError({ message: `Contract upload failed: ${err}`, level: 'error' })
     } finally {
       setIsLoading(false)
     }
-  }, [registry, contract, currentAccount, cert, constructor, setBlueprintPromise])
+  }, [registry, contract, currentAccount, cert, setBlueprintPromise])
 
-  return { isLoading, upload }
+  const resetError = useCallback(() => setError(null), [setError])
+  const hasError = useMemo(() => error !== null, [error])
+
+  return { isLoading, upload, resetError, hasError, error }
 }
 
 function useReset() {
@@ -321,12 +329,22 @@ function StepSection({ children, index, isEnd }: { children: ReactNode, index: n
 
 function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
-  const { isLoading, upload } = useUploadCode()
+  const { isLoading, upload, error, hasError } = useUploadCode()
   const currentStep = useAtomValue(currentStepAtom)
   return (
-    <Button isDisabled={currentStep > 2} isLoading={isLoading} onClick={upload}>
-      {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
-    </Button>
+    <>
+      {hasError ? (
+        <div tw="mb-2">
+          <Alert status={error?.level || 'info'}>
+            <AlertIcon />
+            <AlertTitle>{error?.message}</AlertTitle>
+          </Alert>
+        </div>
+      ) : null}
+      <Button isDisabled={currentStep > 2} isLoading={isLoading} onClick={upload}>
+        {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
+      </Button>
+    </>
   )
 }
 
