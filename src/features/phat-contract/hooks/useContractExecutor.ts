@@ -160,7 +160,11 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
           if (abiArg.type.type === 'Text') {
             return api.createType('Text', { toString: () => (value as string) })
           }
-          return api.createType(abiArg.type.type, value)
+          try {
+            return api.createType(abiArg.type.type, value)
+          } catch (err) {
+            return value
+          }
         },
         R.zip(methodSpec.args, abiArgs!.args)
       ) as unknown[]
