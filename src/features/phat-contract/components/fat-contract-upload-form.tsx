@@ -51,9 +51,10 @@ import {
   useRequestSign,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
-import InitSelectorField, { constructorArgumentsAtom } from './init-selector-field'
+import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAtom } from './init-selector-field'
 import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
+import { getFormIsInvalid } from '../argumentsFormAtom'
 
 
 const ClusterIdSelect = () => {
@@ -566,6 +567,11 @@ const TransferToCluster = () => {
   )
 }
 
+const argumentsFormIsValidAtom = atom(get => {
+  const form = get(get(constructorArgumentFormAtom))
+  return !getFormIsInvalid(form)
+})
+
 function InstantiateGasElimiation() {
   const blueprint = useAtomValue(blueprintPromiseAtom)
   const constructor = useAtomValue(selectedContructorAtom)
@@ -574,7 +580,6 @@ function InstantiateGasElimiation() {
   const signer = useAtomValue(signerAtom)
   const registry = useAtomValue(phatRegistryAtom)
   const finfo = useAtomValue(candidateFileInfoAtom)
-  const currentStep = useAtomValue(currentStepAtom)
 
   const [txOptions, setTxOptions] = useState<any>(null)
   const [minClusterBalance, setMinClusterBalance] = useState(0)
@@ -583,6 +588,7 @@ function InstantiateGasElimiation() {
   const args = useAtomValue(constructorArgumentsAtom)
 
   const [inlineChargeVisible, setInlineChargeVisible] = useState(false)
+  const isValid = useAtomValue(argumentsFormIsValidAtom) 
 
   useEffect(() => {
     if (blueprint && constructor && currentAccount && cert && registry) {
@@ -663,10 +669,10 @@ function InstantiateGasElimiation() {
           </tr>
         </tbody>
       </table>
-      <div>
+      <div tw="mt-2">
         {(currentBalance < minClusterBalance) ? (
           <Button
-            isDisabled={!blueprint || currentStep > 3}
+            isDisabled={!blueprint || !isValid}
             isLoading={isLoading}
             onClick={async () => {
               await transfer(new Decimal(minClusterBalance - currentBalance))
@@ -676,7 +682,7 @@ function InstantiateGasElimiation() {
             Transfer minimal and instantiate
           </Button>
         ) : (
-          <Button isDisabled={!blueprint || currentStep > 3} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
+          <Button isDisabled={!blueprint || !isValid} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
         )}
       </div>
     </div>
