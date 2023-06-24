@@ -8,6 +8,7 @@ import {
   Alert,
   AlertIcon,
   AlertTitle,
+  AlertDescription,
   FormControl,
   FormLabel,
   Step,
@@ -31,11 +32,12 @@ import { Link } from '@tanstack/react-location'
 import { find } from 'ramda'
 import { PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
+import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
 
 import { Select } from '@/components/inputs/select'
-import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
+import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
 import {
   candidateAtom,
   currentClusterIdAtom,
@@ -51,6 +53,7 @@ import {
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentsAtom } from './init-selector-field'
 import signAndSend from '@/functions/signAndSend'
+import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 
 
 const ClusterIdSelect = () => {
@@ -80,19 +83,6 @@ const ClusterIdSelect = () => {
   }
   return (
     <Select value={clusterId} onChange={setClusterId} options={options} />
-  )
-}
-
-//
-//
-//
-
-const RequestCertButton = ({children}: { children: ReactNode }) => {
-  const { isReady, isWaiting, requestSign } = useRequestSign()
-  return (
-    <Button isLoading={isWaiting} isDisabled={!isReady} onClick={requestSign}>
-      {children}
-    </Button>
   )
 }
 
@@ -143,26 +133,31 @@ const currentAbiAtom = atom(get => {
 })
 
 const currentStepAtom = atom(get => {
-  const cachedCert = get(cachedCertAtom)
-  const finfo = get(candidateFileInfoAtom)
+  const hasCert = get(hasCertAtom)
   const blueprint = get(blueprintPromiseAtom)
   const instantiatedContractId = get(instantiatedContractIdAtom)
-  if (!finfo.size) {
+  //
+  // Step 1: user sign the certificate and check the current balance in cluster 
+  //
+  if (!hasCert) {
     return 0
   }
+  //
+  // Step 2: check blueprint promise exists or not, which means user already upload to cluster.
+  //
   if (!blueprint) {
     return 1
   }
-  if (cachedCert[1] === null) {
+  //
+  // Step 3: check if the contract instantiated or not.
+  //
+  if (!instantiatedContractId) {
     return 2
   }
-  if (instantiatedContractId) {
-    return 4
-  }
-  if (blueprint) {
-    return 3
-  }
-  return 2
+  //
+  // For not the whole progress should has been finished.
+  //
+  return 3
 })
 
 const currentBalanceAtom = atom(0)
@@ -241,6 +236,7 @@ function useUploadCode() {
   const currentAccount = useAtomValue(currentAccountAtom)
   const signer = useAtomValue(signerAtom)
   const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
+  const finfo = useAtomValue(candidateFileInfoAtom)
 
   const upload = useCallback(async () => {
     setError(null)
@@ -261,17 +257,19 @@ function useUploadCode() {
       }
       const codePromise = new PinkCodePromise(registry.api, registry, contract, contract.source.wasm)
       // @ts-ignore
-      const { result: uploadResult } = await signAndSend(codePromise.upload({}), currentAccount.address, signer)
+      const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
       await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
       setBlueprintPromise(uploadResult.blueprint)
     } catch (err) {
       // TODO: better error handling?
-      console.error(err)
-      setError({ message: `Contract upload failed: ${err}`, level: 'error' })
+      if ((err as Error).message.indexOf('Cancelled') === -1) {
+        console.error(err)
+        setError({ message: `Contract upload failed: ${err}`, level: 'error' })
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [registry, contract, currentAccount, cert, setBlueprintPromise])
+  }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo])
 
   const resetError = useCallback(() => setError(null), [setError])
   const hasError = useMemo(() => error !== null, [error])
@@ -325,14 +323,160 @@ function StepSection({ children, index, isEnd }: { children: ReactNode, index: n
   )
 }
 
+//
+
+// A panel show user current balance in cluster. Because the balance query need user sign the cert before,
+// so it will block all follow up operations is not cert.
+function ClusterBalance() {
+  const { hasCert, requestSign, isWaiting } = useRequestSign()
+  const { currentBalance } = useClusterBalance()
+  const [showInlineTransferForm, setShowInlineTransferForm] = useState(false)
+  if (!hasCert) {
+    return (
+      <Alert>
+        <AlertIcon />
+        <AlertTitle>
+          You need sign the cert before continue.
+        </AlertTitle>
+        <AlertDescription>
+          <Button
+            colorScheme="phalaDark"
+            isLoading={isWaiting}
+            onClick={requestSign}
+          >
+            Sign
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  return (
+    <table tw="inline-flex">
+      <tbody>
+        <tr>
+          <td tw="pr-2.5 py-2 text-right">Cluster ID:</td>
+          <td>
+            <ClusterIdSelect />
+          </td>
+        </tr>
+        <tr>
+          <td tw="pr-2.5 py-2 text-right">Cluster Account Balance:</td>
+          <td tw="py-2 flex flex-row items-center gap-4">
+            <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
+            {showInlineTransferForm ? (
+              <div tw="flex flex-row items-center gap-1">
+                <TransferToCluster />
+                <Button mt="0.5" size="xs" onClick={() => setShowInlineTransferForm(false)}><VscClose /></Button>
+              </div>
+            ) : (
+              <Button size="xs" onClick={() => setShowInlineTransferForm(true)}>Transfer</Button>
+            )}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
 // Step 2
+
+const uploadCodeCheckAtom = atom(get => {
+  const registry = get(phatRegistryAtom)
+  const finfo = get(candidateFileInfoAtom)
+  const currentBalance = get(currentBalanceAtom)
+  const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 2.2).div(1e8).toNumber()
+  if (!finfo.size) {
+    return { canUpload: false, showTransferToCluster: false }
+  }
+  if (currentBalance < storageDepositeFee) {
+    return { canUpload: false, showTransferToCluster: true, storageDepositeFee }
+  }
+  return { canUpload: true, showTransferToCluster: false }
+})
+
+function GetPhaButton() {
+  const api = useAtomValue(apiPromiseAtom)
+  const isDevChain = useAtomValue(isDevChainAtom)
+  const account = useAtomValue(currentAccountAtom)
+  const [loading, setLoading] = useState(false)
+  if (!account) {
+    return null
+  }
+  if (!isDevChain) {
+    <Button as="a" size="sm" href="https://docs.phala.network/introduction/basic-guidance/get-pha-and-transfer" target="_blank" rel="noopener">
+      Get PHA
+    </Button>
+  }
+
+  async function getTestCoin () {
+    setLoading(true)
+    const keyring = new Keyring({ type: 'sr25519' })
+    const pair = keyring.addFromUri('//Alice')
+    await api.tx.balances.transferKeepAlive(account?.address, '100000000000000')
+      .signAndSend(pair, { nonce: -1 })
+    setLoading(false)
+  }
+  return (
+    <Button
+      w="full"
+      isLoading={loading}
+      onClick={getTestCoin}
+    >
+      Get Test-PHA
+    </Button>
+  )
+}
+
+function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: number }) {
+  const currentAccountBalance = useAtomValue(currentAccountBalanceAtom)
+  const { currentBalance, transfer } = useClusterBalance()
+  const [showCustomTransferToClusterForm, setShowInlineTransferForm] = useState(false)
+  return (
+    <Alert status="info" alignItems="flex-start">
+      <AlertIcon />
+      <div tw="flex flex-col gap-1 items-start">
+        <AlertTitle>
+          Cluster Account Balance is too low
+        </AlertTitle>
+        <AlertDescription>
+          <p>You need at least <span tw="text-phala">{storageDepositeFee}</span> PHA in your cluster account balance to pay the storage deposit fee.</p>
+        </AlertDescription>
+        {currentAccountBalance.toNumber() < storageDepositeFee ? (
+          <>
+            <div tw="flex flex-row gap-2">
+              <GetPhaButton />
+            </div>
+          </>
+        ) : (
+          <>
+            {showCustomTransferToClusterForm ? (
+              <div tw="flex flex-col gap-2">
+                <p><strong>Current Cluster Account Balance: </strong><span tw="font-semibold">{currentBalance}</span> PHA</p>
+                <TransferToCluster />
+              </div>
+            ) : (
+            <div tw="flex flex-row gap-2">
+              <Button size="sm" onClick={() => transfer(new Decimal(storageDepositeFee))}>
+                Transform storage deposit fee
+              </Button>
+              <Button size="sm" onClick={() => setShowInlineTransferForm(true)}>
+                Custom
+              </Button>
+            </div>
+            )}
+          </>
+        )}
+      </div>
+    </Alert>
+  )
+}
 
 function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
   const { isLoading, upload, error, hasError } = useUploadCode()
-  const currentStep = useAtomValue(currentStepAtom)
+  const { canUpload, showTransferToCluster, storageDepositeFee } = useAtomValue(uploadCodeCheckAtom)
   return (
-    <>
+    <div tw="ml-4 mt-2.5">
       {hasError ? (
         <div tw="mb-2">
           <Alert status={error?.level || 'info'}>
@@ -341,23 +485,14 @@ function UploadCodeButton() {
           </Alert>
         </div>
       ) : null}
-      <Button isDisabled={currentStep > 2} isLoading={isLoading} onClick={upload}>
+      {showTransferToCluster && storageDepositeFee ? (
+        <div tw="mb-2">
+          <TransferToClusterAlert storageDepositeFee={storageDepositeFee} />
+        </div>
+      ) : null}
+      <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
         {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
       </Button>
-    </>
-  )
-}
-
-function CodeUploadStep() {
-  return (
-    <div tw="flex flex-col gap-2">
-      <Text>Choice a cluster to upload code</Text>
-      <ClusterIdSelect />
-      <div>
-        <Suspense>
-          <UploadCodeButton />
-        </Suspense>
-      </div>
     </div>
   )
 }
@@ -421,6 +556,7 @@ const TransferToCluster = () => {
       </Button> 
       {isLoading ? (<Spinner colorScheme="pbalaDark" size="sm" />) : null } 
       <Button
+        mt="0.5"
         size="xs"
         onClick={refreshBalance}
       >
@@ -533,7 +669,7 @@ function InstantiateGasElimiation() {
             isDisabled={!blueprint || currentStep > 3}
             isLoading={isLoading}
             onClick={async () => {
-              await transfer(new Decimal(minClusterBalance))
+              await transfer(new Decimal(minClusterBalance - currentBalance))
               await instantiate()
             }}
           >
@@ -587,12 +723,15 @@ export default function FatContractUploadForm() {
     <div>
       <Stepper index={activeStep} size='sm' gap='0' orientation='vertical' colorScheme="phalaDark">
         <StepSection index={0}>
-          <ContractFileUpload isCheckWASM={true} />
+          <ClusterBalance />
         </StepSection>
         <StepSection index={1}>
-          <CodeUploadStep />
+          <ContractFileUpload isCheckWASM={true} />
+          <Suspense>
+            <UploadCodeButton />
+          </Suspense>
         </StepSection>
-        <StepSection index={3}>
+        <StepSection index={2}>
           <Suspense>
             <ContractId />
           </Suspense>
@@ -601,7 +740,7 @@ export default function FatContractUploadForm() {
             <InstantiateGasElimiation />
           </Suspense>
         </StepSection>
-        <StepSection index={4}>
+        <StepSection index={3}>
             <Suspense>
               <InstantiatedFinish />
             </Suspense>
