@@ -471,7 +471,11 @@ export function useRequestSign() {
     return await requestSign()
   }, [cachedCert, account, requestSign])
 
-  return { isReady, isWaiting, requestSign, getCert }
+  const hasCert = useMemo(() => {
+    return account?.address === cachedCert[0] && cachedCert[1] !== null
+  }, [cachedCert, account])
+
+  return { isReady, isWaiting, requestSign, getCert, hasCert }
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
