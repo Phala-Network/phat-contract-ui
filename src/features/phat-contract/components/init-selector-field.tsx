@@ -37,6 +37,9 @@ const currentConstructorLabelAtom = atom(get => {
   if (defaultSelectors) {
     return defaultSelectors.label
   }
+  if (selectors.length) {
+    return selectors[0].label
+  }
   return ''
 })
 
@@ -74,7 +77,7 @@ const InitSelectorField = () => {
     R.sortBy((c: SelectorOption) => c.argCounts),
     i => R.head<SelectorOption>(i),
   )(selectors)
-  const selected = chooseSelectors || defaultSelectors
+  const selected = chooseSelectors || defaultSelectors || selectors[0]
   return (
     <FormControl>
       <FormLabel>Constructor</FormLabel>
