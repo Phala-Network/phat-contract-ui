@@ -244,7 +244,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     }
   }, [
     api, contract, account, selectedMethodSpec, appendResult, dispatch, queryClient,
-    signer, setLogs, currentArgsForm, registry, pinkLogger
+    signer, setLogs, currentArgsForm, registry, pinkLogger, getCert
   ])
   return [isLoading, fn]
 }
