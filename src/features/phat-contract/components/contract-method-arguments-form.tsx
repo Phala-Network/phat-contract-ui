@@ -285,7 +285,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} allAtoms={allAtoms} />
             </>
           )
           : null
@@ -317,7 +317,7 @@ const OptionTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataPro
       </Flex>
       {
         enableOption
-          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} />
+          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} allAtoms={allAtoms} />
           : null
       }
     </>
@@ -356,7 +356,7 @@ const StructTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { all
                   {name}
                 </FormLabel>
                 <Box id={uid}>
-                  <ArgumentFieldData uid={uid} theAtom={theAtom} />
+                  <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
                 </Box>
               </Box>
             )}
@@ -387,7 +387,7 @@ const TupleOrVecFixedTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProp
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentFieldData uid={uid} theAtom={theAtom} />
+                <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
               </Box>
             </Flex>
           )
@@ -423,7 +423,7 @@ const VecTypeItemFieldData = ({
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentFieldData uid={uid} theAtom={theAtom} />
+        <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -676,7 +676,7 @@ const ArgumentField = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
+      <ArgumentFieldData uid={uid} theAtom={allAtoms[uid]} allAtoms={allAtoms} />
     </FormControl>
   )
 })
