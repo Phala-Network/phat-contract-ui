@@ -458,7 +458,7 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
             ) : (
             <div tw="flex flex-row gap-2">
               <Button size="sm" onClick={() => transfer(new Decimal(storageDepositeFee))}>
-                Transform storage deposit fee
+                Transfer storage deposit fee
               </Button>
               <Button size="sm" onClick={() => setShowInlineTransferForm(true)}>
                 Custom
