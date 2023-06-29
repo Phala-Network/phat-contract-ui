@@ -38,6 +38,7 @@
     "@uiw/react-codemirror": "^4.21.3",
     "cookies-next": "^2.1.1",
     "decimal.js": "^10.4.3",
+    "error-stack-parser": "^2.1.4",
     "fp-ts": "^2.16.0",
     "framer-motion": "^10.12.16",
     "humps": "^2.0.1",
