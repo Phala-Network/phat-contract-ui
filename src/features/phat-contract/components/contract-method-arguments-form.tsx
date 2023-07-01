@@ -34,6 +34,9 @@ import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
 import { useAtomValue, useAtom, WritableAtom } from 'jotai'
+import { ErrorBoundary } from 'react-error-boundary'
+import * as R from 'ramda'
+
 import {
   isNumberLikeType,
   isBoolType,
@@ -43,6 +46,7 @@ import {
   convertToBN,
   cantToNumberMessage
 } from '@/functions/argumentsValidator'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import {
   type ArgumentFormAtom,
   dispatchErrors,
@@ -54,7 +58,6 @@ import {
   type ArgumentFieldAtom,
 } from '../argumentsFormAtom'
 import createLogger from '@/functions/createLogger'
-import * as R from 'ramda'
 
 const debug = createLogger('contract arguments', 'debug')
 
@@ -285,7 +288,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} />
+              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} allAtoms={allAtoms} />
             </>
           )
           : null
@@ -317,7 +320,7 @@ const OptionTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataPro
       </Flex>
       {
         enableOption
-          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} />
+          ? <ArgumentFieldData uid={optionField as string} theAtom={theAtom} allAtoms={allAtoms} />
           : null
       }
     </>
@@ -356,7 +359,7 @@ const StructTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProps & { all
                   {name}
                 </FormLabel>
                 <Box id={uid}>
-                  <ArgumentFieldData uid={uid} theAtom={theAtom} />
+                  <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
                 </Box>
               </Box>
             )}
@@ -387,7 +390,7 @@ const TupleOrVecFixedTypeFieldData = ({ fieldData, allAtoms }: EachFieldDataProp
                 <Text color="white">{index}</Text>
               </Center>
               <Box ml={FIELD_GAP} flex={1}>
-                <ArgumentFieldData uid={uid} theAtom={theAtom} />
+                <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
               </Box>
             </Flex>
           )
@@ -423,7 +426,7 @@ const VecTypeItemFieldData = ({
         <Text color="white">{index}</Text>
       </Center>
       <Box ml={FIELD_GAP} flex={1}>
-        <ArgumentFieldData uid={uid} theAtom={theAtom} />
+        <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
       </Box>
       <Center
         ml={FIELD_GAP}
@@ -676,15 +679,16 @@ const ArgumentField = memo(({
         {name}
         <code tw="ml-2 text-xs text-gray-500 font-mono">{displayType}</code>
       </FormLabel>
-      <ArgumentFieldData uid={uid} theAtom={theAtom} allAtoms={allAtoms} />
+      <ArgumentFieldData uid={uid} theAtom={allAtoms[uid]} allAtoms={allAtoms} />
     </FormControl>
   )
 })
 
-const ArgumentsForm = ({ theAtom }: { theAtom: ArgumentFormAtom }) => {
+export default function ArgumentsForm({ theAtom }: { theAtom: ArgumentFormAtom }) {
   const [argAtoms, allAtoms] = useAtomValue(theAtom)
   return (
     <Stack spacing="16px">
+      <ErrorBoundary fallbackRender={ErrorAlert}>
       {
         argAtoms.map(({ name, uid, theAtom }) => (
           <ArgumentField
@@ -696,8 +700,8 @@ const ArgumentsForm = ({ theAtom }: { theAtom: ArgumentFormAtom }) => {
           />
         ))
       }
+      </ErrorBoundary>
     </Stack>
   )
 }
 
-export default ArgumentsForm

@@ -1,6 +1,4 @@
-import { FC } from 'react'
-
-import React, { Suspense, useCallback, useMemo } from 'react'
+import React, { type ReactNode, type FC, Suspense, useCallback, useMemo, useState } from 'react'
 import * as R from 'ramda'
 import tw from 'twin.macro'
 import {
@@ -27,6 +25,7 @@ import { useUpdateAtom, useAtomValue } from 'jotai/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
+import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
 import useContractExecutor, { estimateGasAtom, inputsAtom, ExecResult } from '../hooks/useContractExecutor'
@@ -231,68 +230,159 @@ function FunctionDocModal() {
   )
 }
 
-const ContractMethodGrid = () => {
-  const messages = useAtomValue(messagesAtom)
+function getCategoryFromDocs(docs: string[], defaults: string) {
+  const matched = R.find(i => i.indexOf('@category') !== -1, docs)
+  if (matched) {
+    return R.trim(matched).split(' ').slice(1).join(' ')
+  }
+  return defaults
+}
+
+const groupedMessagesAtom = atom(get => {
+  const messages = get(messagesAtom)
+  const grouped = R.groupBy(msg => getCategoryFromDocs(msg.docs, 'Ungrouped'), messages)
+  return R.toPairs(grouped)
+})
+
+function Details({ label, children }: { label: string, children: ReactNode }) {
+  const [openned, setOpenned] = useState(false)
+  return (
+    <details
+      open={openned}
+      onClick={(ev) => {
+        ev.preventDefault()
+      }}
+    >
+      <summary tw="list-none">
+        <h3
+          tw="text-xl border-b border-solid border-gray-600 mb-4 leading-8 py-2 select-none cursor-pointer flex flex-row justify-between"
+          onClick={() => setOpenned(i => !i)}
+        >
+          {label}
+          {openned ? (<BiChevronDown tw="w-6 h-6" />) : (<BiChevronRight tw="w-6 h-6" />)}
+        </h3>
+      </summary>
+      {children}
+    </details>
+  )
+}
+
+export default function ContractMethodGrid() {
+  const groupedMessages = useAtomValue(groupedMessagesAtom)
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
   const setDocs = useUpdateAtom(currentDocsAtom)
-  if (!messages.length) {
+  if (!groupedMessages.length) {
     return null
   }
   return (
     <>
-      <SimpleGrid columns={3} spacing={8}>
-        {messages.map((message, i) => (
-          <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
-            <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
-            <div tw="flex flex-row items-center justify-between">
-              <div tw="flex flex-row gap-1 items-center">
-                {message.mutates ? (
-                  <MethodTypeLabel>tx</MethodTypeLabel>
-                ) : (
-                  <MethodTypeLabel>query</MethodTypeLabel>
-                )}
-                <Code>{message.selector}</Code>
+      {groupedMessages.length === 1 ? (
+        <SimpleGrid columns={3} spacing={8}>
+          {groupedMessages[0][1].map((message, i) => (
+            <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
+              <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
+              <div tw="flex flex-row items-center justify-between">
+                <div tw="flex flex-row gap-1 items-center">
+                  {message.mutates ? (
+                    <MethodTypeLabel>tx</MethodTypeLabel>
+                  ) : (
+                    <MethodTypeLabel>query</MethodTypeLabel>
+                  )}
+                  <Code>{message.selector}</Code>
+                </div>
+                <div>
+                  {message.args.length > 0 ? (
+                    <button
+                      tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                      onClick={() => {
+                        setCurrentMethod(message)
+                        setArgsFormModalVisible(true)
+                      }}
+                    >
+                      <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
+                    </button>
+                  ) : (
+                    <InstaExecuteButton methodSpec={message} />
+                  )}
+                </div>
               </div>
-              <div>
-                {message.args.length > 0 ? (
-                  <button
-                    tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
-                    onClick={() => {
-                      setCurrentMethod(message)
-                      setArgsFormModalVisible(true)
-                    }}
-                  >
-                    <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
-                  </button>
-                ) : (
-                  <InstaExecuteButton methodSpec={message} />
-                )}
-              </div>
-            </div>
-            {message.docs.length > 0 ? (
-              <div tw="text-gray-200">
-                {message.docs[0]}
-              </div>
-            ) : null}
-            <div>
-              {message.docs.length > 1 ? (
-                <Button
-                  variant="link"
-                  tw="flex flex-row gap-0.5 items-center text-sm text-gray-400"
-                  onClick={() => setDocs([message.label, message.docs])}
-                >
-                  <TiDocument tw="h-3.5 w-3.5"/>Full Docs
-                </Button>
+              {message.docs.length > 0 ? (
+                <div tw="text-gray-200">
+                  {message.docs[0]}
+                </div>
               ) : null}
-            </div>
-          </Box>
-        ))}
-      </SimpleGrid>
+              <div>
+                {message.docs.length > 1 ? (
+                  <Button
+                    variant="link"
+                    tw="flex flex-row gap-0.5 items-center text-sm text-gray-400"
+                    onClick={() => setDocs([message.label, message.docs])}
+                  >
+                    <TiDocument tw="h-3.5 w-3.5"/>Full Docs
+                  </Button>
+                ) : null}
+              </div>
+            </Box>
+          ))}
+        </SimpleGrid>
+      ) : (
+        groupedMessages.map(([label, messages]) => (
+          <Details key={label} label={label}>
+            <SimpleGrid columns={3} spacing={8}>
+              {messages.map((message, i) => (
+                <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
+                  <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
+                  <div tw="flex flex-row items-center justify-between">
+                    <div tw="flex flex-row gap-1 items-center">
+                      {message.mutates ? (
+                        <MethodTypeLabel>tx</MethodTypeLabel>
+                      ) : (
+                        <MethodTypeLabel>query</MethodTypeLabel>
+                      )}
+                      <Code>{message.selector}</Code>
+                    </div>
+                    <div>
+                      {message.args.length > 0 ? (
+                        <button
+                          tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                          onClick={() => {
+                            setCurrentMethod(message)
+                            setArgsFormModalVisible(true)
+                          }}
+                        >
+                          <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
+                        </button>
+                      ) : (
+                        <InstaExecuteButton methodSpec={message} />
+                      )}
+                    </div>
+                  </div>
+                  {message.docs.length > 0 ? (
+                    <div tw="text-gray-200">
+                      {message.docs[0]}
+                    </div>
+                  ) : null}
+                  <div>
+                    {message.docs.length > 1 ? (
+                      <Button
+                        variant="link"
+                        tw="flex flex-row gap-0.5 items-center text-sm text-gray-400"
+                        onClick={() => setDocs([message.label, message.docs])}
+                      >
+                        <TiDocument tw="h-3.5 w-3.5"/>Full Docs
+                      </Button>
+                    ) : null}
+                  </div>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </Details>
+        ))
+      )}
       <SimpleArgsFormModal />
       <FunctionDocModal />
     </>
   )
 }
 
-export default ContractMethodGrid
