@@ -2,6 +2,7 @@ import type { SelectorOption } from '../atoms'
 
 import React from 'react'
 import tw from 'twin.macro'
+import { decamelize } from 'humps'
 import { Abi } from '@polkadot/api-contract'
 import { FormControl, FormLabel } from '@chakra-ui/react'
 import { atom, useSetAtom, useAtomValue } from 'jotai'
@@ -60,7 +61,7 @@ export const constructorArgumentsAtom = atom(get => {
     return []
   }
   const inputs = getFormValue(get(get(constructorArgumentFormAtom)))
-  const args = R.map(i => inputs[i.name], constructor.args)
+  const args = R.map(i => inputs[decamelize(i.name)], constructor.args)
   return args
 })
 
