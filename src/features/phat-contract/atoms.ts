@@ -499,8 +499,13 @@ export const pinkLoggerAtom = atom(async (get) => {
   if (!registry.systemContract) {
     return null
   }
-  const pinkLogger = await PinkLoggerContractPromise.create(api, registry, registry.systemContract)
-  return pinkLogger
+  try {
+    const pinkLogger = await PinkLoggerContractPromise.create(api, registry, registry.systemContract)
+    return pinkLogger
+  } catch (err) {
+    console.error('PinkLogger initialization failed: ', err)
+    return null
+  }
 })
 
 
