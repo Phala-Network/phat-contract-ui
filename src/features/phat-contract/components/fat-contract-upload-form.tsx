@@ -279,10 +279,17 @@ function useUploadCode() {
     }
   }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo])
 
+  const restoreBlueprint = useCallback((codeHash: string) => {
+    if (!contract) {
+      return
+    }
+    setBlueprintPromise(new PinkBlueprintPromise(registry.api, registry, contract, codeHash))
+  }, [registry, contract])
+
   const resetError = useCallback(() => setError(null), [setError])
   const hasError = useMemo(() => error !== null, [error])
 
-  return { isLoading, upload, resetError, hasError, error }
+  return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
 
 function useReset() {
@@ -388,18 +395,26 @@ function ClusterBalance() {
 
 // Step 2
 
-const uploadCodeCheckAtom = atom(get => {
+const uploadCodeCheckAtom = atom(async get => {
   const registry = get(phatRegistryAtom)
   const candidate = get(candidateAtom)
   const currentBalance = get(currentBalanceAtom)
-  if (!candidate || !candidate.source || !candidate.source.wasm || !registry.clusterInfo) {
-    return { canUpload: false, showTransferToCluster: false }
+  const systemContract = registry.systemContract
+  const account = get(currentAccountAtom)
+  const [, cert] = get(cachedCertAtom)
+  if (!candidate || !candidate.source || !candidate.source.wasm || !registry.clusterInfo || !systemContract || !account) {
+    return { canUpload: false, showTransferToCluster: false, exists: false }
+  }
+  const { output } = await systemContract.query['system::codeExists'](account.address, { cert }, candidate.source.hash, 'Ink')
+  // @ts-ignore
+  if (output && output.isOk && output.asOk.isTrue) {
+    return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash }
   }
   const storageDepositeFee = estimateDepositeFee(candidate.source.wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
-    return { canUpload: false, showTransferToCluster: true, storageDepositeFee }
+    return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
   }
-  return { canUpload: true, showTransferToCluster: false }
+  return { canUpload: true, showTransferToCluster: false, exists: false }
 })
 
 function GetPhaButton() {
@@ -481,8 +496,8 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
 
 function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
-  const { isLoading, upload, error, hasError } = useUploadCode()
-  const { canUpload, showTransferToCluster, storageDepositeFee } = useAtomValue(uploadCodeCheckAtom)
+  const { isLoading, upload, error, hasError, restoreBlueprint } = useUploadCode()
+  const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash } = useAtomValue(uploadCodeCheckAtom)
   return (
     <div tw="ml-4 mt-2.5">
       {hasError ? (
@@ -498,9 +513,32 @@ function UploadCodeButton() {
           <TransferToClusterAlert storageDepositeFee={storageDepositeFee} />
         </div>
       ) : null}
-      <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
-        {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
-      </Button>
+      {exists && codeHash ? (
+        <div tw="mb-2 pr-5">
+          <Alert status="info" alignItems="flex-start" rounded="sm">
+            <AlertIcon />
+            <div tw="flex flex-col gap-1 items-start">
+              <AlertTitle>
+                Codehash already exists
+              </AlertTitle>
+              <AlertDescription>
+                <p>You don't need upload and pay the deposite fee again.</p>
+              </AlertDescription>
+            </div>
+          </Alert>
+        </div>
+      ) : null}
+      <div>
+        {exists && codeHash ? (
+          <Button onClick={() => restoreBlueprint(codeHash)}>
+            Restore
+          </Button>
+        ) : (
+          <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
+            {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
