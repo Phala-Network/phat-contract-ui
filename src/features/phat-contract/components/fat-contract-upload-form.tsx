@@ -35,6 +35,7 @@ import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
+import { type BN } from '@polkadot/util'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
@@ -56,6 +57,12 @@ import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
 
+
+// HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
+function estimateDepositeFee(hexStringSize: number, clusterPrice?: BN) {
+  const base = clusterPrice ? clusterPrice.toNumber() : 0
+  return new Decimal(base).mul(hexStringSize / 2 * 2.2).div(1e12).toNumber()
+}
 
 const ClusterIdSelect = () => {
   const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
@@ -385,7 +392,7 @@ const uploadCodeCheckAtom = atom(get => {
   const registry = get(phatRegistryAtom)
   const finfo = get(candidateFileInfoAtom)
   const currentBalance = get(currentBalanceAtom)
-  const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 2.2).div(1e8).toNumber()
+  const storageDepositeFee = estimateDepositeFee(finfo.size, registry.clusterInfo?.depositPerByte)
   if (!finfo.size) {
     return { canUpload: false, showTransferToCluster: false }
   }
@@ -599,7 +606,7 @@ function InstantiateGasElimiation() {
           // @ts-ignore
           const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }, ...args) // Support instantiate arguments.
           const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
-          const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 5).div(1e8)
+          const storageDepositeFee = estimateDepositeFee(finfo.size, registry.clusterInfo?.depositPerByte)
           setTxOptions({
             gasLimit: gasRequired.refTime,
             storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
