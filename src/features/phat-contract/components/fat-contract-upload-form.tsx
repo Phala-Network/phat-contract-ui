@@ -390,12 +390,12 @@ function ClusterBalance() {
 
 const uploadCodeCheckAtom = atom(get => {
   const registry = get(phatRegistryAtom)
-  const finfo = get(candidateFileInfoAtom)
+  const candidate = get(candidateAtom)
   const currentBalance = get(currentBalanceAtom)
-  const storageDepositeFee = estimateDepositeFee(finfo.size, registry.clusterInfo?.depositPerByte)
-  if (!finfo.size) {
+  if (!candidate || !candidate.source || !candidate.source.wasm || !registry.clusterInfo) {
     return { canUpload: false, showTransferToCluster: false }
   }
+  const storageDepositeFee = estimateDepositeFee(candidate.source.wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
     return { canUpload: false, showTransferToCluster: true, storageDepositeFee }
   }
@@ -586,7 +586,6 @@ function InstantiateGasElimiation() {
   const [, cert] = useAtomValue(cachedCertAtom)
   const signer = useAtomValue(signerAtom)
   const registry = useAtomValue(phatRegistryAtom)
-  const finfo = useAtomValue(candidateFileInfoAtom)
 
   const [txOptions, setTxOptions] = useState<any>(null)
   const [minClusterBalance, setMinClusterBalance] = useState(0)
