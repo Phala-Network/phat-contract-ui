@@ -604,14 +604,13 @@ function InstantiateGasElimiation() {
           setTxOptions(null)
           // @ts-ignore
           const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }, ...args) // Support instantiate arguments.
-          const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
-          const storageDepositeFee = estimateDepositeFee(finfo.size, registry.clusterInfo?.depositPerByte)
+          const gasLimit = new Decimal(gasRequired.refTime.toNumber()).mul(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
           setTxOptions({
             gasLimit: gasRequired.refTime,
             storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
             salt
           })
-          setMinClusterBalance(gasLimit.plus(storageDepositeFee).toNumber())
+          setMinClusterBalance(gasLimit.toNumber())
           await refreshBalance()
         } finally {
           setIsLoading(false)
