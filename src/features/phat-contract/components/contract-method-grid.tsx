@@ -161,13 +161,10 @@ const DepositSettingsField = () => {
 
 const SimpleArgsFormModal = () => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
-  const setPreviewInputs = useSetAtom(inputsAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
-  // const currentArgsFormClearValidation = useSetAtom(currentArgsFormClearValidationAtom)
 
   const hideModal = () => {
     setVisible(false)
-    // currentArgsFormClearValidation()
   }
 
   if (!currentMethod) {
@@ -188,6 +185,18 @@ const SimpleArgsFormModal = () => {
           <ModalCloseButton tw="mt-2" />
         </ModalHeader>
         <ModalBody>
+          {currentMethod.docs.length ? (
+            <details tw="mb-4">
+              <summary tw="list-none">
+                <div tw="flex flex-row gap-1 items-center cursor-pointer hover:underline mb-1"><TiDocument tw="h-3.5 w-3.5"/>Full Docs</div>
+              </summary>
+              <div tw="px-4 border border-solid border-gray-600">
+                <ReactMarkdown tw="text-gray-200 prose prose-h1:text-lg prose-h1:font-semibold prose-invert" remarkPlugins={[remarkGfm]}>
+                  {currentMethod.docs.filter(i => R.trim(i)[0] !== '@').join("\n")}
+                </ReactMarkdown>
+              </div>
+            </details>
+          ) : null}
           <ArgumentsForm theAtom={currentMessageArgumentAtomListAtom} />
           {currentMethod.mutates ? <DepositSettingsField /> : null}
         </ModalBody>
