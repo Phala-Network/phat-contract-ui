@@ -35,6 +35,7 @@ import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
+import { type BN } from '@polkadot/util'
 
 import { Select } from '@/components/inputs/select'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
@@ -56,6 +57,12 @@ import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
 
+
+// HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
+function estimateDepositeFee(hexStringSize: number, clusterPrice?: BN) {
+  const base = clusterPrice ? clusterPrice.toNumber() : 0
+  return new Decimal(base).mul(hexStringSize / 2 * 2.2).div(1e12).toNumber()
+}
 
 const ClusterIdSelect = () => {
   const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
@@ -272,10 +279,17 @@ function useUploadCode() {
     }
   }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo])
 
+  const restoreBlueprint = useCallback((codeHash: string) => {
+    if (!contract) {
+      return
+    }
+    setBlueprintPromise(new PinkBlueprintPromise(registry.api, registry, contract, codeHash))
+  }, [registry, contract])
+
   const resetError = useCallback(() => setError(null), [setError])
   const hasError = useMemo(() => error !== null, [error])
 
-  return { isLoading, upload, resetError, hasError, error }
+  return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
 
 function useReset() {
@@ -381,18 +395,26 @@ function ClusterBalance() {
 
 // Step 2
 
-const uploadCodeCheckAtom = atom(get => {
+const uploadCodeCheckAtom = atom(async get => {
   const registry = get(phatRegistryAtom)
-  const finfo = get(candidateFileInfoAtom)
+  const candidate = get(candidateAtom)
   const currentBalance = get(currentBalanceAtom)
-  const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 2.2).div(1e8).toNumber()
-  if (!finfo.size) {
-    return { canUpload: false, showTransferToCluster: false }
+  const systemContract = registry.systemContract
+  const account = get(currentAccountAtom)
+  const [, cert] = get(cachedCertAtom)
+  if (!candidate || !candidate.source || !candidate.source.wasm || !registry.clusterInfo || !systemContract || !account) {
+    return { canUpload: false, showTransferToCluster: false, exists: false }
   }
+  const { output } = await systemContract.query['system::codeExists'](account.address, { cert }, candidate.source.hash, 'Ink')
+  // @ts-ignore
+  if (output && output.isOk && output.asOk.isTrue) {
+    return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash }
+  }
+  const storageDepositeFee = estimateDepositeFee(candidate.source.wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
-    return { canUpload: false, showTransferToCluster: true, storageDepositeFee }
+    return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
   }
-  return { canUpload: true, showTransferToCluster: false }
+  return { canUpload: true, showTransferToCluster: false, exists: false }
 })
 
 function GetPhaButton() {
@@ -474,8 +496,8 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
 
 function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
-  const { isLoading, upload, error, hasError } = useUploadCode()
-  const { canUpload, showTransferToCluster, storageDepositeFee } = useAtomValue(uploadCodeCheckAtom)
+  const { isLoading, upload, error, hasError, restoreBlueprint } = useUploadCode()
+  const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash } = useAtomValue(uploadCodeCheckAtom)
   return (
     <div tw="ml-4 mt-2.5">
       {hasError ? (
@@ -491,9 +513,32 @@ function UploadCodeButton() {
           <TransferToClusterAlert storageDepositeFee={storageDepositeFee} />
         </div>
       ) : null}
-      <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
-        {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
-      </Button>
+      {exists && codeHash ? (
+        <div tw="mb-2 pr-5">
+          <Alert status="info" alignItems="flex-start" rounded="sm">
+            <AlertIcon />
+            <div tw="flex flex-col gap-1 items-start">
+              <AlertTitle>
+                Codehash already exists
+              </AlertTitle>
+              <AlertDescription>
+                <p>You don't need upload and pay the deposite fee again.</p>
+              </AlertDescription>
+            </div>
+          </Alert>
+        </div>
+      ) : null}
+      <div>
+        {exists && codeHash ? (
+          <Button onClick={() => restoreBlueprint(codeHash)}>
+            Restore
+          </Button>
+        ) : (
+          <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
+            {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
@@ -579,7 +624,6 @@ function InstantiateGasElimiation() {
   const [, cert] = useAtomValue(cachedCertAtom)
   const signer = useAtomValue(signerAtom)
   const registry = useAtomValue(phatRegistryAtom)
-  const finfo = useAtomValue(candidateFileInfoAtom)
 
   const [txOptions, setTxOptions] = useState<any>(null)
   const [minClusterBalance, setMinClusterBalance] = useState(0)
@@ -598,14 +642,13 @@ function InstantiateGasElimiation() {
           setTxOptions(null)
           // @ts-ignore
           const { gasRequired, storageDeposit, salt } = await blueprint.query[constructor](currentAccount.address, { cert }, ...args) // Support instantiate arguments.
-          const gasLimit = new Decimal(gasRequired.refTime.toNumber()).div(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
-          const storageDepositeFee = new Decimal((registry.clusterInfo?.depositPerByte?.toNumber() || 0)).mul(finfo.size * 5).div(1e8)
+          const gasLimit = new Decimal(gasRequired.refTime.toNumber()).mul(new Decimal(registry.clusterInfo?.gasPrice?.toNumber() || 1)).div(1e12)
           setTxOptions({
             gasLimit: gasRequired.refTime,
             storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
             salt
           })
-          setMinClusterBalance(gasLimit.plus(storageDepositeFee).toNumber())
+          setMinClusterBalance(gasLimit.toNumber())
           await refreshBalance()
         } finally {
           setIsLoading(false)
