@@ -18,9 +18,11 @@ import {
   EditableInput,
   EditablePreview,
   useEditableControls,
+  useToast,
 } from "@chakra-ui/react";
-import { BiEdit } from 'react-icons/bi';
+import { BiEdit, BiCopy } from 'react-icons/bi';
 import Decimal from 'decimal.js'
+import CopyToClipboard from 'react-copy-to-clipboard'
 
 import signAndSend from '@/functions/signAndSend'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription';
@@ -123,6 +125,7 @@ const ContractInfo = () => {
   const contract = useAtomValue(currentContractAtom)
   const query = useAtomValue(phalaFatContractQueryAtom)
   const handleExport = useContractMetaExport()
+  const toast = useToast()
   if (!contract)  {
     return null
   }
@@ -140,24 +143,48 @@ const ContractInfo = () => {
           <Tbody>
             <Tr>
               <Th>Contract ID</Th>
-              <StyledTd><Code>{contract.contractId}</Code></StyledTd>
+              <StyledTd>
+                <div tw="flex flex-row gap-2">
+                  <div tw="flex flex-row items-center">
+                    <Code>{contract.contractId}</Code>
+                  </div>
+                  <CopyToClipboard
+                    text={contract.contractId}
+                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                  >
+                    <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
+                  </CopyToClipboard>
+                </div>
+              </StyledTd>
             </Tr>
             <Tr>
               <Th>Code Hash</Th>
-              <StyledTd><Code>{contract.metadata.source.hash}</Code></StyledTd>
+              <StyledTd>
+                <div tw="flex flex-row gap-2">
+                  <div tw="flex flex-row items-center">
+                    <Code>{contract.metadata.source.hash}</Code>
+                  </div>
+                  <CopyToClipboard
+                    text={contract.metadata.source.hash}
+                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                  >
+                    <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
+                  </CopyToClipboard>
+                </div>
+              </StyledTd>
             </Tr>
             <Tr>
-              <Th>Language</Th>
-              <StyledTd>{contract.metadata.source.language}</StyledTd>
-            </Tr>
-            <Tr>
-              <Th>Compiler</Th>
-              <StyledTd>{contract.metadata.source.compiler}</StyledTd>
+              <Th>Build</Th>
+              <StyledTd>
+                {contract.metadata.source.compiler}
+                <span tw="select-none text-gray-600 mx-1.5">•</span>
+                {contract.metadata.source.language}
+              </StyledTd>
             </Tr>
             {query && (
               <>
                 <Tr>
-                  <Th>Developer</Th>
+                  <Th>Deployer</Th>
                   <StyledTd><Code>{query.deployer}</Code></StyledTd>
                 </Tr>
                 <Tr>
