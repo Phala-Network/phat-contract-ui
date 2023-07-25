@@ -2,6 +2,10 @@ import React, { Suspense, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import { atom, useAtom, useAtomValue } from 'jotai'
 import {
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
   Box,
   Heading,
   Table,
@@ -12,6 +16,7 @@ import {
   TableContainer,
   Tag,
   Button,
+  ButtonGroup,
   IconButton,
   Input,
   Editable,
@@ -23,6 +28,7 @@ import {
 import { BiEdit, BiCopy } from 'react-icons/bi';
 import Decimal from 'decimal.js'
 import CopyToClipboard from 'react-copy-to-clipboard'
+import { Link } from '@tanstack/react-location'
 
 import signAndSend from '@/functions/signAndSend'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription';
@@ -147,10 +153,43 @@ export default function ContractInfo() {
   const fetched = useAtomValue(currentContractV2Atom)
   const toast = useToast()
   if (!fetched.found) {
-    return null
+    return (
+      <Alert status="info" borderRadius={4} flexDir="column" alignItems="start" gap={2}>
+        <div tw="flex flex-row items-center">
+          <AlertIcon />
+          <AlertTitle>Not CodeHash found for specified Contract ID</AlertTitle>
+        </div>
+        <div tw="flex flex-col w-full pr-4">
+          <AlertDescription>
+            <p>
+              The Contract ID you specified is not found in the chain.
+            </p>
+          </AlertDescription>
+        </div>
+      </Alert>
+    )
   }
   if (!fetched.metadata) {
-    return null
+    return (
+      <Alert status="info" borderRadius={4} flexDir="column" alignItems="start" gap={2}>
+        <div tw="flex flex-row items-center">
+          <AlertIcon />
+          <AlertTitle>No Public Metadata found for specified Contract ID</AlertTitle>
+        </div>
+        <div tw="flex flex-col w-full pr-4 gap-2">
+          <AlertDescription>
+            <p>
+              The Contract ID you specified is not public metadata found. If you have it, you can attach the custom ABI.
+            </p>
+          </AlertDescription>
+          <div>
+            <Link to={`/contracts/attach?contractId=${fetched.contractId}`}>
+              <Button>Attach</Button>
+            </Link>
+          </div>
+        </div>
+      </Alert>
+    )
   }
   const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
   const { canExport, download } = useContractMetaExport()
