@@ -1,5 +1,5 @@
 import type {ContractOptions} from '@polkadot/api-contract/types'
-import type { u64 } from '@polkadot/types'
+import { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DepositSettings } from '../atomsWithDepositSettings'
@@ -68,7 +68,11 @@ export const estimateGasAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const contractInstance = get(currentContractPromiseAtom)
   if (!contractInstance) {
-    return
+    const options: EstimateGasResult = {
+      gasLimit: new u64(api.registry as unknown as ConstructorParameters<typeof u64>[0]),
+      storageDepositLimit: null,
+    }
+    return options
   }
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
