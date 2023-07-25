@@ -4,26 +4,31 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
-  FormControl,
-  FormLabel,
-  Input,
-  InputGroup,
 } from "@chakra-ui/react"
-import { useAtom } from "jotai"
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
 
+import Code from '@/components/code'
 import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/phat-contract/atoms'
 import ContractInfo from '@/features/phat-contract/components/contract-info'
 import ContractMethodGrid from '@/features/phat-contract/components/contract-method-grid'
 
 
 const CurrentContractName = () => {
+  const contractId = useAtomValue(currentContractIdAtom)
   const contract = useAtomValue(currentContractAtom)
   if (!contract) {
-    return null
+    return (
+      <BreadcrumbItem>
+        <BreadcrumbLink>
+          <Code>
+            {contractId.substring(0, 8)}...{contractId.substring(contractId.length-8, contractId.length)}
+          </Code>
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+    )
   }
   return (
     <BreadcrumbItem>

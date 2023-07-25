@@ -12,11 +12,14 @@ import * as R from 'ramda'
 import { Abi } from '@polkadot/api-contract'
 import { OnChainRegistry, PinkLoggerContractPromise, type CertificateData, signCertificate } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
+import { isRight } from 'fp-ts/Either'
+import * as TE from 'fp-ts/TaskEither'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
+import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetContractCodeHash } from './hosted-metadata'
 
 
 export interface SelectorOption {
@@ -537,6 +540,77 @@ export const pinkLoggerResultAtom = atom<PinkLoggerRecord[]>([])
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, localCachedContracts: Record<ContractKey, LocalContractInfo> }) {
+  const { registry, localCachedContracts } = deps
+
+  return async function _unsafeFetchedMetadataProgressive(contractId: string) {
+    const contractInfo = await registry.api.query.phalaPhatContracts.contracts(contractId)
+    const deployer =contractInfo.isSome ? contractInfo.unwrap().deployer.toString() : null
+    const localMetadata = localCachedContracts[contractId]
+
+    if (localMetadata && localMetadata.metadata.source.hash) {
+      // TODO still give a try for patron verified check?
+      return {
+        contractId: contractId,
+        codeHash: localMetadata.metadata.source.hash,
+        deployer,
+        found: true,
+        verified: false,
+        cached: true,
+        metadata: localMetadata.metadata,
+        source: 'local',
+      }
+    }
+
+    // TODO Error handling
+    const codeHash = await unsafeGetContractCodeHash(registry, contractId)
+    if (!codeHash) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: false,
+        verified: false,
+      }
+    }
+    // TODO use react-query here?
+    const [selfhostAbi, patronAbi] = await Promise.all([
+      TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
+      TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
+    ])
+    if (isRight(patronAbi)) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: true,
+        verified: true,
+        cached: false,
+        metadata: patronAbi.right as ContractMetadata,
+        source: 'Patron',
+      }
+    } else if (isRight(selfhostAbi)) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: true,
+        verified: true,
+        cached: false,
+        metadata: selfhostAbi.right as ContractMetadata,
+        source: 'Phala',
+      }
+    }
+    return {
+      contractId: contractId,
+      codeHash,
+      deployer,
+      found: true,
+      verified: false,
+    }
+  }
+}
+
 export const currentContractIdAtom = atom('')
 
 export const currentMethodAtom = atom<ContractMetaMessage | null>(null)
@@ -545,6 +619,14 @@ export const currentContractAtom = atom(get => {
   const contractId = get(currentContractIdAtom)
   const contracts = get(localContractsAtom)
   return contracts[contractId]
+})
+
+export const currentContractV2Atom = atom(async (get) => {
+  const registry = get(phatRegistryAtom)
+  const localCachedContracts = get(localContractsAtom)
+  const contractId = get(currentContractIdAtom)
+  const result = await unsafeFetchMetadataProgressive({ registry, localCachedContracts })(contractId)
+  return result
 })
 
 export const currentAbiAtom = atom(get => {
@@ -562,16 +644,6 @@ export const messagesAtom = atom(get => {
     return contract.metadata.V3.spec.messages || []
   }
   return contract.metadata.spec.messages || []
-})
-
-export const phalaFatContractQueryAtom = atom(async get => {
-  const api = get(apiPromiseAtom)
-  const info = get(currentContractAtom)
-  if (!api || !info) {
-    return null
-  }
-  const result = await api.query.phalaPhatContracts.contracts(info.contractId)
-  return result.toHuman() as unknown as ContractInfo
 })
 
 export const contractInstanceAtom = atom<ContractPromise | null>(null)
