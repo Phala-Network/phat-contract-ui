@@ -20,6 +20,7 @@ import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetContractCodeHash } from './hosted-metadata'
+import { Container } from '@chakra-ui/react'
 
 
 export interface SelectorOption {
@@ -630,14 +631,17 @@ export const currentContractV2Atom = atom(async (get) => {
 })
 
 export const currentAbiAtom = atom(get => {
-  const contract = get(currentContractAtom)
+  const contract = get(currentContractV2Atom)
+  if (!contract || !contract.metadata) {
+    return null
+  }
   const abi = new Abi(contract.metadata)
   return abi
 })
 
 export const messagesAtom = atom(get => {
-  const contract = get(currentContractAtom)
-  if (!contract) {
+  const contract = get(currentContractV2Atom)
+  if (!contract || !contract.metadata) {
     return []
   }
   if (contract.metadata.V3) {

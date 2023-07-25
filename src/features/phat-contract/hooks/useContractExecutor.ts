@@ -18,7 +18,6 @@ import signAndSend from '@/functions/signAndSend'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
-import { querySignCertificate } from '@/features/identity/queries'
 import {
   currentMethodAtom,
   currentContractAtom,
@@ -27,6 +26,7 @@ import {
   phatRegistryAtom,
   pinkLoggerAtom,
   useRequestSign,
+  currentContractV2Atom,
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
@@ -53,7 +53,10 @@ type SignOptions = Parameters<typeof signCertificate>[0]
 const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const registry = get(phatRegistryAtom)
-  const { metadata, contractId } = get(currentContractAtom)
+  const { metadata, contractId } = get(currentContractV2Atom)
+  if (!metadata) {
+    return null
+  }
   const contractKey = await registry.getContractKeyOrFail(contractId)
   const contractInstance = new PinkContractPromise(api, registry, metadata, contractId, contractKey)
   return contractInstance
@@ -64,6 +67,9 @@ export const inputsAtom = atom<Record<string, string>>({})
 export const estimateGasAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const contractInstance = get(currentContractPromiseAtom)
+  if (!contractInstance) {
+    return
+  }
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
@@ -87,7 +93,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
   const [api, selectedMethodSpec, contract, account, queryClient, signer, registry, pinkLogger] = useAtomValue(waitForAll([
     apiPromiseAtom,
     currentMethodAtom,
-    currentContractAtom,
+    currentContractV2Atom,
     currentAccountAtom,
     queryClientAtom,
     signerAtom,
@@ -105,7 +111,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
-      if (!api || !account || !methodSpec || !signer || !registry) {
+      if (!api || !account || !methodSpec || !signer || !registry || !contract || !contract.metadata) {
         debug('contractInstance or account is null')
         return
       }
@@ -237,8 +243,12 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       })
     } finally {
       if (pinkLogger) {
-        const { records } = await pinkLogger.getLog(contract.contractId)
-        setLogs(R.reverse(records))
+        try {
+          const { records } = await pinkLogger.getLog(contract.contractId)
+          setLogs(R.reverse(records))
+        } catch (err) {
+          console.log('get log error', err)
+        }
       }
       setIsLoading(false)
     }
