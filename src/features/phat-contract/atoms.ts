@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
+import { Keyring } from '@polkadot/api'
 import { Abi } from '@polkadot/api-contract'
 import { OnChainRegistry, PinkLoggerContractPromise, type CertificateData, signCertificate } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
@@ -20,7 +21,6 @@ import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetContractCodeHash } from './hosted-metadata'
-import { Container } from '@chakra-ui/react'
 
 
 export interface SelectorOption {
@@ -660,3 +660,19 @@ export const dispatchResultsAtom = atom(null, (get, set, result: ContractExecute
 })
 
 export const instantiateTimeoutAtom = atom(60)
+
+
+//
+// Guest Pairs & Guest Cert, we use `//Alice` here.
+//
+
+export const alicePairAtom = atom(() => {
+  const keyring = new Keyring({ type: 'sr25519' })
+  return keyring.addFromUri('//Alice')
+})
+
+export const aliceCertAtom = atom(async (get) => {
+  const api = get(apiPromiseAtom)
+  const pair = get(alicePairAtom)
+  return await signCertificate({ api, pair })
+})
