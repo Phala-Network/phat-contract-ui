@@ -10,6 +10,7 @@ import ContractAddPage from '@/pages/contract-add-page'
 import ContractAttachPage from '@/pages/contract-attach-page'
 import ContractListPage from '@/pages/contract-list-page'
 import ContractInfoPage from '@/pages/contract-info-page'
+import ContractCodeHashPage from '@/pages/contract-codehash-page'
 
 export default function PhalaContractsUI() {
   return (
@@ -20,6 +21,7 @@ export default function PhalaContractsUI() {
         { path: "/contracts/add", element: <ContractAddPage /> },
         { path: "/contracts/attach", element: <ContractAttachPage /> },
         { path: "/contracts/view/:contractId", element: <ContractInfoPage /> },
+        { path: "/contracts/codehash/:codeHash", element: <ContractCodeHashPage /> },
       ]}
     >
       <AppUI>

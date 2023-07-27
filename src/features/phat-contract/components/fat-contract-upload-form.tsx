@@ -1,14 +1,9 @@
-import type { Result, U64 } from '@polkadot/types'
+import type { Result, U64, Bool } from '@polkadot/types'
 import React, { type ReactNode, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import {
   Button,
   Spinner,
-  Text,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
   FormControl,
   FormLabel,
   Step,
@@ -25,10 +20,11 @@ import {
   IconButton,
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
+import { MdOpenInNew } from 'react-icons/md'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { RESET } from 'jotai/utils'
 import CopyToClipboard from 'react-copy-to-clipboard'
-import { Link } from '@tanstack/react-location'
+import { Link, useMatch } from '@tanstack/react-location'
 import { find } from 'ramda'
 import { PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
@@ -36,8 +32,11 @@ import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
 import { type BN } from '@polkadot/util'
+import { isLeft, isRight } from 'fp-ts/Either'
+import * as TE from 'fp-ts/TaskEither'
 
 import { Select } from '@/components/inputs/select'
+import { Alert } from '@/components/ErrorAlert'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
 import {
   candidateAtom,
@@ -56,6 +55,7 @@ import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAto
 import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
+import { unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash } from '../hosted-metadata'
 
 
 // HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
@@ -83,9 +83,7 @@ const ClusterIdSelect = () => {
   }, [setClusterId, options])
   if (!options.length) {
     return (
-      <Alert status="warning">
-        <AlertIcon />
-        <AlertTitle>RPC is not Ready</AlertTitle>
+      <Alert status="warning" title="RPC is not Ready">
       </Alert>
     )
   }
@@ -292,6 +290,73 @@ function useUploadCode() {
   return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
 
+const wasmAtom = atom<Uint8Array | null>(null) 
+
+function usePatronBuildResult(codeHash: string) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [downloaded, setDownloaded] = useState(false)
+  const [error, setError] = useState<{message: string, level: 'info' | 'error'} | null>(null)
+  const { requestSign } = useRequestSign()
+  const setCandidate = useSetAtom(candidateAtom)
+  const setWasm = useSetAtom(wasmAtom)
+
+  const [, cert] = useAtomValue(cachedCertAtom)
+  const registry = useAtomValue(phatRegistryAtom)
+  const currentAccount = useAtomValue(currentAccountAtom)
+  const signer = useAtomValue(signerAtom)
+  const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
+
+  const fetch = useCallback(async () => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      let _cert = cert
+      if (!_cert) {
+        _cert = await requestSign()
+      }
+      if (!_cert) {
+        setError({ message: 'You need sign the certificate to continue.', level: 'info' })
+        // TODO show toast.
+        return
+      }
+      const [metadata, wasm] = await Promise.all([
+        TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
+        TE.tryCatch(() => unsafeGetWasmFromPatronByCodeHash(codeHash), R.always(null))(),
+      ])
+
+      if (isRight(metadata) && isRight(wasm)) {
+        setCandidate(metadata.right as ContractMetadata)
+        setWasm(wasm.right)
+        setDownloaded(true)
+        // const codePromise = new PinkCodePromise(registry.api, registry, new Abi(metadata.right), wasm.right)
+        // // @ts-ignore
+        // const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
+        // await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
+        // setBlueprintPromise(uploadResult.blueprint)
+      } else {
+        if (isLeft(metadata)) {
+          setError({ message: `Contract download failed: ${metadata.left}`, level: 'error' })
+        } else if (isLeft(wasm)) {
+          setError({ message: `Contract download failed: ${wasm.left}`, level: 'error' })
+        } else {
+          setError({ message: `Contract download failed: unknown error`, level: 'error' })
+        }
+        // @TODO better error handling
+      }
+    } catch (err) {
+      // TODO: better error handling?
+      if ((err as Error).message.indexOf('Cancelled') === -1) {
+        console.error(err)
+        setError({ message: `Contract upload failed: ${err}`, level: 'error' })
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [setIsLoading, setError, requestSign, setCandidate, cert, registry, currentAccount, signer, setBlueprintPromise, codeHash])
+
+  return { isLoading, error, fetch, downloaded }
+}
+
 function useReset() {
   const setCandidate = useSetAtom(candidateAtom)
   const setCandidateFileInfo = useSetAtom(candidateFileInfoAtom)
@@ -348,20 +413,14 @@ function ClusterBalance() {
   const [showInlineTransferForm, setShowInlineTransferForm] = useState(false)
   if (!hasCert) {
     return (
-      <Alert>
-        <AlertIcon />
-        <AlertTitle>
-          You need sign the cert before continue.
-        </AlertTitle>
-        <AlertDescription>
-          <Button
-            colorScheme="phalaDark"
-            isLoading={isWaiting}
-            onClick={requestSign}
-          >
-            Sign
-          </Button>
-        </AlertDescription>
+      <Alert title="You need sign the cert before continue.">
+        <Button
+          colorScheme="phalaDark"
+          isLoading={isWaiting}
+          onClick={requestSign}
+        >
+          Sign
+        </Button>
       </Alert>
     )
   }
@@ -402,15 +461,15 @@ const uploadCodeCheckAtom = atom(async get => {
   const systemContract = registry.systemContract
   const account = get(currentAccountAtom)
   const [, cert] = get(cachedCertAtom)
-  if (!candidate || !candidate.source || !candidate.source.wasm || !registry.clusterInfo || !systemContract || !account) {
+  const wasm = get(wasmAtom) || candidate?.source.wasm || ''
+  if (!candidate || !candidate.source || !wasm || !registry.clusterInfo || !systemContract || !account) {
     return { canUpload: false, showTransferToCluster: false, exists: false }
   }
-  const { output } = await systemContract.query['system::codeExists'](account.address, { cert }, candidate.source.hash, 'Ink')
-  // @ts-ignore
+  const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')
   if (output && output.isOk && output.asOk.isTrue) {
     return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash }
   }
-  const storageDepositeFee = estimateDepositeFee(candidate.source.wasm.length, registry.clusterInfo.depositPerByte)
+  const storageDepositeFee = estimateDepositeFee(wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
     return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
   }
@@ -455,41 +514,33 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
   const { currentBalance, transfer } = useClusterBalance()
   const [showCustomTransferToClusterForm, setShowInlineTransferForm] = useState(false)
   return (
-    <Alert status="info" alignItems="flex-start">
-      <AlertIcon />
-      <div tw="flex flex-col gap-1 items-start">
-        <AlertTitle>
-          Cluster Account Balance is too low
-        </AlertTitle>
-        <AlertDescription>
-          <p>You need at least <span tw="text-phala">{storageDepositeFee}</span> PHA in your cluster account balance to pay the storage deposit fee.</p>
-        </AlertDescription>
-        {currentAccountBalance.toNumber() < storageDepositeFee ? (
-          <>
-            <div tw="flex flex-row gap-2">
-              <GetPhaButton />
+    <Alert status="info" title="Cluster Account Balance is too low">
+      <p>You need at least <span tw="text-phala">{storageDepositeFee}</span> PHA in your cluster account balance to pay the storage deposit fee.</p>
+      {currentAccountBalance.toNumber() < storageDepositeFee ? (
+        <>
+          <div tw="flex flex-row gap-2">
+            <GetPhaButton />
+          </div>
+        </>
+      ) : (
+        <>
+          {showCustomTransferToClusterForm ? (
+            <div tw="flex flex-col gap-2">
+              <p><strong>Current Cluster Account Balance: </strong><span tw="font-semibold">{currentBalance}</span> PHA</p>
+              <TransferToCluster />
             </div>
-          </>
-        ) : (
-          <>
-            {showCustomTransferToClusterForm ? (
-              <div tw="flex flex-col gap-2">
-                <p><strong>Current Cluster Account Balance: </strong><span tw="font-semibold">{currentBalance}</span> PHA</p>
-                <TransferToCluster />
-              </div>
-            ) : (
-            <div tw="flex flex-row gap-2">
-              <Button size="sm" onClick={() => transfer(new Decimal(storageDepositeFee))}>
-                Transfer storage deposit fee
-              </Button>
-              <Button size="sm" onClick={() => setShowInlineTransferForm(true)}>
-                Custom
-              </Button>
-            </div>
-            )}
-          </>
-        )}
-      </div>
+          ) : (
+          <div tw="flex flex-row gap-2">
+            <Button size="sm" onClick={() => transfer(new Decimal(storageDepositeFee))}>
+              Transfer storage deposit fee
+            </Button>
+            <Button size="sm" onClick={() => setShowInlineTransferForm(true)}>
+              Custom
+            </Button>
+          </div>
+          )}
+        </>
+      )}
     </Alert>
   )
 }
@@ -502,9 +553,7 @@ function UploadCodeButton() {
     <div tw="ml-4 mt-2.5">
       {hasError ? (
         <div tw="mb-2">
-          <Alert status={error?.level || 'info'}>
-            <AlertIcon />
-            <AlertTitle>{error?.message}</AlertTitle>
+          <Alert status={error?.level || 'info'} title={error?.message || 'Unknown Error'}>
           </Alert>
         </div>
       ) : null}
@@ -515,16 +564,8 @@ function UploadCodeButton() {
       ) : null}
       {exists && codeHash ? (
         <div tw="mb-2 pr-5">
-          <Alert status="info" alignItems="flex-start" rounded="sm">
-            <AlertIcon />
-            <div tw="flex flex-col gap-1 items-start">
-              <AlertTitle>
-                Codehash already exists
-              </AlertTitle>
-              <AlertDescription>
-                <p>You don't need upload and pay the deposite fee again.</p>
-              </AlertDescription>
-            </div>
+          <Alert status="info" title="Code Hash Already Exists">
+            <p>You don't need upload and pay the deposite fee again.</p>
           </Alert>
         </div>
       ) : null}
@@ -543,6 +584,48 @@ function UploadCodeButton() {
   )
 }
 
+function UploadFromPatron({ codeHash }: { codeHash: string }) {
+  const { isLoading: isDownloading, error: downloadError, fetch, downloaded } = usePatronBuildResult(codeHash)
+  return (
+    <>
+      {downloaded ? (
+        <UploadCodeButton />
+      ) : (
+        <div tw="flex flex-col gap-3">
+          <div tw="flex flex-row gap-5">
+            <div>
+              <img src="https://patron.works/patron-favicon.svg" tw="h-14" />
+            </div>
+            <div tw="leading-7">
+              <p>
+                You are trying upload and instantiate Phat Contract from <a href="https://patron.works/" target="_blank">Patron</a>. Patron is a contract verification service for Polkadot Ecosystem,
+                you can learn more about it here:
+                <a href="https://patron.works/getting-started" target="_blank" tw="mx-1 inline-flex items-center gap-1 border-b border-solid border-gray-500 hover:border-gray-300">
+                  <span>about Patron</span>
+                  <MdOpenInNew />
+                </a>
+              </p>
+            </div>
+          </div>
+          {downloadError ? (
+            <Alert status="error" title="Upload Failed">
+              <p>{downloadError.message}</p>
+            </Alert>
+          ) : null}
+          <div tw="flex flex-row gap-2 items-center ml-14">
+            <Button isLoading={isDownloading} onClick={fetch}>
+              Fetch Build
+            </Button>
+            <Button as="a" target="_blank" href={`https://patron.works/codeHash/${codeHash}`}>
+              Review Code
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // Step 3: Blueprint Promise - instantiate contract.
 
 function ContractId() {
@@ -555,7 +638,7 @@ function ContractId() {
   return (
     <FormControl>
       <FormLabel>
-        Contract ID
+        Code Hash
       </FormLabel>
       <div tw="flex flex-row gap-2 items-center">
         <code tw="font-mono text-xs p-1 bg-black rounded">{codeHash}</code>
@@ -629,6 +712,7 @@ function InstantiateGasElimiation() {
   const [minClusterBalance, setMinClusterBalance] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const { currentBalance, refreshBalance, transfer, isLoading: isUpdatingClusterBalance } = useClusterBalance()
+  const userBalance = useAtomValue(currentAccountBalanceAtom)
   const args = useAtomValue(constructorArgumentsAtom)
 
   const [inlineChargeVisible, setInlineChargeVisible] = useState(false)
@@ -712,21 +796,31 @@ function InstantiateGasElimiation() {
           </tr>
         </tbody>
       </table>
-      <div tw="mt-2">
-        {(currentBalance < minClusterBalance) ? (
-          <Button
-            isDisabled={!blueprint || !isValid}
-            isLoading={isLoading}
-            onClick={async () => {
-              await transfer(new Decimal(minClusterBalance - currentBalance))
-              await instantiate()
-            }}
-          >
-            Transfer minimal and instantiate
-          </Button>
-        ) : (
-          <Button isDisabled={!blueprint || !isValid} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
-        )}
+      <div tw="mt-2 flex flex-col gap-2.5">
+        {userBalance.toNumber() === 0 ? (
+          <Alert status="info" title="You need funds to instantiate your contract">
+            <p>Please transfer some PHA to your account first.</p>
+            <div tw="mt-2.5">
+              <GetPhaButton />
+            </div>
+          </Alert>
+        ) : null}
+        <div>
+          {(currentBalance < minClusterBalance) ? (
+            <Button
+              isDisabled={!blueprint || !isValid || userBalance.toNumber() === 0}
+              isLoading={isLoading}
+              onClick={async () => {
+                await transfer(new Decimal(minClusterBalance - currentBalance))
+                await instantiate()
+              }}
+            >
+              Transfer minimal and instantiate
+            </Button>
+          ) : (
+            <Button isDisabled={!blueprint || !isValid} isLoading={isLoading} onClick={instantiate}>Instantiate</Button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -737,27 +831,44 @@ function InstantiateGasElimiation() {
 function InstantiatedFinish() {
   const instantiatedContractId = useAtomValue(instantiatedContractIdAtom)
   const reset = useReset()
+  const toast = useToast()
   if (!instantiatedContractId) {
     return null
   }
   return (
     <div tw="flex flex-col gap-4">
-      <Alert status='success'>
-        <AlertIcon />
-        <div>
+      <Alert status='success' title="Contract Instantiate Successfully">
+        <div tw="mb-4 flex flex-col gap-2">
           <p>Contract Uploaded and instantiated successfully. You need staking computation resource to run the contract.</p>
+          <div tw="flex flex-row gap-2 items-center">
+            <span>Contract ID: </span>
+            <code tw="font-mono text-xs p-1 bg-black rounded">{instantiatedContractId}</code>
+            <CopyToClipboard
+              text={instantiatedContractId}
+              onCopy={() => toast({
+                title: 'Copied',
+                status: 'success',
+                duration: 2000,
+                isClosable: true,
+              })}
+            >
+              <IconButton aria-label='Copy' size="sm">
+                <VscCopy tw="h-4 w-4" />
+              </IconButton>
+            </CopyToClipboard>
+          </div>
         </div>
+        <ButtonGroup>
+          <Link to={`/contracts/view/${instantiatedContractId}`}>
+            <Button
+              colorScheme="phalaDark"
+              onClick={() => reset()}
+            >
+              Go next
+            </Button>
+          </Link>
+        </ButtonGroup>
       </Alert>
-      <ButtonGroup>
-        <Link to={`/contracts/view/${instantiatedContractId}`}>
-          <Button
-            colorScheme="phalaDark"
-            onClick={() => reset()}
-          >
-            Go next
-          </Button>
-        </Link>
-      </ButtonGroup>
     </div>
   )
 }
@@ -767,6 +878,8 @@ function InstantiatedFinish() {
 //
 
 export default function FatContractUploadForm() {
+  const { search: { codeHash }} = useMatch()
+  console.log('matched codeHash', codeHash)
   const activeStep = useAtomValue(currentStepAtom)
   return (
     <div>
@@ -775,10 +888,18 @@ export default function FatContractUploadForm() {
           <ClusterBalance />
         </StepSection>
         <StepSection index={1}>
-          <ContractFileUpload isCheckWASM={true} />
-          <Suspense>
-            <UploadCodeButton />
-          </Suspense>
+          {codeHash ? (
+            <Suspense>
+              <UploadFromPatron codeHash={(codeHash as string)} />
+            </Suspense>
+          ) : (
+            <>
+              <ContractFileUpload isCheckWASM={true} />
+              <Suspense>
+                <UploadCodeButton />
+              </Suspense>
+            </>
+          )}
         </StepSection>
         <StepSection index={2}>
           <Suspense>
