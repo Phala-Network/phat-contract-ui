@@ -26,6 +26,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { BiEdit, BiCopy } from 'react-icons/bi';
+import { MdOpenInNew } from 'react-icons/md'
 import Decimal from 'decimal.js'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link } from '@tanstack/react-location'
@@ -193,6 +194,7 @@ export default function ContractInfo() {
   }
   const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
   const { canExport, download } = useContractMetaExport()
+  console.log(fetched)
 
   return (
     <Box borderWidth="1px" overflow="hidden" my="4" p="8" bg="gray.800">
@@ -238,11 +240,17 @@ export default function ContractInfo() {
                   {fetched.verified ? (
                     fetched.source === 'Phala' ? (
                       <Tag size="sm" colorScheme="green">
-                        Provides by Phala
+                        Provided by Phala
                       </Tag>
                     ) : (
                       <Tag size="sm" colorScheme="green">
-                        Verified by {fetched.source}
+                        <a
+                          href={`https://patron.works/codeHash/${fetched.codeHash.substring(2)}`}
+                          target="_blank"
+                        >
+                          Verified by {fetched.source}
+                        </a>
+                        <MdOpenInNew tw="ml-1" />
                       </Tag>
                     )
                   ) :(
@@ -263,7 +271,7 @@ export default function ContractInfo() {
             </Tr>
             <Tr>
               <Th>Deployer</Th>
-              <StyledTd>{isDeployer ? <Code>YOUR</Code> : <Code>{fetched.deployer}</Code>}</StyledTd>
+              <StyledTd>{isDeployer ? <Code>YOU</Code> : <Code>{fetched.deployer}</Code>}</StyledTd>
             </Tr>
             <Tr>
               <Th>Stakes</Th>

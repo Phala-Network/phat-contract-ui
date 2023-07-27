@@ -549,19 +549,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
     const deployer =contractInfo.isSome ? contractInfo.unwrap().deployer.toString() : null
     const localMetadata = localCachedContracts[contractId]
 
-    if (localMetadata && localMetadata.metadata.source.hash) {
-      // TODO still give a try for patron verified check?
-      return {
-        contractId: contractId,
-        codeHash: localMetadata.metadata.source.hash,
-        deployer,
-        found: true,
-        verified: false,
-        cached: true,
-        metadata: localMetadata.metadata,
-        source: 'local',
-      }
-    }
+    const cached = !!(localMetadata && localMetadata.metadata.source.hash)
 
     // TODO Error handling
     const codeHash = await unsafeGetContractCodeHash(registry, contractId)
@@ -572,6 +560,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
         deployer,
         found: false,
         verified: false,
+        cached,
       }
     }
     // TODO use react-query here?
@@ -586,7 +575,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
         deployer,
         found: true,
         verified: true,
-        cached: false,
+        cached,
         metadata: patronAbi.right as ContractMetadata,
         source: 'Patron',
       }
@@ -597,7 +586,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
         deployer,
         found: true,
         verified: true,
-        cached: false,
+        cached,
         metadata: selfhostAbi.right as ContractMetadata,
         source: 'Phala',
       }
@@ -608,6 +597,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
       deployer,
       found: true,
       verified: false,
+      cached,
     }
   }
 }
