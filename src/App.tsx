@@ -18,6 +18,7 @@ export default function PhalaContractsUI() {
       // initialValues={initialValues}
       routes={[
         { path: "/", element: <ContractListPage /> },
+        { path: "/contracts/add/:codeHash", element: <ContractAddPage /> },
         { path: "/contracts/add", element: <ContractAddPage /> },
         { path: "/contracts/attach", element: <ContractAttachPage /> },
         { path: "/contracts/view/:contractId", element: <ContractInfoPage /> },

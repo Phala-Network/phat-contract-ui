@@ -49,13 +49,14 @@ import {
   cachedCertAtom,
   hasCertAtom,
   useRequestSign,
+  aliceCertAtom,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAtom } from './init-selector-field'
 import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
-import { unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash } from '../hosted-metadata'
+import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash, unsafeCheckCodeHashExists } from '../hosted-metadata'
 
 
 // HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
@@ -306,6 +307,41 @@ function usePatronBuildResult(codeHash: string) {
   const signer = useAtomValue(signerAtom)
   const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
 
+  const [exists, setExists] = useState(false)
+  const [hasPatronBuild, setHasPatronBuild] = useState(false)
+  const aliceCert = useAtomValue(aliceCertAtom)
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true)
+
+      const systemContract = registry.systemContract
+      if (!systemContract) {
+        // TODO fixme
+        return
+      }
+      const _unsafeCheckCodeHashExists = unsafeCheckCodeHashExists({ systemContract, cert: aliceCert })
+
+      const [existent, phalaAbi, patronAbi] = await Promise.all([
+        TE.tryCatch(() => _unsafeCheckCodeHashExists(codeHash), R.always(null))(),
+        TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
+        TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
+      ])
+      if (isRight(existent) && existent.right) {
+        if (isRight(phalaAbi)) {
+          setCandidate(phalaAbi.right as ContractMetadata)
+          setExists(true)
+          setDownloaded(true)
+        } else if (isRight(patronAbi)) {
+          setCandidate(patronAbi.right as ContractMetadata)
+          setExists(true)
+          setHasPatronBuild(true)
+        }
+      }
+      setIsLoading(false)
+    })();
+  }, [registry, aliceCert, codeHash, setExists, setIsLoading, setHasPatronBuild, setDownloaded])
+
   const fetch = useCallback(async () => {
     setError(null)
     setIsLoading(true)
@@ -319,24 +355,13 @@ function usePatronBuildResult(codeHash: string) {
         // TODO show toast.
         return
       }
-      const [metadata, wasm] = await Promise.all([
-        TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
-        TE.tryCatch(() => unsafeGetWasmFromPatronByCodeHash(codeHash), R.always(null))(),
-      ])
+      const wasm = await TE.tryCatch(() => unsafeGetWasmFromPatronByCodeHash(codeHash), R.always(null))()
 
-      if (isRight(metadata) && isRight(wasm)) {
-        setCandidate(metadata.right as ContractMetadata)
+      if (isRight(wasm)) {
         setWasm(wasm.right)
         setDownloaded(true)
-        // const codePromise = new PinkCodePromise(registry.api, registry, new Abi(metadata.right), wasm.right)
-        // // @ts-ignore
-        // const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
-        // await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
-        // setBlueprintPromise(uploadResult.blueprint)
       } else {
-        if (isLeft(metadata)) {
-          setError({ message: `Contract download failed: ${metadata.left}`, level: 'error' })
-        } else if (isLeft(wasm)) {
+        if (isLeft(wasm)) {
           setError({ message: `Contract download failed: ${wasm.left}`, level: 'error' })
         } else {
           setError({ message: `Contract download failed: unknown error`, level: 'error' })
@@ -354,7 +379,48 @@ function usePatronBuildResult(codeHash: string) {
     }
   }, [setIsLoading, setError, requestSign, setCandidate, cert, registry, currentAccount, signer, setBlueprintPromise, codeHash])
 
-  return { isLoading, error, fetch, downloaded }
+  const setCustomMetadata = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      setError({ message: 'You need select a file to continue.', level: 'info' })
+      return Promise.resolve(false)
+    }
+    setIsLoading(true)
+    return new Promise(resolve => {
+      const reader = new FileReader()
+      reader.addEventListener('load', () => {
+        try {
+          const contract = JSON.parse(reader.result as string)
+          if (!contract || !contract.source || !contract.source.hash) {
+            setError({ message: '[0] Your contract file is invalid.', level: 'error' })
+            resolve(false)
+            return
+          }
+
+          try {
+            new Abi(contract)
+          } catch (err) {
+            setError({ message: `[1] Your contract file is invalid: ${err}`, level: 'error' })
+            resolve(false)
+            return
+          }
+
+          setCandidate(contract)
+          setExists(true)
+          setDownloaded(true)
+          resolve(true)
+        } catch (e) {
+          console.error(e)
+          setError({ message: `[3] Your contract file is invalid: ${e}`, level: 'error' })
+          resolve(false)
+        } finally {
+          setIsLoading(false)
+        }
+      })
+      reader.readAsText(files[0], 'utf-8')
+    })
+  }, [setIsLoading, setCandidate, setExists, setDownloaded, setError])
+
+  return { isLoading, error, fetch, downloaded, exists, setCustomMetadata, hasPatronBuild }
 }
 
 function useReset() {
@@ -462,7 +528,7 @@ const uploadCodeCheckAtom = atom(async get => {
   const account = get(currentAccountAtom)
   const [, cert] = get(cachedCertAtom)
   const wasm = get(wasmAtom) || candidate?.source.wasm || ''
-  if (!candidate || !candidate.source || !wasm || !registry.clusterInfo || !systemContract || !account) {
+  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account) {
     return { canUpload: false, showTransferToCluster: false, exists: false }
   }
   const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')
@@ -549,8 +615,39 @@ function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
   const { isLoading, upload, error, hasError, restoreBlueprint } = useUploadCode()
   const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash } = useAtomValue(uploadCodeCheckAtom)
+  const contract = useAtomValue(candidateAtom)
+  const toast = useToast()
   return (
     <div tw="ml-4 mt-2.5">
+      {contract ? (
+        <table tw="mb-2">
+          <tr>
+            <th tw="pr-2 text-right font-light text-gray-400">Name</th>
+            <td>{contract.contract.name} <code>{contract.contract.version}</code></td>
+          </tr>
+          <tr>
+            <th tw="pr-2 text-right font-light text-gray-400">Hash</th>
+            <td>
+              <div tw="flex flex-row gap-2">
+                <code tw="font-mono text-xs p-1 bg-black rounded self-center">{codeHash}</code>
+                <CopyToClipboard
+                  text={contract.source.hash}
+                  onCopy={() => toast({
+                    title: 'Copied',
+                    status: 'success',
+                    duration: 2000,
+                    isClosable: true,
+                  })}
+                >
+                  <IconButton aria-label='Copy' size="sm">
+                    <VscCopy tw="h-4 w-4" />
+                  </IconButton>
+                </CopyToClipboard>
+              </div>
+            </td>
+          </tr>
+        </table>
+      ) : null}
       {hasError ? (
         <div tw="mb-2">
           <Alert status={error?.level || 'info'} title={error?.message || 'Unknown Error'}>
@@ -585,12 +682,25 @@ function UploadCodeButton() {
 }
 
 function UploadFromPatron({ codeHash }: { codeHash: string }) {
-  const { isLoading: isDownloading, error: downloadError, fetch, downloaded } = usePatronBuildResult(codeHash)
+  const { isLoading: isDownloading, fetch, downloaded, exists, setCustomMetadata, error, hasPatronBuild } = usePatronBuildResult(codeHash)
   return (
-    <>
-      {downloaded ? (
-        <UploadCodeButton />
-      ) : (
+    <div tw="flex flex-col gap-2">
+      {error ? (
+        <Alert status="error" title={error.message}>
+        </Alert>
+      ) : null}
+      {!exists ? (
+        <div tw="flex flex-col gap-2">
+          <p>You are trying instantiate a contract already exists in Cluster, you need choose a metadata file to continue.</p> 
+          <Button as="label" tw="cursor-pointer">
+            <input type="file" tw="sr-only" onChange={async (ev) => {
+              await setCustomMetadata(ev.target.files)
+            }} />
+            Choose Metadata File
+          </Button>
+        </div>
+      ) : null}
+      {exists && hasPatronBuild && !downloaded ? (
         <div tw="flex flex-col gap-3">
           <div tw="flex flex-row gap-5">
             <div>
@@ -607,11 +717,6 @@ function UploadFromPatron({ codeHash }: { codeHash: string }) {
               </p>
             </div>
           </div>
-          {downloadError ? (
-            <Alert status="error" title="Upload Failed">
-              <p>{downloadError.message}</p>
-            </Alert>
-          ) : null}
           <div tw="flex flex-row gap-2 items-center ml-14">
             <Button isLoading={isDownloading} onClick={fetch}>
               Fetch Build
@@ -619,10 +724,19 @@ function UploadFromPatron({ codeHash }: { codeHash: string }) {
             <Button as="a" target="_blank" href={`https://patron.works/codeHash/${codeHash}`}>
               Review Code
             </Button>
+            <Button as="label" tw="cursor-pointer">
+              <input type="file" tw="sr-only" onChange={async (ev) => {
+                await setCustomMetadata(ev.target.files)
+              }} />
+              Use Custom Metadata File
+            </Button>
           </div>
         </div>
-      )}
-    </>
+      ) : null}
+      {downloaded ? (
+        <UploadCodeButton />
+      ) : null}
+    </div>
   )
 }
 
@@ -878,8 +992,12 @@ function InstantiatedFinish() {
 //
 
 export default function FatContractUploadForm() {
-  const { search: { codeHash }} = useMatch()
-  console.log('matched codeHash', codeHash)
+  const match = useMatch()
+  let codeHash = match.params.codeHash
+  if (codeHash && codeHash.substring(0, 2) === '0x') {
+    codeHash = codeHash.substring(2)
+  }
+
   const activeStep = useAtomValue(currentStepAtom)
   return (
     <div>

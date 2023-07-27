@@ -1,5 +1,19 @@
-import { type OnChainRegistry } from '@phala/sdk'
+import { type OnChainRegistry, type PinkContractPromise, type CertificateData } from '@phala/sdk'
+import { type Bool } from '@polkadot/types'
 import * as R from 'ramda'
+
+export interface CheckCodeHashExistsEnv {
+  systemContract: PinkContractPromise
+  cert: CertificateData
+}
+
+export function unsafeCheckCodeHashExists(env: CheckCodeHashExistsEnv) {
+  const { systemContract, cert } = env
+  return async function _unsafeCheckCodeHashExists(codeHash: string) {
+    const { output } = await systemContract.query['system::codeExists']<Bool>(cert.address, { cert }, `0x${codeHash}`, 'Ink')
+    return (output && output.isOk && output.asOk.isTrue)
+  }
+}
 
 export async function unsafeGetContractCodeHash(phatRegistry: OnChainRegistry, contractId: string): Promise<string | null> {
   const payload = await phatRegistry.phactory.getContractInfo({ contracts: [contractId] })

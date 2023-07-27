@@ -11,36 +11,16 @@ import {
 } from '@chakra-ui/react'
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
-import { Bool } from '@polkadot/types'
 import { Atom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { isRight } from 'fp-ts/Either'
 import * as O from 'fp-ts/Option'
 import * as TE from 'fp-ts/TaskEither'
 import * as R from 'ramda'
 
-import { type PinkContractPromise, type CertificateData } from '@phala/sdk'
 import { Alert } from '@/components/ErrorAlert'
 import { aliceCertAtom, phatRegistryAtom } from '@/features/phat-contract/atoms'
-import { unsafeGetAbiFromPatronByCodeHash } from '@/features/phat-contract/hosted-metadata'
+import { unsafeGetAbiFromPatronByCodeHash, unsafeCheckCodeHashExists } from '@/features/phat-contract/hosted-metadata'
 
-//
-//
-//
-
-// Brings from `unloadCodeCheckAtom` from `fat-contract-upload-form.tsx`
-
-interface CheckCodeHashExistsEnv {
-  systemContract: PinkContractPromise
-  cert: CertificateData
-}
-
-function unsafeCheckCodeHashExists(env: CheckCodeHashExistsEnv) {
-  const { systemContract, cert } = env
-  return async function _unsafeCheckCodeHashExists(codeHash: string) {
-    const { output } = await systemContract.query['system::codeExists']<Bool>(cert.address, { cert }, codeHash, 'Ink')
-    return (output && output.isOk && output.asOk.isTrue)
-  }
-}
 
 //
 //
@@ -94,7 +74,7 @@ function CodeHashLookupResult() {
   const { uploaded, existsOnPatron, codeHash } = lookupResult.value
   if (!uploaded) {
     return (
-      <Alert title="Hash Lookup failed in the Cluster">
+      <Alert title="Hash lookup failed in the Cluster">
         <div tw="flex flex-col gap-2">
           <p>The code may not yet uploaded to the cluster before.</p>
           {existsOnPatron ? (
@@ -114,9 +94,19 @@ function CodeHashLookupResult() {
     )
   }
   return (
-    <div>
-      Lookup
-    </div>
+    <Alert title="Contract Exists">
+      <div>
+        <p>The code is already uploaded to the cluster, you can instantiate it without storage deposite fee.</p>
+        <p>NOTE: you still need the metadata file to instantiate it.</p>
+      </div>
+      <div tw="mt-2">
+        <Link to={`/contracts/add?codeHash=${codeHash}`}>
+          <Button colorScheme="phalaDark">
+            Instantiate Now
+          </Button>
+        </Link>
+      </div>
+    </Alert>
   )
 }
 
@@ -150,3 +140,4 @@ export default function ContractCodehashPage() {
     </div>
   )
 }
+
