@@ -59,3 +59,13 @@ export async function unsafeGetWasmFromPatronByCodeHash(codeHash: string): Promi
   const buffer = await resp.arrayBuffer()
   return new Uint8Array(buffer)
 }
+
+export async function unsafeGetWasmFromGithubRepoByCodeHash(codeHash: string): Promise<Uint8Array> {
+  const codeHashWithPrefix = codeHash.indexOf('0x') !== 0 ? `0x${codeHash}` : codeHash
+  const resp = await fetch(`${OFFICIAL_ARTIFACTS_URL}/artifacts/${codeHashWithPrefix}/out.wasm`)
+  if (resp.status !== 200) {
+    throw new Error(`Failed to get wasm from GitHub: ${resp.status}`)
+  }
+  const buffer = await resp.arrayBuffer()
+  return new Uint8Array(buffer)
+}
