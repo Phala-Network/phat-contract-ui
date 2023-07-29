@@ -40,9 +40,11 @@ import * as R from 'ramda'
 import {
   isNumberLikeType,
   isBoolType,
+  isAddressType,
   subToArray,
   PlainType,
   validateNotUndefined,
+  validateAddress,
   convertToBN,
   cantToNumberMessage
 } from '@/functions/argumentsValidator'
@@ -504,7 +506,13 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
 
   const [innerValue, setInnerValue] = useState('')
 
-  useEffect(() => {
+  console.log('OtherTypeFieldData render: fieldData', fieldData)
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setInnerValue(event.target.value)
+  }
+
+  const handleBlur = () => {
     if (!innerValue) {
       dispatchValue(dispatch, uid, undefined)
     } else {
@@ -519,17 +527,14 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
           // noop
         }
       }
+      if (isAddressType(type as PlainType)) {
+        const { errors } = validateAddress(fieldData.typeDef, nextValue as string)
+        if (errors.length > 0) {
+          return dispatchErrors(dispatch, uid, errors)
+        }
+      }
       dispatchValue(dispatch, uid, nextValue)
     }
-  }, [innerValue])
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setInnerValue(event.target.value)
-  }
-
-  const handleBlur = () => {
-    const errors = validateNotUndefined(value)
-    dispatchErrors(dispatch, uid, errors)
   }
 
   return (
