@@ -7,7 +7,7 @@ import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
 import { atomWithReducer, waitForAll, atomFamily } from 'jotai/utils'
-import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
+import { subToArray, validateNotUndefined, validateSub, validatePlainType } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
 import createLogger from '@/functions/createLogger'
@@ -570,6 +570,15 @@ export const getCheckedFieldData = (fieldData: FieldDataNormalized, isRendered: 
           checkedErrors = validateNotUndefined(nestValue)
         }
 
+        if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
+          return R.assoc('errors', checkedErrors, fieldData)
+        }
+      } else if (info === TypeDefInfo.Plain) {
+        let checkedErrors = validateNotUndefined(value)
+        if (!checkedErrors.length) {
+          const value$1 = value as string
+          checkedErrors = validatePlainType(fieldData.typeDef, value).errors
+        }
         if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
           return R.assoc('errors', checkedErrors, fieldData)
         }
