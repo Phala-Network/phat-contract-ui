@@ -1,4 +1,4 @@
-import type { Result, U64, Bool } from '@polkadot/types'
+import type { Result, U64, Bool, bool } from '@polkadot/types'
 import React, { type ReactNode, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import {
@@ -18,25 +18,37 @@ import {
   ButtonGroup,
   useToast,
   IconButton,
+  Heading,
+  Skeleton,
+  Table,
+  Tbody,
+  Tr as ChakraTr,
+  Th as ChakraTh,
+  Td as ChakraTd,
+  TableContainer,
+  Tag,
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
+import { AiOutlineLoading } from 'react-icons/ai'
 import { MdOpenInNew } from 'react-icons/md'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { atomWithReducer, atomWithReset, loadable } from 'jotai/utils'
 import { RESET } from 'jotai/utils'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link, useMatch } from '@tanstack/react-location'
 import { find } from 'ramda'
-import { PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
+import {  type OnChainRegistry, type CertificateData, PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
-import { type BN } from '@polkadot/util'
+import { type BN, u8aToHex } from '@polkadot/util'
 import { isLeft, isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
 import { Select } from '@/components/inputs/select'
 import { Alert } from '@/components/ErrorAlert'
+import Code from '@/components/code'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
 import {
   candidateAtom,
@@ -50,13 +62,274 @@ import {
   hasCertAtom,
   useRequestSign,
   aliceCertAtom,
+  pinkLoggerAtom,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAtom } from './init-selector-field'
 import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
-import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash, unsafeCheckCodeHashExists } from '../hosted-metadata'
+import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash, unsafeCheckCodeHashExists, unsafeGetWasmFromGithubRepoByCodeHash } from '../hosted-metadata'
+import { endpointAtom } from '@/atoms/endpointsAtom'
+import { connectionDetailModalVisibleAtom } from '@/components/EndpointInfo'
+
+
+//
+// V3
+//
+
+interface CheckInstantiateContextEnv {
+  phatRegistry: OnChainRegistry
+  publicCert: CertificateData
+}
+
+type InstantiateContext = {
+  mode: 'upload',
+  codeExists: boolean,
+  codeHash?: string | null,
+  phalaBuildAbi?: Record<string, unknown>,
+  patronBuildAbi?: Record<string, unknown>,
+} | {
+  mode: 'instantiate',
+  codeExists: boolean,
+  phalaBuildAbi?: Record<string, unknown>,
+  patronBuildAbi?: Record<string, unknown>,
+  codeHash: string,
+}
+
+function getInstantiateContext({ phatRegistry, publicCert }: CheckInstantiateContextEnv) {
+  const  systemContract = phatRegistry.systemContract
+  if (!systemContract) {
+    throw new Error('System contract is not ready.')
+  }
+  // @TODO endpoint & cluster can be override. 
+  return async function unsafeCheckInstantiateContext(codeHash?: string | null): Promise<InstantiateContext> {
+    if (!codeHash) {
+      return {
+        mode: 'upload',
+        codeExists: false,
+        codeHash,
+      }
+    }
+    const _unsafeCheckCodeHashExists = unsafeCheckCodeHashExists({ systemContract, cert: publicCert })
+    const [codeExistsQuery, phalaBuildAbiQuery, patronBuildAbiQuery] = await Promise.all([
+      TE.tryCatch(() => _unsafeCheckCodeHashExists(codeHash), R.always(null))(),
+      TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
+      TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
+    ])
+    const codeExists = isRight(codeExistsQuery) && codeExistsQuery.right
+    const phalaBuildAbi = isRight(phalaBuildAbiQuery) ? phalaBuildAbiQuery.right : undefined
+    const patronBuildAbi = isRight(patronBuildAbiQuery) ? patronBuildAbiQuery.right : undefined
+    return {
+      mode: codeExists ? 'instantiate' : 'upload',
+      codeExists,
+      phalaBuildAbi,
+      patronBuildAbi,
+      codeHash,
+    }
+  }
+}
+
+// atoms
+
+const presetCodeHashAtom = atomWithReducer<null | string, null | string>(null, (_, codeHash: string | null) => {
+  if (codeHash && codeHash.substring(0, 2) === '0x') {
+    return codeHash.substring(2)
+  }
+  return codeHash
+})
+
+const instantiateContextAtom = atom(async (get) => {
+  const phatRegistry = get(phatRegistryAtom)
+  const publicCert = get(aliceCertAtom)
+  const unsafeGetInstantiateContext = getInstantiateContext({ phatRegistry, publicCert })
+  return await unsafeGetInstantiateContext(get(presetCodeHashAtom))
+})
+
+const uploadPlanAtom = atom((get) => {
+  const instantiateContext = get(instantiateContextAtom)
+  const candidate = get(candidateAtom)
+  let canFetch = false
+  let fetchSource: string | undefined = undefined
+  if (instantiateContext.phalaBuildAbi) {
+    fetchSource = 'phala'
+    canFetch = true
+  } else if (instantiateContext.patronBuildAbi) {
+    fetchSource = 'patron'
+    canFetch = true
+  }
+  return {
+    needFetch: !instantiateContext.codeExists,
+    metadataMissed: !candidate,
+    canFetch,
+    fetchSource,
+  }
+})
+
+const wasmAtom = atomWithReset<Uint8Array | null>(null) 
+
+const wasmFetchStateAtom = atomWithReset<{
+  isFetching: boolean,
+  error: string | null,
+  attempts: number,
+}>({
+  isFetching: false,
+  error: null,
+  attempts: 0,
+})
+
+// Write-only atom
+const wasmFetchAtom = atom(null, async (get, set) => {
+  const { codeHash, phalaBuildAbi, patronBuildAbi } = get(instantiateContextAtom)
+  const state = get(wasmFetchStateAtom)
+
+  if (!codeHash) {
+    console.warn('Unexpected path: codeHash is not available form wasmFetchOnlyAtom')
+    return
+  }
+
+  set(wasmFetchStateAtom, { ...state, isFetching: true })
+
+  let error = null, result = null, attempts = state.attempts
+  try {
+    if (phalaBuildAbi) {
+      result = await unsafeGetWasmFromGithubRepoByCodeHash(codeHash)
+    } else if (patronBuildAbi) {
+      result = await unsafeGetWasmFromPatronByCodeHash(codeHash)
+    }
+  } catch (err) {
+    error = `Fetch wasm failed: ${(err as Error).message}`
+  }
+  set(wasmFetchStateAtom, { isFetching: false, error, attempts: attempts + 1 })
+  if (result) {
+    set(wasmAtom, result)
+  }
+})
+
+
+const wasmUploadStateAtom = atomWithReset<{
+  isProcessing: boolean,
+  processed: boolean,
+  error: string | null,
+  attempts: number,
+}>({
+  isProcessing: false,
+  processed: false,
+  error: null,
+  attempts: 0,
+})
+
+const wasmCanUploadAtom = atom(get => {
+  const candidate = get(candidateAtom)
+  const hasCert = get(hasCertAtom)
+  const wasm = get(wasmAtom)
+  if (hasCert && candidate && (candidate.source.wasm || wasm)) {
+    return true
+  }
+  return false
+})
+
+// Write-only atom
+const wasmUploadAtom = atom(null, async (get, set) => {
+  const registry = get(phatRegistryAtom)
+  const currentAccount = get(currentAccountAtom)
+  const signer = get(signerAtom)
+  const candidate = get(candidateAtom)
+  const [, cert] = get(cachedCertAtom)
+  const wasm = get(wasmAtom)
+  const logger = get(pinkLoggerAtom)
+
+  if (!candidate || !cert || !(candidate?.source.wasm || wasm)) {
+    throw new Error('Unexpected path: wasmUploadAtom is called but candidate or cert is not available.')
+  }
+
+  set(wasmUploadStateAtom, prev => ({ isProcessing: true, processed: false, error: null, attempts: prev.attempts + 1 }))
+
+  let blockNumber: Nullable<number>
+  try {
+    const code = wasm || candidate.source.wasm
+    const codePromise = new PinkCodePromise(registry.api, registry, candidate, code)
+    // @ts-ignore
+    const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
+    blockNumber = uploadResult.blockNumber.toNumber()
+    await uploadResult.waitFinalized(currentAccount, cert, 12_000) // 1 mins
+    set(blueprintPromiseAtom, uploadResult.blueprint)
+    set(wasmUploadStateAtom, prev => ({ isProcessing: false, processed: true, error: null, attempts: prev.attempts + 1 }))
+  } catch (err) {
+    let error = `${err}`
+    let isTimeout =  error.indexOf('Timeout') !== -1
+    if (logger && isTimeout) {
+      // @FIXME for now we don't have real 'tail' functional that get latest log records, so we need iter all.
+      const contractId = registry.systemContract?.address?.toHex()
+      if (contractId) {
+        // @ts-ignore
+        const { records } = await logger.getLog(contractId, 0, 2000)
+        // @ts-ignore
+        const found: Nullable<Record<string, string>> = R.find(rec => rec.blockNumber === blockNumber, records)
+        if (found) {
+          error = found.message
+        }
+      }
+    }
+    set(wasmUploadStateAtom, prev => ({ isProcessing: false, processed: false, error, attempts: prev.attempts + 1 }))
+  }
+})
+
+// Write-only atom
+const restoreBlueprintAtom = atom(null, (get, set) => {
+  const registry = get(phatRegistryAtom)
+  const presetCodeHash = get(presetCodeHashAtom)
+  const candidate = get(candidateAtom)
+  const codeHash = presetCodeHash ? `0x${presetCodeHash}` : candidate?.source.hash
+  if (candidate && codeHash) {
+    set(blueprintPromiseAtom, new PinkBlueprintPromise(registry.api, registry, candidate, codeHash))
+  }
+})
+
+// Write-only atom
+const setCustomMetadataAtom = atom(null, (_get, set, files: FileList | null) => {
+  if (!files || files.length === 0) {
+    return
+  }
+  const reader = new FileReader()
+  reader.addEventListener('load', () => {
+    try {
+      const contract = JSON.parse(reader.result as string)
+      if (!contract || !contract.source || !contract.source.hash) {
+        return
+      }
+      new Abi(contract)
+      set(candidateAtom, contract)
+    } catch (e) {
+      console.error(e)
+    }
+  })
+  reader.readAsText(files[0], 'utf-8')
+})
+
+// hooks
+
+/**
+  * This hook is used for set the contract metadata from preset code hash (the code hash from URL).
+  */
+function useSetContractMetadataFromPresetCodeHash() {
+  const instantiateContext = useAtomValue(loadable(instantiateContextAtom))
+  const setContractMetadata = useSetAtom(candidateAtom)
+  useEffect(() => {
+    if (instantiateContext.state === 'hasData') {
+      const { patronBuildAbi, phalaBuildAbi } = instantiateContext.data
+      if (patronBuildAbi) {
+        setContractMetadata(patronBuildAbi as ContractMetadata)
+      } else if (phalaBuildAbi) {
+        setContractMetadata(phalaBuildAbi as ContractMetadata)
+      }
+    }
+  }, [instantiateContext, setContractMetadata])
+}
+
+//
+// END
+//
 
 
 // HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
@@ -169,9 +442,11 @@ const currentStepAtom = atom(get => {
 
 const currentBalanceAtom = atom(0)
 
+const isUpdatingClusterBalanceAtom = atom(false) 
+
 function useClusterBalance() {
   const [currentBalance, setCurrentBalance] = useAtom(currentBalanceAtom)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useAtom(isUpdatingClusterBalanceAtom)
 
   const [,cert] = useAtomValue(cachedCertAtom)
   const registry = useAtomValue(phatRegistryAtom)
@@ -199,9 +474,11 @@ function useClusterBalance() {
   }, [registry, currentAccount, cert])
 
   const refreshBalance = useCallback(async () => {
+    setIsLoading(true)
     const result = await getBalance()
     setCurrentBalance(result.free)
-  }, [getBalance, setCurrentBalance])
+    setIsLoading(false)
+  }, [getBalance, setCurrentBalance, setIsLoading])
 
   useEffect(() => {
     (async function() {
@@ -291,8 +568,6 @@ function useUploadCode() {
   return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
 
-const wasmAtom = atom<Uint8Array | null>(null) 
-
 function usePatronBuildResult(codeHash: string) {
   const [isLoading, setIsLoading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
@@ -310,6 +585,7 @@ function usePatronBuildResult(codeHash: string) {
   const [exists, setExists] = useState(false)
   const [hasPatronBuild, setHasPatronBuild] = useState(false)
   const aliceCert = useAtomValue(aliceCertAtom)
+  const [canRestore, setCanRestore] = useState(true)
 
   useEffect(() => {
     (async () => {
@@ -338,9 +614,12 @@ function usePatronBuildResult(codeHash: string) {
           setHasPatronBuild(true)
         }
       }
+      if (isLeft(existent) || existent.right === false) {
+        setCanRestore(false)
+      }
       setIsLoading(false)
     })();
-  }, [registry, aliceCert, codeHash, setExists, setIsLoading, setHasPatronBuild, setDownloaded])
+  }, [registry, aliceCert, codeHash, setExists, setIsLoading, setHasPatronBuild, setDownloaded, setCanRestore])
 
   const fetch = useCallback(async () => {
     setError(null)
@@ -420,7 +699,7 @@ function usePatronBuildResult(codeHash: string) {
     })
   }, [setIsLoading, setCandidate, setExists, setDownloaded, setError])
 
-  return { isLoading, error, fetch, downloaded, exists, setCustomMetadata, hasPatronBuild }
+  return { isLoading, error, fetch, downloaded, exists, setCustomMetadata, hasPatronBuild, canRestore }
 }
 
 function useReset() {
@@ -437,8 +716,9 @@ function useReset() {
   return reset
 }
 
-
-// Step Container
+//
+// UI Components
+//
 
 function StepSection({ children, index, isEnd }: { children: ReactNode, index: number, isEnd?: boolean }) {
   const currentStep = useAtomValue(currentStepAtom)
@@ -457,7 +737,8 @@ function StepSection({ children, index, isEnd }: { children: ReactNode, index: n
     
       <div css={[
         tw`flex-grow ml-4 mb-8 px-8 py-4 rounded-sm bg-gray-700 transition-all`,
-        (index === currentStep) ? tw`opacity-100` : tw`opacity-75 hover:opacity-100`
+        (index === currentStep) ? tw`opacity-100` : tw`opacity-75 hover:opacity-100`,
+        tw`flex flex-col gap-4`
       ]}>
         {children}
       </div>
@@ -469,56 +750,200 @@ function StepSection({ children, index, isEnd }: { children: ReactNode, index: n
   )
 }
 
+const Tr = tw(ChakraTr)`min-h-[4rem]`
+const Th = tw(ChakraTh)`max-w-[20rem]`
+const Td = tw(ChakraTd)`py-4`
+
+//
+// Section 1: Instantiate Candidate Info
 //
 
-// A panel show user current balance in cluster. Because the balance query need user sign the cert before,
-// so it will block all follow up operations is not cert.
-function ClusterBalance() {
+function InstantiateHint() {
+  const instantiateContext = useAtomValue(instantiateContextAtom)
   const { hasCert, requestSign, isWaiting } = useRequestSign()
-  const { currentBalance } = useClusterBalance()
-  const [showInlineTransferForm, setShowInlineTransferForm] = useState(false)
-  if (!hasCert) {
-    return (
-      <Alert title="You need sign the cert before continue.">
-        <Button
-          colorScheme="phalaDark"
-          isLoading={isWaiting}
-          onClick={requestSign}
-        >
-          Sign
-        </Button>
-      </Alert>
-    )
+  if (!instantiateContext.codeHash && hasCert) {
+    return null
   }
   return (
-    <table tw="inline-flex">
-      <tbody>
-        <tr>
-          <td tw="pr-2.5 py-2 text-right">Cluster ID:</td>
-          <td>
-            <ClusterIdSelect />
-          </td>
-        </tr>
-        <tr>
-          <td tw="pr-2.5 py-2 text-right">Cluster Account Balance:</td>
-          <td tw="py-2 flex flex-row items-center gap-4">
-            <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
-            {showInlineTransferForm ? (
-              <div tw="flex flex-row items-center gap-1">
-                <TransferToCluster />
-                <Button mt="0.5" size="xs" onClick={() => setShowInlineTransferForm(false)}><VscClose /></Button>
-              </div>
-            ) : (
-              <Button size="xs" onClick={() => setShowInlineTransferForm(true)}>Transfer</Button>
-            )}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <Alert title="Notice">
+      <div tw="flex flex-col gap-1.5 text-gray-300">
+        {instantiateContext.codeHash ? (
+          <>
+            {instantiateContext.mode === 'upload' ? (
+              <p>You are trying instantiate a contract from a hash, and it can't found in the cluster. You might better upload and deploy one.</p>
+            ) : null}
+            {instantiateContext.patronBuildAbi ? (
+              <p tw="flex flex-row items-center">
+                This contract is verified by
+                <a href="https://patron.works" target="_blank" tw="underline mx-1">
+                  <img src="https://patron.works/patron-favicon.svg" alt="Patron" tw="h-4 w-4 inline ml-[2px] mr-[1px]" />
+                  <span>Patron</span>
+                </a>
+                . You can checkout the verification
+                <a href={`https://patron.works/codeHash/${instantiateContext.codeHash}`} target="_blank" tw="underline mx-1">here</a>.
+              </p>
+            ) : instantiateContext.phalaBuildAbi ? (
+              <p tw="flex flex-row items-center">
+                This contract is provided by Phala Team. You can find more details
+                <a href="https://phala-network.github.io/phat-contract-artifacts/" target="_blank" tw="underline mx-1">here</a>.
+              </p>
+            ) : instantiateContext.mode === 'instantiate'? (
+              <p tw="flex flex-row items-center">
+                This contract is not verified and may contain potential risks. Please specify the custom metadata file to proceed.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+        {!hasCert ? (
+          <p>
+            You need sign the cert to continue.
+          </p>
+        ) : null}
+        {!hasCert ? (
+          <div tw="mt-2">
+            <Button
+              minW="8rem"
+              size="sm"
+              colorScheme="phalaDark"
+              isLoading={isWaiting}
+              onClick={requestSign}
+            >
+              Sign
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </Alert>
   )
 }
 
-// Step 2
+function InstantiateInfoEndpoint() {
+  const endpoint = useAtomValue(endpointAtom)
+  const cluster = useAtomValue(currentClusterIdAtom)
+  const setConnectionDetailModalVisible = useSetAtom(connectionDetailModalVisibleAtom)
+  return (
+    <Tr>
+      <Th>Endpoint & Cluster</Th>
+      <Td>
+        <div tw="flex flex-row gap-2 min-h-[2rem]">
+          <div tw="flex flex-row items-center gap-2">
+            <Code>{endpoint}</Code>
+            <Code>{cluster.substring(0, 4)}...{cluster.substring(cluster.length - 4)}</Code>
+            <Button size="xs" onClick={() => setConnectionDetailModalVisible(true)}>Switch</Button>
+          </div>
+        </div>
+      </Td>
+    </Tr>
+  )
+}
+
+function InstantiateInfoClusterBalance() {
+  const { hasCert, requestSign, isWaiting } = useRequestSign()
+  const { currentBalance } = useClusterBalance()
+  const [showInlineTransferForm, setShowInlineTransferForm] = useState(false)
+  return (
+    <Tr>
+      <Th>Cluster Balance</Th>
+      <Td>
+        <div tw="flex flex-row gap-2 items-center min-h-[2rem]">
+          {hasCert ? (
+            <>
+              <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
+              {showInlineTransferForm ? (
+                <div tw="flex flex-row items-center gap-1">
+                  <TransferToCluster />
+                  <Button mt="0.5" size="xs" onClick={() => setShowInlineTransferForm(false)}><VscClose /></Button>
+                </div>
+              ) : (
+                <Button size="xs" onClick={() => setShowInlineTransferForm(true)}>Transfer</Button>
+              )}
+            </>
+          ) : (
+            <Button size="xs" isLoading={isWaiting} onClick={requestSign}>Check my cluster balance</Button> 
+          )}
+        </div>
+      </Td>
+    </Tr>
+  )
+}
+
+function InstantiateInfoCandidateHint() {
+  const instantiateContext = useAtomValue(instantiateContextAtom)
+  const toast = useToast()
+  const candidate = useAtomValue(candidateAtom)
+  const codeHash = instantiateContext.codeHash ? `0x${instantiateContext.codeHash}` : candidate?.source.hash
+  if (!codeHash || !candidate) {
+    return null
+  }
+  return (
+    <>
+      <Tr>
+        <Th>Hash</Th>
+        <Td>
+          <div tw="flex flex-row gap-2 min-h-[2rem]">
+            {codeHash ? (
+              <>
+                <div tw="flex flex-row items-center">
+                  <Code>{codeHash}</Code>
+                </div>
+                <CopyToClipboard
+                  text={codeHash}
+                  onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                >
+                  <IconButton aria-label="copy" size="sm"><VscCopy /></IconButton>
+                </CopyToClipboard>
+              </>
+            ) : null}
+          </div>
+        </Td>
+      </Tr>
+      <Tr>
+        <Th>Name</Th>
+        <Td>
+          <div tw="flex flex-row items-center gap-1 min-h-[2rem]">
+            {candidate && candidate.contract ? (
+              <>
+                <span>{candidate.contract.name}</span><code>{candidate.contract.version}</code>
+              </>
+            ) : null}
+          </div>
+        </Td>
+      </Tr>
+      <Tr>
+        <Th>Verification</Th>
+        <Td>
+          <div tw="min-h-[2rem] flex flex-row items-center">
+            {instantiateContext.patronBuildAbi ? (
+              <Tag size="sm" colorScheme="green">
+                <a
+                  href={`https://patron.works/codeHash/${instantiateContext.codeHash}`}
+                  target="_blank"
+                >
+                  Verified by Patron
+                </a>
+                <MdOpenInNew tw="ml-1" />
+              </Tag>
+            ) : null}
+            {instantiateContext.phalaBuildAbi ? (
+              <Tag size="sm" colorScheme="green">
+                Provided by Phala
+              </Tag>
+            ) : null}
+            {!instantiateContext.phalaBuildAbi && !instantiateContext.patronBuildAbi ? (
+              <Tag size="sm" colorScheme="yellow">
+                Unverified
+              </Tag>
+            ) : null}
+          </div>
+        </Td>
+      </Tr>
+    </>
+  )
+}
+  
+//
+// Section 2: Choose a file or fetch wasm file from remote. 
+//
 
 const uploadCodeCheckAtom = atom(async get => {
   const registry = get(phatRegistryAtom)
@@ -537,6 +962,7 @@ const uploadCodeCheckAtom = atom(async get => {
   }
   const storageDepositeFee = estimateDepositeFee(wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
+
     return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
   }
   return { canUpload: true, showTransferToCluster: false, exists: false }
@@ -615,39 +1041,9 @@ function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
   const { isLoading, upload, error, hasError, restoreBlueprint } = useUploadCode()
   const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash } = useAtomValue(uploadCodeCheckAtom)
-  const contract = useAtomValue(candidateAtom)
-  const toast = useToast()
+  const activeStep = useAtomValue(currentStepAtom)
   return (
     <div tw="ml-4 mt-2.5">
-      {contract ? (
-        <table tw="mb-2">
-          <tr>
-            <th tw="pr-2 text-right font-light text-gray-400">Name</th>
-            <td>{contract.contract.name} <code>{contract.contract.version}</code></td>
-          </tr>
-          <tr>
-            <th tw="pr-2 text-right font-light text-gray-400">Hash</th>
-            <td>
-              <div tw="flex flex-row gap-2">
-                <code tw="font-mono text-xs p-1 bg-black rounded self-center">{codeHash}</code>
-                <CopyToClipboard
-                  text={contract.source.hash}
-                  onCopy={() => toast({
-                    title: 'Copied',
-                    status: 'success',
-                    duration: 2000,
-                    isClosable: true,
-                  })}
-                >
-                  <IconButton aria-label='Copy' size="sm">
-                    <VscCopy tw="h-4 w-4" />
-                  </IconButton>
-                </CopyToClipboard>
-              </div>
-            </td>
-          </tr>
-        </table>
-      ) : null}
       {hasError ? (
         <div tw="mb-2">
           <Alert status={error?.level || 'info'} title={error?.message || 'Unknown Error'}>
@@ -659,88 +1055,119 @@ function UploadCodeButton() {
           <TransferToClusterAlert storageDepositeFee={storageDepositeFee} />
         </div>
       ) : null}
-      {exists && codeHash ? (
+      {exists && codeHash && activeStep < 2 ? (
         <div tw="mb-2 pr-5">
           <Alert status="info" title="Code Hash Already Exists">
             <p>You don't need upload and pay the deposite fee again.</p>
           </Alert>
         </div>
       ) : null}
-      <div>
-        {exists && codeHash ? (
-          <Button onClick={() => restoreBlueprint(codeHash)}>
+      {activeStep < 2 ? (
+        <div>
+          {exists && codeHash ? (
+            <Button onClick={() => restoreBlueprint(codeHash)}>
+              Restore
+            </Button>
+          ) : (
+            <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
+              {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
+            </Button>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function CodeUploadForm() {
+  const uploadPlan = useAtomValue(uploadPlanAtom) 
+
+  const restore = useSetAtom(restoreBlueprintAtom)
+  const setCustomMetadata = useSetAtom(setCustomMetadataAtom)
+
+  const fetchState = useAtomValue(wasmFetchStateAtom)
+  const fetch = useSetAtom(wasmFetchAtom)
+
+  const canUpload = useAtomValue(wasmCanUploadAtom)
+  const uploadState = useAtomValue(wasmUploadStateAtom)
+  const upload = useSetAtom(wasmUploadAtom)
+
+  const activeStep = useAtomValue(currentStepAtom)
+
+  if (!uploadPlan.needFetch) {
+    return (
+      <div tw="flex flex-col gap-2.5">
+        <div>
+          <p>
+            You don't need upload and pay the deposite fee again, the code already exists in current cluster.
+            {uploadPlan.metadataMissed ? (
+              <span tw="ml-0.5">But we can't found the metadata from verified source, so please pick one manually.</span>
+            ) : null}
+          </p>
+        </div>
+        <FormControl>
+          <FormLabel>Custom Metadata</FormLabel>
+          <input type="file" name="custom-abi" onChange={(ev) => setCustomMetadata(ev.target.files)} />
+        </FormControl>
+        <div tw="mt-4">
+          <Button isDisabled={uploadPlan.metadataMissed} onClick={restore} colorScheme={activeStep === 1 ? "phalaDark" : undefined}>
             Restore
           </Button>
-        ) : (
-          <Button isDisabled={!canUpload} isLoading={isLoading} onClick={upload}>
-            {!hasCert ? 'Sign Cert and Upload' : 'Upload'}
-          </Button>
-        )}
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
+  if (uploadPlan.canFetch) {
+    return (
+      <div tw="flex flex-col gap-2.5">
+        {uploadState.error ? (
+          <Alert status="error" title="Upload Failed">
+            <p>{uploadState.error}</p>
+          </Alert>
+        ) : (
+          <Alert status="success" title="Found matched code from verified source.">
+            <p>Click the button below to fetch the code from verified source.</p>
+          </Alert>
+        )}
+        <div tw="mt-2.5 flex flex-row gap-2">
+          <Button
+            isDisabled={fetchState.isFetching || canUpload}
+            isLoading={fetchState.isFetching}
+            onClick={fetch}
+            size="sm"
+            colorScheme={(activeStep === 1 && !canUpload) ? "phalaDark" : undefined}
+            minW="8rem"
+          >
+            Fetch
+          </Button>
+          <Button
+            isDisabled={!canUpload}
+            isLoading={uploadState.isProcessing}
+            onClick={upload}
+            size="sm"
+            colorScheme={(activeStep === 1 && canUpload) ? "phalaDark" : undefined}
+            minW="8rem"
+          >
+            Upload
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
-function UploadFromPatron({ codeHash }: { codeHash: string }) {
-  const { isLoading: isDownloading, fetch, downloaded, exists, setCustomMetadata, error, hasPatronBuild } = usePatronBuildResult(codeHash)
   return (
     <div tw="flex flex-col gap-2">
-      {error ? (
-        <Alert status="error" title={error.message}>
-        </Alert>
-      ) : null}
-      {!exists ? (
-        <div tw="flex flex-col gap-2">
-          <p>You are trying instantiate a contract already exists in Cluster, you need choose a metadata file to continue.</p> 
-          <Button as="label" tw="cursor-pointer">
-            <input type="file" tw="sr-only" onChange={async (ev) => {
-              await setCustomMetadata(ev.target.files)
-            }} />
-            Choose Metadata File
-          </Button>
-        </div>
-      ) : null}
-      {exists && hasPatronBuild && !downloaded ? (
-        <div tw="flex flex-col gap-3">
-          <div tw="flex flex-row gap-5">
-            <div>
-              <img src="https://patron.works/patron-favicon.svg" tw="h-14" />
-            </div>
-            <div tw="leading-7">
-              <p>
-                You are trying upload and instantiate Phat Contract from <a href="https://patron.works/" target="_blank">Patron</a>. Patron is a contract verification service for Polkadot Ecosystem,
-                you can learn more about it here:
-                <a href="https://patron.works/getting-started" target="_blank" tw="mx-1 inline-flex items-center gap-1 border-b border-solid border-gray-500 hover:border-gray-300">
-                  <span>about Patron</span>
-                  <MdOpenInNew />
-                </a>
-              </p>
-            </div>
-          </div>
-          <div tw="flex flex-row gap-2 items-center ml-14">
-            <Button isLoading={isDownloading} onClick={fetch}>
-              Fetch Build
-            </Button>
-            <Button as="a" target="_blank" href={`https://patron.works/codeHash/${codeHash}`}>
-              Review Code
-            </Button>
-            <Button as="label" tw="cursor-pointer">
-              <input type="file" tw="sr-only" onChange={async (ev) => {
-                await setCustomMetadata(ev.target.files)
-              }} />
-              Use Custom Metadata File
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      {downloaded ? (
+      <ContractFileUpload isCheckWASM={true} />
+      <Suspense>
         <UploadCodeButton />
-      ) : null}
+      </Suspense>
     </div>
   )
 }
 
+//
 // Step 3: Blueprint Promise - instantiate contract.
+//
 
 function ContractId() {
   const blueprintPromise = useAtomValue(blueprintPromiseAtom)
@@ -940,7 +1367,9 @@ function InstantiateGasElimiation() {
   )
 }
 
+//
 // Step 4
+//
 
 function InstantiatedFinish() {
   const instantiatedContractId = useAtomValue(instantiatedContractIdAtom)
@@ -991,33 +1420,58 @@ function InstantiatedFinish() {
 // Final Page Composition
 //
 
-export default function FatContractUploadForm() {
-  const match = useMatch()
-  let codeHash = match.params.codeHash
+function useSetRouterContext() {
+  let { params: { codeHash } } = useMatch()
+  const setPresetCodeHash = useSetAtom(presetCodeHashAtom)
   if (codeHash && codeHash.substring(0, 2) === '0x') {
     codeHash = codeHash.substring(2)
   }
 
+  useEffect(() => {
+    setPresetCodeHash(codeHash)
+  }, [setPresetCodeHash, codeHash])
+}
+
+export default function FatContractUploadForm() {
+  // useSetRouterContext()
+
+  let { params: { codeHash } } = useMatch()
+  const setPresetCodeHash = useSetAtom(presetCodeHashAtom)
+  useEffect(() => {
+    setPresetCodeHash(codeHash)
+  }, [setPresetCodeHash, codeHash])
+
+  useSetContractMetadataFromPresetCodeHash()
+
   const activeStep = useAtomValue(currentStepAtom)
   return (
-    <div>
+    <div tw="w-full flex flex-col gap-4">
+      <Heading tw="flex flex-row items-center gap-4">
+        <span>Deploy Contract</span>
+      </Heading>
       <Stepper index={activeStep} size='sm' gap='0' orientation='vertical' colorScheme="phalaDark">
         <StepSection index={0}>
-          <ClusterBalance />
+          <Suspense>
+            <InstantiateHint />
+          </Suspense>
+          <TableContainer>
+            <Table size="sm" colorScheme="phalaDark">
+              <Tbody>
+                <InstantiateInfoEndpoint />
+                <Suspense>
+                  <InstantiateInfoClusterBalance />
+                </Suspense>
+                <Suspense fallback={<Tr><Td colSpan={2}><Skeleton height="2rem" /></Td></Tr>}>
+                  <InstantiateInfoCandidateHint />
+                </Suspense>
+              </Tbody>
+            </Table>
+          </TableContainer>
         </StepSection>
         <StepSection index={1}>
-          {codeHash ? (
-            <Suspense>
-              <UploadFromPatron codeHash={(codeHash as string)} />
-            </Suspense>
-          ) : (
-            <>
-              <ContractFileUpload isCheckWASM={true} />
-              <Suspense>
-                <UploadCodeButton />
-              </Suspense>
-            </>
-          )}
+          <Suspense>
+            <CodeUploadForm />
+          </Suspense>
         </StepSection>
         <StepSection index={2}>
           <Suspense>

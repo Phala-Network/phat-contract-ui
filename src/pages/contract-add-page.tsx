@@ -21,14 +21,7 @@ const ContractAddPage = () => {
           <BreadcrumbLink as={Link} href='/' to="/">Contracts</BreadcrumbLink>
         </BreadcrumbItem>
       </Breadcrumb>
-      <Box tw="w-full">
-        <Heading tw="mb-4">
-          Upload a contract
-        </Heading>
-        <Suspense>
-          <FatContractUploadForm />
-        </Suspense>
-      </Box>
+      <FatContractUploadForm />
     </div>
   )
 }
