@@ -597,6 +597,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
       deployer,
       found: true,
       verified: false,
+      metadata: localMetadata?.metadata,
       cached,
     }
   }
