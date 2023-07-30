@@ -848,7 +848,7 @@ function InstantiateInfoClusterBalance() {
         <div tw="flex flex-row gap-2 items-center min-h-[2rem]">
           {hasCert ? (
             <>
-              <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
+              <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(12)} PHA</span>
               {showInlineTransferForm ? (
                 <div tw="flex flex-row items-center gap-1">
                   <TransferToCluster />
@@ -1003,11 +1003,11 @@ function GetPhaButton() {
 
 function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: number }) {
   const currentAccountBalance = useAtomValue(currentAccountBalanceAtom)
-  const { currentBalance, transfer } = useClusterBalance()
+  const { currentBalance, transfer, isLoading } = useClusterBalance()
   const [showCustomTransferToClusterForm, setShowInlineTransferForm] = useState(false)
   return (
     <Alert status="info" title="Cluster Account Balance is too low">
-      <p>You need at least <span tw="text-phala">{storageDepositeFee}</span> PHA in your cluster account balance to pay the storage deposit fee.</p>
+      <p>You need at least <span tw="text-phala">{storageDepositeFee.toFixed(12)}</span> PHA in your cluster account balance to pay the storage deposit fee.</p>
       {currentAccountBalance.toNumber() < storageDepositeFee ? (
         <>
           <div tw="flex flex-row gap-2">
@@ -1022,8 +1022,8 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
               <TransferToCluster />
             </div>
           ) : (
-          <div tw="flex flex-row gap-2">
-            <Button size="sm" onClick={() => transfer(new Decimal(storageDepositeFee))}>
+          <div tw="flex flex-row gap-2 mt-2.5">
+            <Button isLoading={isLoading} size="sm" onClick={() => transfer(new Decimal(Math.max(0.05, storageDepositeFee)))}>
               Transfer storage deposit fee
             </Button>
             <Button size="sm" onClick={() => setShowInlineTransferForm(true)}>
@@ -1315,12 +1315,12 @@ function InstantiateGasElimiation() {
         <tbody>
           <tr>
             <td tw="pr-2.5 text-right">Minimal Required:</td>
-            <td>{isUpdatingClusterBalance ? <Spinner /> : <span tw="text-sm whitespace-nowrap" title={minClusterBalance.toString()}>{minClusterBalance.toFixed(6)} PHA</span>}</td>
+            <td>{isUpdatingClusterBalance ? <Spinner /> : <span tw="text-sm whitespace-nowrap" title={minClusterBalance.toString()}>{minClusterBalance.toFixed(12)} PHA</span>}</td>
           </tr>
           <tr>
             <td tw="pr-2.5 text-right">Cluster Balance:</td>
             <td>
-              <span tw="text-sm whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(6)} PHA</span>
+              <span tw="text-sm whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(12)} PHA</span>
             </td>
             <td>
               <div tw="ml-2.5 flex flex-row gap-2 items-center">
