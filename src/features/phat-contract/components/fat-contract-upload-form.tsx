@@ -1,4 +1,4 @@
-import type { Result, U64, Bool, bool } from '@polkadot/types'
+import type { Result, U64, Bool } from '@polkadot/types'
 import React, { type ReactNode, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import {
@@ -29,7 +29,6 @@ import {
   Tag,
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
-import { AiOutlineLoading } from 'react-icons/ai'
 import { MdOpenInNew } from 'react-icons/md'
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithReducer, atomWithReset, loadable } from 'jotai/utils'
@@ -42,7 +41,7 @@ import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
-import { type BN, u8aToHex } from '@polkadot/util'
+import { type BN } from '@polkadot/util'
 import { isLeft, isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
@@ -75,8 +74,14 @@ import { connectionDetailModalVisibleAtom } from '@/components/EndpointInfo'
 
 
 //
-// V3
+// Functions
 //
+
+// HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
+function estimateDepositeFee(hexStringSize: number, clusterPrice?: BN) {
+  const base = clusterPrice ? clusterPrice.toNumber() : 0
+  return new Decimal(base).mul(hexStringSize / 2 * 2.2).div(1e12).toNumber()
+}
 
 interface CheckInstantiateContextEnv {
   phatRegistry: OnChainRegistry
@@ -130,7 +135,9 @@ function getInstantiateContext({ phatRegistry, publicCert }: CheckInstantiateCon
   }
 }
 
-// atoms
+//
+// Atoms
+//
 
 const presetCodeHashAtom = atomWithReducer<null | string, null | string>(null, (_, codeHash: string | null) => {
   if (codeHash && codeHash.substring(0, 2) === '0x') {
@@ -307,69 +314,6 @@ const setCustomMetadataAtom = atom(null, (_get, set, files: FileList | null) => 
   reader.readAsText(files[0], 'utf-8')
 })
 
-// hooks
-
-/**
-  * This hook is used for set the contract metadata from preset code hash (the code hash from URL).
-  */
-function useSetContractMetadataFromPresetCodeHash() {
-  const instantiateContext = useAtomValue(loadable(instantiateContextAtom))
-  const setContractMetadata = useSetAtom(candidateAtom)
-  useEffect(() => {
-    if (instantiateContext.state === 'hasData') {
-      const { patronBuildAbi, phalaBuildAbi } = instantiateContext.data
-      if (patronBuildAbi) {
-        setContractMetadata(patronBuildAbi as ContractMetadata)
-      } else if (phalaBuildAbi) {
-        setContractMetadata(phalaBuildAbi as ContractMetadata)
-      }
-    }
-  }, [instantiateContext, setContractMetadata])
-}
-
-//
-// END
-//
-
-
-// HexStringSize is the size of hex string, not the size of the binary size, it arong 2x of the binary size.
-function estimateDepositeFee(hexStringSize: number, clusterPrice?: BN) {
-  const base = clusterPrice ? clusterPrice.toNumber() : 0
-  return new Decimal(base).mul(hexStringSize / 2 * 2.2).div(1e12).toNumber()
-}
-
-const ClusterIdSelect = () => {
-  const [clusterId, setClusterId] = useAtom(currentClusterIdAtom)
-  const options = useAtomValue(availableClusterOptionsAtom)
-  useEffect(() => {
-    if (options && options.length > 0) {
-      setClusterId(prev => {
-        if (!prev) {
-          return options[0].value
-        }
-        const result = find(i => i.value === prev, options)
-        if (!result) {
-          return options[0].value
-        }
-        return prev
-      })
-    }
-  }, [setClusterId, options])
-  if (!options.length) {
-    return (
-      <Alert status="warning" title="RPC is not Ready">
-      </Alert>
-    )
-  }
-  return (
-    <Select value={clusterId} onChange={setClusterId} options={options} />
-  )
-}
-
-//
-//
-//
-
 const selectedContructorAtom = atom((get) => {
   const contract = get(candidateAtom)
   const abi = get(currentAbiAtom)
@@ -443,6 +387,64 @@ const currentStepAtom = atom(get => {
 const currentBalanceAtom = atom(0)
 
 const isUpdatingClusterBalanceAtom = atom(false) 
+
+const uploadCodeCheckAtom = atom(async get => {
+  const registry = get(phatRegistryAtom)
+  const candidate = get(candidateAtom)
+  const currentBalance = get(currentBalanceAtom)
+  const systemContract = registry.systemContract
+  const account = get(currentAccountAtom)
+  const [, cert] = get(cachedCertAtom)
+  const wasm = get(wasmAtom) || candidate?.source.wasm || ''
+  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account) {
+    return { canUpload: false, showTransferToCluster: false, exists: false }
+  }
+  const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')
+  if (output && output.isOk && output.asOk.isTrue) {
+    return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash }
+  }
+  const storageDepositeFee = estimateDepositeFee(wasm.length, registry.clusterInfo.depositPerByte)
+  if (currentBalance < storageDepositeFee) {
+
+    return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
+  }
+  return { canUpload: true, showTransferToCluster: false, exists: false }
+})
+
+//
+// hooks
+//
+
+/**
+  * This hook is used for set the contract metadata from preset code hash (the code hash from URL).
+  */
+function useSetContractMetadataFromPresetCodeHash() {
+  const instantiateContext = useAtomValue(loadable(instantiateContextAtom))
+  const setContractMetadata = useSetAtom(candidateAtom)
+  useEffect(() => {
+    if (instantiateContext.state === 'hasData') {
+      const { patronBuildAbi, phalaBuildAbi } = instantiateContext.data
+      if (patronBuildAbi) {
+        setContractMetadata(patronBuildAbi as ContractMetadata)
+      } else if (phalaBuildAbi) {
+        setContractMetadata(phalaBuildAbi as ContractMetadata)
+      }
+    }
+  }, [instantiateContext, setContractMetadata])
+}
+
+function useSetRouterContext() {
+  let { params: { codeHash } } = useMatch()
+  const setPresetCodeHash = useSetAtom(presetCodeHashAtom)
+  const reset = useReset()
+
+  useEffect(() => {
+    reset()
+    setPresetCodeHash(codeHash)
+  }, [setPresetCodeHash, codeHash, reset])
+
+  useSetContractMetadataFromPresetCodeHash()
+}
 
 function useClusterBalance() {
   const [currentBalance, setCurrentBalance] = useAtom(currentBalanceAtom)
@@ -568,140 +570,6 @@ function useUploadCode() {
   return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
 
-function usePatronBuildResult(codeHash: string) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [downloaded, setDownloaded] = useState(false)
-  const [error, setError] = useState<{message: string, level: 'info' | 'error'} | null>(null)
-  const { requestSign } = useRequestSign()
-  const setCandidate = useSetAtom(candidateAtom)
-  const setWasm = useSetAtom(wasmAtom)
-
-  const [, cert] = useAtomValue(cachedCertAtom)
-  const registry = useAtomValue(phatRegistryAtom)
-  const currentAccount = useAtomValue(currentAccountAtom)
-  const signer = useAtomValue(signerAtom)
-  const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
-
-  const [exists, setExists] = useState(false)
-  const [hasPatronBuild, setHasPatronBuild] = useState(false)
-  const aliceCert = useAtomValue(aliceCertAtom)
-  const [canRestore, setCanRestore] = useState(true)
-
-  useEffect(() => {
-    (async () => {
-      setIsLoading(true)
-
-      const systemContract = registry.systemContract
-      if (!systemContract) {
-        // TODO fixme
-        return
-      }
-      const _unsafeCheckCodeHashExists = unsafeCheckCodeHashExists({ systemContract, cert: aliceCert })
-
-      const [existent, phalaAbi, patronAbi] = await Promise.all([
-        TE.tryCatch(() => _unsafeCheckCodeHashExists(codeHash), R.always(null))(),
-        TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
-        TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
-      ])
-      if (isRight(existent) && existent.right) {
-        if (isRight(phalaAbi)) {
-          setCandidate(phalaAbi.right as ContractMetadata)
-          setExists(true)
-          setDownloaded(true)
-        } else if (isRight(patronAbi)) {
-          setCandidate(patronAbi.right as ContractMetadata)
-          setExists(true)
-          setHasPatronBuild(true)
-        }
-      }
-      if (isLeft(existent) || existent.right === false) {
-        setCanRestore(false)
-      }
-      setIsLoading(false)
-    })();
-  }, [registry, aliceCert, codeHash, setExists, setIsLoading, setHasPatronBuild, setDownloaded, setCanRestore])
-
-  const fetch = useCallback(async () => {
-    setError(null)
-    setIsLoading(true)
-    try {
-      let _cert = cert
-      if (!_cert) {
-        _cert = await requestSign()
-      }
-      if (!_cert) {
-        setError({ message: 'You need sign the certificate to continue.', level: 'info' })
-        // TODO show toast.
-        return
-      }
-      const wasm = await TE.tryCatch(() => unsafeGetWasmFromPatronByCodeHash(codeHash), R.always(null))()
-
-      if (isRight(wasm)) {
-        setWasm(wasm.right)
-        setDownloaded(true)
-      } else {
-        if (isLeft(wasm)) {
-          setError({ message: `Contract download failed: ${wasm.left}`, level: 'error' })
-        } else {
-          setError({ message: `Contract download failed: unknown error`, level: 'error' })
-        }
-        // @TODO better error handling
-      }
-    } catch (err) {
-      // TODO: better error handling?
-      if ((err as Error).message.indexOf('Cancelled') === -1) {
-        console.error(err)
-        setError({ message: `Contract upload failed: ${err}`, level: 'error' })
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [setIsLoading, setError, requestSign, setCandidate, cert, registry, currentAccount, signer, setBlueprintPromise, codeHash])
-
-  const setCustomMetadata = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) {
-      setError({ message: 'You need select a file to continue.', level: 'info' })
-      return Promise.resolve(false)
-    }
-    setIsLoading(true)
-    return new Promise(resolve => {
-      const reader = new FileReader()
-      reader.addEventListener('load', () => {
-        try {
-          const contract = JSON.parse(reader.result as string)
-          if (!contract || !contract.source || !contract.source.hash) {
-            setError({ message: '[0] Your contract file is invalid.', level: 'error' })
-            resolve(false)
-            return
-          }
-
-          try {
-            new Abi(contract)
-          } catch (err) {
-            setError({ message: `[1] Your contract file is invalid: ${err}`, level: 'error' })
-            resolve(false)
-            return
-          }
-
-          setCandidate(contract)
-          setExists(true)
-          setDownloaded(true)
-          resolve(true)
-        } catch (e) {
-          console.error(e)
-          setError({ message: `[3] Your contract file is invalid: ${e}`, level: 'error' })
-          resolve(false)
-        } finally {
-          setIsLoading(false)
-        }
-      })
-      reader.readAsText(files[0], 'utf-8')
-    })
-  }, [setIsLoading, setCandidate, setExists, setDownloaded, setError])
-
-  return { isLoading, error, fetch, downloaded, exists, setCustomMetadata, hasPatronBuild, canRestore }
-}
-
 function useReset() {
   const setCandidate = useSetAtom(candidateAtom)
   const setCandidateFileInfo = useSetAtom(candidateFileInfoAtom)
@@ -715,6 +583,7 @@ function useReset() {
   }, [setCandidate, setBlueprintPromise, setInstantiatedContractId, setCandidateFileInfo])
   return reset
 }
+
 
 //
 // UI Components
@@ -944,29 +813,6 @@ function InstantiateInfoCandidateHint() {
 //
 // Section 2: Choose a file or fetch wasm file from remote. 
 //
-
-const uploadCodeCheckAtom = atom(async get => {
-  const registry = get(phatRegistryAtom)
-  const candidate = get(candidateAtom)
-  const currentBalance = get(currentBalanceAtom)
-  const systemContract = registry.systemContract
-  const account = get(currentAccountAtom)
-  const [, cert] = get(cachedCertAtom)
-  const wasm = get(wasmAtom) || candidate?.source.wasm || ''
-  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account) {
-    return { canUpload: false, showTransferToCluster: false, exists: false }
-  }
-  const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')
-  if (output && output.isOk && output.asOk.isTrue) {
-    return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash }
-  }
-  const storageDepositeFee = estimateDepositeFee(wasm.length, registry.clusterInfo.depositPerByte)
-  if (currentBalance < storageDepositeFee) {
-
-    return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
-  }
-  return { canUpload: true, showTransferToCluster: false, exists: false }
-})
 
 function GetPhaButton() {
   const api = useAtomValue(apiPromiseAtom)
@@ -1273,7 +1119,7 @@ function InstantiateGasElimiation() {
             storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
             salt
           })
-          setMinClusterBalance(gasLimit.toNumber())
+          setMinClusterBalance(gasLimit.toNumber() * 1.2)
           await refreshBalance()
         } finally {
           setIsLoading(false)
@@ -1420,28 +1266,8 @@ function InstantiatedFinish() {
 // Final Page Composition
 //
 
-function useSetRouterContext() {
-  let { params: { codeHash } } = useMatch()
-  const setPresetCodeHash = useSetAtom(presetCodeHashAtom)
-  if (codeHash && codeHash.substring(0, 2) === '0x') {
-    codeHash = codeHash.substring(2)
-  }
-
-  useEffect(() => {
-    setPresetCodeHash(codeHash)
-  }, [setPresetCodeHash, codeHash])
-}
-
 export default function FatContractUploadForm() {
-  // useSetRouterContext()
-
-  let { params: { codeHash } } = useMatch()
-  const setPresetCodeHash = useSetAtom(presetCodeHashAtom)
-  useEffect(() => {
-    setPresetCodeHash(codeHash)
-  }, [setPresetCodeHash, codeHash])
-
-  useSetContractMetadataFromPresetCodeHash()
+  useSetRouterContext()
 
   const activeStep = useAtomValue(currentStepAtom)
   return (
