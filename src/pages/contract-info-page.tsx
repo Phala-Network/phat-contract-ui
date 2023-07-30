@@ -8,6 +8,7 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  Skeleton,
 } from "@chakra-ui/react"
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
@@ -79,7 +80,7 @@ export default function ContractInfoPage () {
         <CurrentContractName />
       </Breadcrumb>
       <ErrorBoundary fallbackRender={ErrorFallback}>
-        <Suspense fallback={<div />}>
+        <Suspense fallback={<Skeleton noOfLines={4} minW="100%" minH="5rem" />}>
           <ContractInfo />
         </Suspense>
         <Suspense fallback={<div />}>

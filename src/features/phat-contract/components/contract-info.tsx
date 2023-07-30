@@ -1,11 +1,7 @@
-import React, { Suspense, useCallback, useMemo } from 'react'
+import React, { Suspense, useCallback, useMemo, useState, useEffect } from 'react'
 import tw from 'twin.macro'
 import { atom, useAtom, useAtomValue } from 'jotai'
 import {
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
   Box,
   Heading,
   Table,
@@ -16,7 +12,6 @@ import {
   TableContainer,
   Tag,
   Button,
-  ButtonGroup,
   IconButton,
   Input,
   Editable,
@@ -29,15 +24,17 @@ import { BiEdit, BiCopy } from 'react-icons/bi';
 import { MdOpenInNew } from 'react-icons/md'
 import Decimal from 'decimal.js'
 import CopyToClipboard from 'react-copy-to-clipboard'
-import { Link } from '@tanstack/react-location'
+import { Link, useMatch } from '@tanstack/react-location'
 
 import signAndSend from '@/functions/signAndSend'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription';
-import { apiPromiseAtom } from '@/features/parachain/atoms';
+import { apiPromiseAtom, websocketConnectionMachineAtom } from '@/features/parachain/atoms';
 import Code from '@/components/code'
+import { Alert } from '@/components/ErrorAlert'
 
 import { currentContractV2Atom, currentContractIdAtom } from '../atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms';
+import { endpointAtom } from '@/atoms/endpointsAtom';
 
 const contractTotalStakesAtom = atomWithQuerySubscription<number>((get, api, subject) => {
   const contractId = get(currentContractIdAtom)
@@ -149,51 +146,69 @@ const StakingCell = () => {
 //
 //
 
+function useSwitchRpcConfirm(target: Nullable<string>) {
+  const [currentEndpoint, setCurrentEndpoint] = useAtom(endpointAtom)
+  const [machine, send] = useAtom(websocketConnectionMachineAtom)
+  const [needSwitch, setNeedSwitch] = useState(false)
+
+  useEffect(() => {
+    if (target && target !== currentEndpoint) {
+      setNeedSwitch(true)
+    }
+  }, [target, currentAccountAtom, setNeedSwitch])
+
+  const switchRpc = useCallback(() => {
+    if (target) {
+      setCurrentEndpoint(target)
+      send({ type: "RECONNECT", data: { endpoint: target } })
+    }
+  }
+  , [target, setCurrentEndpoint])
+
+  return { needSwitch, switchRpc }
+}
+
 export default function ContractInfo() {
+  const match = useMatch()
+  const rpc = match.search?.rpc as Nullable<string>
+  const { needSwitch, switchRpc } = useSwitchRpcConfirm(rpc)
+
   const currentAccount = useAtomValue(currentAccountAtom)
   const fetched = useAtomValue(currentContractV2Atom)
   const toast = useToast()
+
+  const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
+  const { canExport, download } = useContractMetaExport()
+
   if (!fetched.found) {
     return (
-      <Alert status="info" borderRadius={4} flexDir="column" alignItems="start" gap={2}>
-        <div tw="flex flex-row items-center">
-          <AlertIcon />
-          <AlertTitle>Not CodeHash found for specified Contract ID</AlertTitle>
-        </div>
-        <div tw="flex flex-col w-full pr-4">
-          <AlertDescription>
-            <p>
-              The Contract ID you specified is not found in the chain.
-            </p>
-          </AlertDescription>
-        </div>
+      <Alert status="info" title="Not CodeHash found for specified Contract ID">
+        <p>
+          The specified Contract ID was not found in the chain. 
+          {needSwitch ? (
+            <>It is requesting a switch to <code tw="font-mono text-xs p-1 bg-black rounded">{rpc}</code>. </> 
+          ) : ('.')}
+        </p>
+        {needSwitch ? (
+          <Button size="sm" colorScheme="phalaDark" mt="2.5" onClick={switchRpc}>Confirm and Switch</Button>
+        ) : null}
       </Alert>
     )
   }
   if (!fetched.metadata) {
     return (
-      <Alert status="info" borderRadius={4} flexDir="column" alignItems="start" gap={2}>
-        <div tw="flex flex-row items-center">
-          <AlertIcon />
-          <AlertTitle>No Public Metadata found for specified Contract ID</AlertTitle>
-        </div>
-        <div tw="flex flex-col w-full pr-4 gap-2">
-          <AlertDescription>
-            <p>
-              The Contract ID you specified is not public metadata found. If you have it, you can attach the custom ABI.
-            </p>
-          </AlertDescription>
-          <div>
-            <Link to={`/contracts/attach?contractId=${fetched.contractId}`}>
-              <Button>Attach</Button>
-            </Link>
-          </div>
+      <Alert status="info" title="No Public Metadata found for specified Contract ID">
+        <p>
+          The Contract ID you specified is not public metadata found. If you have it, you can attach the custom ABI.
+        </p>
+        <div>
+          <Link to={`/contracts/attach?contractId=${fetched.contractId}`}>
+            <Button>Attach</Button>
+          </Link>
         </div>
       </Alert>
     )
   }
-  const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
-  const { canExport, download } = useContractMetaExport()
 
   return (
     <Box borderWidth="1px" overflow="hidden" my="4" p="8" bg="gray.800">
