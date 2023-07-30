@@ -194,7 +194,6 @@ export default function ContractInfo() {
   }
   const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
   const { canExport, download } = useContractMetaExport()
-  console.log(fetched)
 
   return (
     <Box borderWidth="1px" overflow="hidden" my="4" p="8" bg="gray.800">

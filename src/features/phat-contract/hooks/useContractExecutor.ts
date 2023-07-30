@@ -184,7 +184,6 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       // const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
       const cert = await getCert()
       if (!cert) {
-        console.log('User cancelled signing')
         return
       }
 

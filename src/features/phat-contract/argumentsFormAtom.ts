@@ -399,7 +399,6 @@ const createFormData = (registry: Registry, id: string, abiParams: AbiParam[], d
       ...fieldDataSet,
     }
   }
-  console.log('createFormData', result, docs)
 
   return result
 }

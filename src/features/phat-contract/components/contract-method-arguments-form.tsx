@@ -126,8 +126,6 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
   const isInvalid = errors.length > 0
   const [innerValue, setInnerValue] = useState(value?.toString() || '')
 
-  console.log('NumberLikeTypeFieldData render: fieldData', fieldData)
-
   useEffect(() => {
     setInnerValue(value?.toString() || '')
   }, [value])
@@ -175,8 +173,6 @@ const BoolTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const isInvalid = errors.length > 0
 
   const [innerValue, setInnerValue] = useState('')
-
-  console.log('BoolTypeFieldData render: fieldData', fieldData)
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextInnerValue = event.target.value
@@ -245,7 +241,6 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
     }
   }, [variant, variantIndex, selectedVariantName, subFieldData])
 
-  console.log('subFieldData', subFieldData, variantIndex)
   const theAtom = useMemo(() => {
     if (subFieldData && variantIndex !== undefined) {
       return allAtoms[subFieldData[variantIndex]]
@@ -509,8 +504,6 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
 
   const [innerValue, setInnerValue] = useState('')
 
-  console.log('OtherTypeFieldData render: fieldData', fieldData)
-
   useEffect(() => {
     if (!innerValue) {
       dispatchValue(dispatch, uid, undefined)
@@ -617,8 +610,6 @@ const ArgumentFieldData = ({ uid, theAtom, allAtoms = {} }: { uid: string, theAt
 
   const { typeDef: { info } } = fieldData
   const uiSchema = fieldData.uiSchema || {}
-
-  console.log('[Top] ArgumentFieldData render', uid, uiSchema)
 
   if (uiSchema['ui:widget'] === 'textarea') {
     return <TextAreaWidget fieldData={fieldData} dispatch={dispatch} rows={Number(uiSchema['ui:rows']) || 6} />

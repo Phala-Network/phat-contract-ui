@@ -56,7 +56,6 @@ const ExecuteButton: FC<{
           return
         }
         onFinish && onFinish()
-        // console.log('inputs: ', inputs)
       }}
     >
       Run

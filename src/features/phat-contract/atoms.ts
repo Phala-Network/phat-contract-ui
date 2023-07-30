@@ -139,7 +139,6 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         // if valid failed, validResult is the failed error
         // const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
         const validResult = validateHex((contract.source?.wasm || '') as string, false)
-        // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
         if (validResult) {
           set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
           set(contractWASMInvalid, true)
@@ -273,7 +272,7 @@ export const currentWorkerIdAtom = atom(
     const workers = get(availableWorkerListAtom)
     if (rec[endpoint]) {
       if (!R.includes(rec[endpoint], workers)) {
-        console.log('user selected worker is not available', rec[endpoint], workers)
+        console.info('user selected worker is not available', rec[endpoint], workers)
         return shuffle(workers)
       }
       return rec[endpoint]
