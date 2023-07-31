@@ -570,6 +570,8 @@ function useUploadCode() {
       } else if ((err as Error).message.indexOf('Cancelled') === -1) {
         console.error(err)
         setError({ message: `Contract upload failed: ${err}`, level: 'error' })
+      } else {
+        console.error(err)
       }
     } finally {
       setIsLoading(false)
@@ -655,6 +657,8 @@ function InstantiateHint() {
     } catch (err) {
       if ((err as Error).message.indexOf('You need connected to an endpoint & pick a account first.') > -1) {
         showAccountSelectModal()
+      } else {
+        console.error(err)
       }
     }
   }
