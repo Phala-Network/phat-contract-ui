@@ -11,7 +11,15 @@ import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/api'
 import { Abi } from '@polkadot/api-contract'
-import { OnChainRegistry, PinkLoggerContractPromise, type CertificateData, signCertificate } from '@phala/sdk'
+import {
+  OnChainRegistry,
+  PinkLoggerContractPromise,
+  type CertificateData,
+  signCertificate,
+  unsafeGetAbiFromGitHubRepoByCodeHash,
+  unsafeGetAbiFromPatronByCodeHash,
+  unsafeGetContractCodeHash,
+} from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
@@ -20,7 +28,6 @@ import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
-import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetContractCodeHash } from './hosted-metadata'
 
 
 export interface SelectorOption {

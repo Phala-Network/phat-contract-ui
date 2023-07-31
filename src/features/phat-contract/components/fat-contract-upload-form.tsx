@@ -35,24 +35,31 @@ import { atomWithReducer, atomWithReset, loadable } from 'jotai/utils'
 import { RESET } from 'jotai/utils'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link, useMatch } from '@tanstack/react-location'
-import { find } from 'ramda'
-import {  type OnChainRegistry, type CertificateData, PinkCodePromise, PinkBlueprintPromise } from '@phala/sdk'
+import {
+  type OnChainRegistry,
+  type CertificateData,
+  PinkCodePromise,
+  PinkBlueprintPromise,
+  unsafeGetAbiFromGitHubRepoByCodeHash,
+  unsafeGetAbiFromPatronByCodeHash,
+  unsafeGetWasmFromPatronByCodeHash,
+  unsafeCheckCodeHashExists,
+  unsafeGetWasmFromGithubRepoByCodeHash,
+} from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
 import { type BN } from '@polkadot/util'
-import { isLeft, isRight } from 'fp-ts/Either'
+import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
-import { Select } from '@/components/inputs/select'
 import { Alert } from '@/components/ErrorAlert'
 import Code from '@/components/code'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
 import {
   candidateAtom,
   currentClusterIdAtom,
-  availableClusterOptionsAtom,
   candidateFileInfoAtom,
   contractSelectedInitSelectorAtom,
   phatRegistryAtom,
@@ -68,7 +75,6 @@ import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAto
 import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
-import { unsafeGetAbiFromGitHubRepoByCodeHash, unsafeGetAbiFromPatronByCodeHash, unsafeGetWasmFromPatronByCodeHash, unsafeCheckCodeHashExists, unsafeGetWasmFromGithubRepoByCodeHash } from '../hosted-metadata'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { connectionDetailModalVisibleAtom } from '@/components/EndpointInfo'
 
