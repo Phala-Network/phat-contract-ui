@@ -27,6 +27,10 @@ import {
   Td as ChakraTd,
   TableContainer,
   Tag,
+  Alert as ChakraAlert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
 import { MdOpenInNew } from 'react-icons/md'
@@ -932,7 +936,7 @@ function UploadCodeButton() {
 }
 
 function CodeUploadForm() {
-  const uploadPlan = useAtomValue(uploadPlanAtom) 
+  const uploadPlan = useAtomValue(uploadPlanAtom)
 
   const restore = useSetAtom(restoreBlueprintAtom)
   const setCustomMetadata = useSetAtom(setCustomMetadataAtom)
@@ -945,6 +949,9 @@ function CodeUploadForm() {
   const upload = useSetAtom(wasmUploadAtom)
 
   const activeStep = useAtomValue(currentStepAtom)
+
+  const candidate = useAtomValue(candidateAtom)
+  const presetCodeHash = useAtomValue(presetCodeHashAtom)
 
   if (!uploadPlan.needFetch) {
     return (
@@ -961,6 +968,21 @@ function CodeUploadForm() {
           <FormLabel>Custom Metadata</FormLabel>
           <input type="file" name="custom-abi" onChange={(ev) => setCustomMetadata(ev.target.files)} />
         </FormControl>
+        {
+          candidate && candidate.source.hash !== presetCodeHash ? (
+            <ChakraAlert status="warning" alignItems="flex-start" rounded="sm">
+              <AlertIcon />
+              <div tw="flex flex-col gap-1 items-start">
+                <AlertTitle>
+                  Codehash not match
+                </AlertTitle>
+                <AlertDescription>
+                  <p>The codehash of the selected Metadata file does not match the current contract, please confirm before proceeding.</p>
+                </AlertDescription>
+              </div>
+            </ChakraAlert>
+          ) : null
+        }
         <div tw="mt-4">
           <Button isDisabled={uploadPlan.metadataMissed} onClick={restore} colorScheme={activeStep === 1 ? "phalaDark" : undefined}>
             Restore
