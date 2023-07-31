@@ -576,7 +576,7 @@ function useUploadCode() {
     } finally {
       setIsLoading(false)
     }
-  }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo, setFinfo])
+  }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo, setFinfo, showAccountSelectModal])
 
   const restoreBlueprint = useCallback((codeHash: string) => {
     if (!contract) {
