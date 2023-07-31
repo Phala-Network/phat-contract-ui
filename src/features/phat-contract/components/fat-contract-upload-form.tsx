@@ -27,10 +27,6 @@ import {
   Td as ChakraTd,
   TableContainer,
   Tag,
-  Alert as ChakraAlert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
 import { MdOpenInNew } from 'react-icons/md'
@@ -970,17 +966,9 @@ function CodeUploadForm() {
         </FormControl>
         {
           candidate && candidate.source.hash !== presetCodeHash ? (
-            <ChakraAlert status="warning" alignItems="flex-start" rounded="sm">
-              <AlertIcon />
-              <div tw="flex flex-col gap-1 items-start">
-                <AlertTitle>
-                  Codehash not match
-                </AlertTitle>
-                <AlertDescription>
-                  <p>The codehash of the selected Metadata file does not match the current contract, please confirm before proceeding.</p>
-                </AlertDescription>
-              </div>
-            </ChakraAlert>
+            <Alert status="warning" title="Codehash not match">
+              <p>The codehash of the selected Metadata file does not match the current contract, please confirm before proceeding to the next step.</p>
+            </Alert>
           ) : null
         }
         <div tw="mt-4">
