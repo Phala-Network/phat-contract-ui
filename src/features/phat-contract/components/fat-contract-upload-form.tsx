@@ -54,6 +54,7 @@ import { type BN } from '@polkadot/util'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
+import { useShowAccountSelectModal } from '@/components/app-ui'
 import { Alert } from '@/components/ErrorAlert'
 import Code from '@/components/code'
 import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/features/identity/atoms'
@@ -530,6 +531,8 @@ function useUploadCode() {
   const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
   const finfo = useAtomValue(candidateFileInfoAtom)
 
+  const showAccountSelectModal = useShowAccountSelectModal()
+
   const upload = useCallback(async () => {
     setError(null)
     if (!contract) {
@@ -554,7 +557,9 @@ function useUploadCode() {
       setBlueprintPromise(uploadResult.blueprint)
     } catch (err) {
       // TODO: better error handling?
-      if ((err as Error).message.indexOf('Cancelled') === -1) {
+      if ((err as Error).message.indexOf('You need connected to an endpoint & pick a account first.') > -1) {
+        showAccountSelectModal()
+      } else if ((err as Error).message.indexOf('Cancelled') === -1) {
         console.error(err)
         setError({ message: `Contract upload failed: ${err}`, level: 'error' })
       }
@@ -636,6 +641,18 @@ const Td = tw(ChakraTd)`py-4`
 function InstantiateHint() {
   const instantiateContext = useAtomValue(instantiateContextAtom)
   const { hasCert, requestSign, isWaiting } = useRequestSign()
+  const showAccountSelectModal = useShowAccountSelectModal()
+
+  const handleSign = async () => {
+    try {
+      await requestSign()
+    } catch (err) {
+      if ((err as Error).message.indexOf('You need connected to an endpoint & pick a account first.') > -1) {
+        showAccountSelectModal()
+      }
+    }
+  }
+
   if (!instantiateContext.codeHash && hasCert) {
     return null
   }
@@ -681,7 +698,7 @@ function InstantiateHint() {
               size="sm"
               colorScheme="phalaDark"
               isLoading={isWaiting}
-              onClick={requestSign}
+              onClick={handleSign}
             >
               Sign
             </Button>
