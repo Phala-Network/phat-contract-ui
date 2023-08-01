@@ -308,8 +308,8 @@ export const validateSub = (typeDef: TypeDef) => {
 
 // Plain only allows the type is string (!== ''), number.
 export const validatePlainInput = (inputValue: unknown) => {
-  if (!R.is(String, inputValue) && !R.is(Number, inputValue)) {
-    return inputTypeInvalidMessage(inputValue, ['String', 'Number'])
+  if (!R.is(String, inputValue) && !R.is(Number, inputValue) && !R.is(Boolean, inputValue)) {
+    return inputTypeInvalidMessage(inputValue, ['String', 'Number', 'Boolean'])
   } else if (inputValue === '') {
     return inputCantBeEmpty()
   }

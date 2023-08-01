@@ -139,9 +139,9 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
       const errors = validateNotUndefined(undefined)
       dispatchErrors(dispatch, uid, errors)
     } else {
-      const nextValue = convertToBN(innerValue)
-      if (nextValue) {
-        dispatchValue(dispatch, uid, nextValue)
+      const value = convertToBN(innerValue)
+      if (value) {
+        dispatchValue(dispatch, uid, innerValue)
         dispatchErrors(dispatch, uid, [])
       } else {
         dispatchValue(dispatch, uid, undefined)
@@ -526,11 +526,12 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
         } catch (error) {
           // noop
         }
-      }
-      if (isAddressType(type as PlainType)) {
+      } else if (isAddressType(type as PlainType)) {
         const { errors } = validateAddress(fieldData.typeDef, nextValue as string)
+        dispatchErrors(dispatch, uid, errors)
         if (errors.length > 0) {
-          return dispatchErrors(dispatch, uid, errors)
+          // if error exists, do not dispatch value, avoid execute estimateGas
+          return
         }
       }
       dispatchValue(dispatch, uid, nextValue)
