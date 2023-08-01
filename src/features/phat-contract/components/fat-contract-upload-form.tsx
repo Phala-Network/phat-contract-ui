@@ -398,17 +398,13 @@ const isUpdatingClusterBalanceAtom = atom(false)
 const uploadCodeCheckAtom = atom(async get => {
   const registry = get(phatRegistryAtom)
   const candidate = get(candidateAtom)
-  const finfo = get(candidateFileInfoAtom)
   const currentBalance = get(currentBalanceAtom)
   const systemContract = registry.systemContract
   const account = get(currentAccountAtom)
   const [, cert] = get(cachedCertAtom)
   const wasm = get(wasmAtom) || candidate?.source.wasm || ''
-  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account || !finfo.name) {
+  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account) {
     return { canUpload: false, showTransferToCluster: false, exists: false }
-  }
-  if (finfo.uploaded) {
-    return { canUpload: false, showTransferToCluster: false, exists: true, codeHash: candidate.source.hash, uploaded: finfo.uploaded }
   }
   const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')
   if (output && output.isOk && output.asOk.isTrue) {
@@ -533,7 +529,6 @@ function useUploadCode() {
   const currentAccount = useAtomValue(currentAccountAtom)
   const signer = useAtomValue(signerAtom)
   const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
-  const [finfo, setFinfo] = useAtom(candidateFileInfoAtom)
 
   const showAccountSelectModal = useShowAccountSelectModal()
 
@@ -559,10 +554,6 @@ function useUploadCode() {
       const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
       await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
       setBlueprintPromise(uploadResult.blueprint)
-      setFinfo({
-        ...finfo,
-        uploaded: true,
-      })
     } catch (err) {
       // TODO: better error handling?
       if ((err as Error).message.indexOf('You need connected to an endpoint & pick a account first.') > -1) {
@@ -576,7 +567,7 @@ function useUploadCode() {
     } finally {
       setIsLoading(false)
     }
-  }, [registry, contract, currentAccount, cert, setBlueprintPromise, finfo, setFinfo, showAccountSelectModal])
+  }, [registry, contract, currentAccount, cert, setBlueprintPromise, showAccountSelectModal])
 
   const restoreBlueprint = useCallback((codeHash: string) => {
     if (!contract) {
@@ -919,7 +910,7 @@ function TransferToClusterAlert({ storageDepositeFee }: { storageDepositeFee: nu
 function UploadCodeButton() {
   const hasCert = useAtomValue(hasCertAtom)
   const { isLoading, upload, error, hasError, restoreBlueprint } = useUploadCode()
-  const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash, uploaded } = useAtomValue(uploadCodeCheckAtom)
+  const { canUpload, showTransferToCluster, storageDepositeFee, exists, codeHash } = useAtomValue(uploadCodeCheckAtom)
   const activeStep = useAtomValue(currentStepAtom)
   return (
     <div tw="ml-4 mt-2.5">
@@ -936,17 +927,9 @@ function UploadCodeButton() {
       ) : null}
       {exists && codeHash && activeStep < 2 ? (
         <div tw="mb-2 pr-5">
-          {
-            uploaded ? (
-              <Alert status="success" title="Contract Uploaded successfully">
-                <p>You don't need upload and pay the deposite fee again.</p>
-              </Alert>
-            ) : (
-              <Alert status="info" title="Code Hash Already Exists">
-                <p>You don't need upload and pay the deposite fee again.</p>
-              </Alert>
-            )
-          }
+          <Alert status="info" title="Code Hash Already Exists">
+            <p>You don't need upload and pay the deposite fee again.</p>
+          </Alert>
         </div>
       ) : null}
       {activeStep < 2 ? (

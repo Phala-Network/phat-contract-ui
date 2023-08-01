@@ -130,7 +130,7 @@ const CandidatePreview = () => {
         h="1.75rem"
         mr="0.3rem"
         size="sm"
-        onClick={() => setFinfo({ name: '', size: 0, uploaded: false })}
+        onClick={() => setFinfo({ name: '', size: 0 })}
       >
         Change
       </Button>

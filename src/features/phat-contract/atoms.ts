@@ -60,7 +60,7 @@ export interface ContractExecuteResult {
 
 export const candidateAtom = atom<ContractMetadata | null>(null)
 
-export const candidateFileInfoAtom = atomWithReset({ name: '', size: 0, uploaded: false })
+export const candidateFileInfoAtom = atomWithReset({ name: '', size: 0 })
 export const candidateAllowIndeterminismAtom = atomWithReset(false)
 
 export const contractParserErrorAtom = atom('')
@@ -153,7 +153,7 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         }
       }
 
-      set(candidateFileInfoAtom, { name: file.name, size: file.size, uploaded: false })
+      set(candidateFileInfoAtom, { name: file.name, size: file.size })
       set(candidateAtom, contract)
     } catch (e) {
       console.error(e)
