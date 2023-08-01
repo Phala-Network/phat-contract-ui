@@ -139,9 +139,9 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
       const errors = validateNotUndefined(undefined)
       dispatchErrors(dispatch, uid, errors)
     } else {
-      const value = convertToBN(innerValue)
-      if (value) {
-        dispatchValue(dispatch, uid, innerValue)
+      const nextValue = convertToBN(innerValue)
+      if (nextValue) {
+        dispatchValue(dispatch, uid, nextValue)
         dispatchErrors(dispatch, uid, [])
       } else {
         dispatchValue(dispatch, uid, undefined)

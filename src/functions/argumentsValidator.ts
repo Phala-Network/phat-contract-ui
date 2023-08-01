@@ -374,9 +374,7 @@ export const validatePlainType = (typeDef: TypeDef, inputValue: unknown): Valida
     return validateNumberLikeType(typeDef, inputValue$1)
   } else if (isBoolType(type as PlainType)) {
     return validateBoolType(typeDef, inputValue$1)
-  }
-
-  if (isAddressType(type as PlainType)) {
+  } else if (isAddressType(type as PlainType)) {
     return validateAddress(typeDef, inputValue as string)
   }
 

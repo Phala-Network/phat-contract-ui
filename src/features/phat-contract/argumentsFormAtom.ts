@@ -572,15 +572,6 @@ export const getCheckedFieldData = (fieldData: FieldDataNormalized, isRendered: 
         if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
           return R.assoc('errors', checkedErrors, fieldData)
         }
-      } else if (info === TypeDefInfo.Plain) {
-        let checkedErrors = validateNotUndefined(value)
-        if (!checkedErrors.length) {
-          const value$1 = value as string
-          checkedErrors = validatePlainType(fieldData.typeDef, value).errors
-        }
-        if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
-          return R.assoc('errors', checkedErrors, fieldData)
-        }
       } else {
         const checkedErrors = validateNotUndefined(value)
         if (checkedErrors.length && !R.equals(errors, checkedErrors)) {
