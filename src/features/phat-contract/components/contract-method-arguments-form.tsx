@@ -45,8 +45,7 @@ import {
   PlainType,
   validateNotUndefined,
   validateAddress,
-  convertToBN,
-  cantToNumberMessage
+  validateNumberLikeType,
 } from '@/functions/argumentsValidator'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import {
@@ -139,15 +138,13 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
       const errors = validateNotUndefined(undefined)
       dispatchErrors(dispatch, uid, errors)
     } else {
-      const nextValue = convertToBN(innerValue)
-      if (nextValue) {
-        dispatchValue(dispatch, uid, nextValue)
-        dispatchErrors(dispatch, uid, [])
-      } else {
+      const { errors } = validateNumberLikeType(fieldData.typeDef, innerValue as string | number)
+      dispatchErrors(dispatch, uid, errors)
+      if (errors.length > 0) {
         dispatchValue(dispatch, uid, undefined)
-        const errors = cantToNumberMessage(innerValue).errors
-        dispatchErrors(dispatch, uid, errors)
+        return
       }
+      dispatchValue(dispatch, uid, innerValue)
     }
   }
 
@@ -530,7 +527,7 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
         const { errors } = validateAddress(fieldData.typeDef, nextValue as string)
         dispatchErrors(dispatch, uid, errors)
         if (errors.length > 0) {
-          // if error exists, do not dispatch value, avoid execute estimateGas
+          dispatchValue(dispatch, uid, undefined)
           return
         }
       }
