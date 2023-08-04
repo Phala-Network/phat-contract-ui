@@ -18,7 +18,7 @@ import {
 } from '@chakra-ui/react'
 import { useAtom, useAtomValue } from 'jotai'
 import { useResetAtom, waitForAll } from 'jotai/utils'
-import { useNavigate } from '@tanstack/react-location'
+import { useNavigate, useLocation } from '@tanstack/react-location'
 import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
@@ -57,6 +57,12 @@ const ClusterIdSelect = () => {
 }
 
 const AttachContractField = () => {
+  const location = useLocation()
+  let defaultContractId = ''
+  if (location.current.searchStr) {
+    const params = new URLSearchParams(location.current.searchStr)
+    defaultContractId = params.get('contractId') || ''
+  }
   const [target, setTarget] = useAtom(contractAttachTargetAtom)
   useState(false)
   function checkAndSetTarget(contractId: string) {
@@ -70,8 +76,7 @@ const AttachContractField = () => {
       <FormLabel>Contract Id</FormLabel>
       <InputGroup>
         <Input
-            type='url'
-            value={target}
+            value={target || defaultContractId}
             onChange={ev => checkAndSetTarget(ev.target.value)}
           />
         </InputGroup>
@@ -104,11 +109,17 @@ const SubmitButton = () => {
   const toast = useToast()
   const attachToContract = useAttachToContract()
   const navigate = useNavigate()
+  const location = useLocation()
   
   const isDisabled = !(clusterId)
   
   const handleSubmit = async () => {
     setIsLoading(true)
+    let defaultContractId = ''
+    if (location.current.searchStr) {
+      const params = new URLSearchParams(location.current.searchStr)
+      defaultContractId = params.get('contractId') || ''
+    }
     try {
       if (!candidate) {
         toast({
@@ -119,7 +130,7 @@ const SubmitButton = () => {
         })
         return
       }
-      if (!contractId) {
+      if (!contractId && !defaultContractId) {
         toast({
           title: 'Please enter a valid contract address.',
           status: 'error',
@@ -129,11 +140,11 @@ const SubmitButton = () => {
         return
       }
       if (candidate) {
-        const succeeded = await attachToContract(candidate, clusterId, contractId)
+        const succeeded = await attachToContract(candidate, clusterId, contractId || defaultContractId)
         resetContractFileInfo()
         resetAllowIndeterminismAtom()
         if (succeeded) {        
-          navigate({ to: `/contracts/view/${contractId}` })
+          navigate({ to: `/contracts/view/${contractId || defaultContractId}` })
         }
       }
     } finally {

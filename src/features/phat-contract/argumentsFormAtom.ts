@@ -7,7 +7,7 @@ import * as R from 'ramda'
 import { v4 } from 'uuid'
 import { TypeDef } from '@polkadot/types/types'
 import { atomWithReducer, waitForAll, atomFamily } from 'jotai/utils'
-import { subToArray, validateNotUndefined, validateSub } from '@/functions/argumentsValidator'
+import { subToArray, validateNotUndefined, validateSub, validatePlainType } from '@/functions/argumentsValidator'
 import { currentAbiAtom, currentMethodAtom } from './atoms'
 import BN from 'bn.js'
 import createLogger from '@/functions/createLogger'
@@ -399,7 +399,6 @@ const createFormData = (registry: Registry, id: string, abiParams: AbiParam[], d
       ...fieldDataSet,
     }
   }
-  console.log('createFormData', result, docs)
 
   return result
 }

@@ -3,6 +3,8 @@ import type { Abi } from '@polkadot/api-contract'
 import { AbiParam } from '@polkadot/api-contract/types'
 import { TypeDefInfo } from '@polkadot/types'
 import { TypeDef } from '@polkadot/types/types'
+import { decodeAddress, encodeAddress } from '@polkadot/keyring'
+import { hexToU8a, isHex } from '@polkadot/util'
 import { BN } from 'bn.js'
 import { z } from 'zod'
 import * as R from 'ramda'
@@ -306,8 +308,8 @@ export const validateSub = (typeDef: TypeDef) => {
 
 // Plain only allows the type is string (!== ''), number.
 export const validatePlainInput = (inputValue: unknown) => {
-  if (!R.is(String, inputValue) && !R.is(Number, inputValue)) {
-    return inputTypeInvalidMessage(inputValue, ['String', 'Number'])
+  if (!R.is(String, inputValue) && !R.is(Number, inputValue) && !R.is(Boolean, inputValue)) {
+    return inputTypeInvalidMessage(inputValue, ['String', 'Number', 'Boolean'])
   } else if (inputValue === '') {
     return inputCantBeEmpty()
   }
@@ -342,6 +344,19 @@ export const validateBoolType = (_: TypeDef, inputValue: string | number) => {
   }
 }
 
+export const validateAddress = (_: TypeDef, inputValue: string) => {
+  try {
+    encodeAddress(
+      isHex(inputValue)
+        ? hexToU8a(inputValue)
+        : decodeAddress(inputValue)
+    )
+    return createValueInfo(inputValue)
+  } catch (error) {
+    return inputTypeInvalidMessage(inputValue, ['Address'])
+  }
+}
+
 // Plain type value's validation
 export const validatePlainType = (typeDef: TypeDef, inputValue: unknown): ValidateInfo<unknown> => {
   const { type } = typeDef
@@ -359,9 +374,9 @@ export const validatePlainType = (typeDef: TypeDef, inputValue: unknown): Valida
     return validateNumberLikeType(typeDef, inputValue$1)
   } else if (isBoolType(type as PlainType)) {
     return validateBoolType(typeDef, inputValue$1)
+  } else if (isAddressType(type as PlainType)) {
+    return validateAddress(typeDef, inputValue as string)
   }
-
-  // TODO: Balance, Address, AccountId
 
   // Other type receives a String value
   const value = toString(inputValue$1)

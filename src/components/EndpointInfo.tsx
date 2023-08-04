@@ -41,7 +41,6 @@ import {
 } from '@/features/phat-contract/atoms'
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 import Code from './code'
-import { isClosedBetaEnv } from '@/vite-env'
 
 export const connectionDetailModalVisibleAtom = atom(false)
 

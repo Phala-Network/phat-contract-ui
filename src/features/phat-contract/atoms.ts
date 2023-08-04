@@ -9,9 +9,22 @@ import { useQuery } from '@tanstack/react-query'
 import { atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
+import { Keyring } from '@polkadot/api'
 import { Abi } from '@polkadot/api-contract'
-import { OnChainRegistry, PinkLoggerContractPromise, type CertificateData, signCertificate } from '@phala/sdk'
+import {
+  OnChainRegistry,
+  PinkLoggerContractPromise,
+  type CertificateData,
+  signCertificate,
+  unsafeGetAbiFromGitHubRepoByCodeHash,
+  unsafeGetAbiFromPatronByCodeHash,
+  unsafeGetContractCodeHash,
+  type SerMessage,
+  PinkBlueprintPromise,
+} from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
+import { isRight } from 'fp-ts/Either'
+import * as TE from 'fp-ts/TaskEither'
 
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
@@ -135,7 +148,6 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
         // if valid failed, validResult is the failed error
         // const validResult = validateHex((contract.source?.wasm || '') as string, isAllowIndeterminism)
         const validResult = validateHex((contract.source?.wasm || '') as string, false)
-        // console.log('contract.source?.wasm', validResult, isAllowIndeterminism)
         if (validResult) {
           set(contractParserErrorAtom, `Your contract file is invalid: ${validResult}`)
           set(contractWASMInvalid, true)
@@ -154,6 +166,9 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
 })
 
 export const contractAttachTargetAtom = atom('')
+
+export const blueprintPromiseAtom = atom<PinkBlueprintPromise | null>(null)
+export const instantiatedContractIdAtom = atom<string | null>(null)
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
@@ -269,7 +284,7 @@ export const currentWorkerIdAtom = atom(
     const workers = get(availableWorkerListAtom)
     if (rec[endpoint]) {
       if (!R.includes(rec[endpoint], workers)) {
-        console.log('user selected worker is not available', rec[endpoint], workers)
+        console.info('user selected worker is not available', rec[endpoint], workers)
         return shuffle(workers)
       }
       return rec[endpoint]
@@ -446,7 +461,7 @@ export function useRequestSign() {
   }, [setIsReady, api, account, signer])
 
   const requestSign = useCallback(async () => {
-    if (!api || !account) {
+    if (!account) {
       throw new Error('You need connected to an endpoint & pick a account first.')
     }
     if (!signer) {
@@ -454,7 +469,7 @@ export function useRequestSign() {
     }
     try {
       setIsWaiting(true)
-      const cert = await signCertificate({ signer, account, api })
+      const cert = await signCertificate({ signer, account })
       setCachedCert([account.address, cert])
       return cert
     } catch (err) {
@@ -462,7 +477,7 @@ export function useRequestSign() {
     } finally {
       setIsWaiting(false)
     }
-  }, [api, account, signer, setIsWaiting, setCachedCert])
+  }, [account, signer, setIsWaiting, setCachedCert])
 
   const getCert = useCallback(async () => {
     if (account?.address === cachedCert[0] && cachedCert[1] !== null) {
@@ -529,13 +544,75 @@ export const currentSystemContractIdAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const pinkLoggerResultAtom = atom<PinkLoggerRecord[]>([])
+export const pinkLoggerResultAtom = atom<SerMessage[]>([])
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 //  Current Contract
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, localCachedContracts: Record<ContractKey, LocalContractInfo> }) {
+  const { registry, localCachedContracts } = deps
+
+  return async function _unsafeFetchedMetadataProgressive(contractId: string) {
+    const contractInfo = await registry.api.query.phalaPhatContracts.contracts(contractId)
+    const deployer =contractInfo.isSome ? contractInfo.unwrap().deployer.toString() : null
+    const localMetadata = localCachedContracts[contractId]
+
+    const cached = !!(localMetadata && localMetadata.metadata.source.hash)
+
+    // TODO Error handling
+    const codeHash = await unsafeGetContractCodeHash(registry, contractId)
+    if (!codeHash) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: false,
+        verified: false,
+        cached,
+      }
+    }
+    // TODO use react-query here?
+    const [selfhostAbi, patronAbi] = await Promise.all([
+      TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
+      TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
+    ])
+    if (isRight(patronAbi)) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: true,
+        verified: true,
+        cached,
+        metadata: patronAbi.right as ContractMetadata,
+        source: 'Patron',
+      }
+    } else if (isRight(selfhostAbi)) {
+      return {
+        contractId: contractId,
+        codeHash,
+        deployer,
+        found: true,
+        verified: true,
+        cached,
+        metadata: selfhostAbi.right as ContractMetadata,
+        source: 'Phala',
+      }
+    }
+    return {
+      contractId: contractId,
+      codeHash,
+      deployer,
+      found: true,
+      verified: false,
+      metadata: localMetadata?.metadata,
+      cached,
+    }
+  }
+}
 
 export const currentContractIdAtom = atom('')
 
@@ -547,31 +624,32 @@ export const currentContractAtom = atom(get => {
   return contracts[contractId]
 })
 
+export const currentContractV2Atom = atom(async (get) => {
+  const registry = get(phatRegistryAtom)
+  const localCachedContracts = get(localContractsAtom)
+  const contractId = get(currentContractIdAtom)
+  const result = await unsafeFetchMetadataProgressive({ registry, localCachedContracts })(contractId)
+  return result
+})
+
 export const currentAbiAtom = atom(get => {
-  const contract = get(currentContractAtom)
+  const contract = get(currentContractV2Atom)
+  if (!contract || !contract.metadata) {
+    return null
+  }
   const abi = new Abi(contract.metadata)
   return abi
 })
 
 export const messagesAtom = atom(get => {
-  const contract = get(currentContractAtom)
-  if (!contract) {
+  const contract = get(currentContractV2Atom)
+  if (!contract || !contract.metadata) {
     return []
   }
   if (contract.metadata.V3) {
     return contract.metadata.V3.spec.messages || []
   }
   return contract.metadata.spec.messages || []
-})
-
-export const phalaFatContractQueryAtom = atom(async get => {
-  const api = get(apiPromiseAtom)
-  const info = get(currentContractAtom)
-  if (!api || !info) {
-    return null
-  }
-  const result = await api.query.phalaPhatContracts.contracts(info.contractId)
-  return result.toHuman() as unknown as ContractInfo
 })
 
 export const contractInstanceAtom = atom<ContractPromise | null>(null)
@@ -584,3 +662,18 @@ export const dispatchResultsAtom = atom(null, (get, set, result: ContractExecute
 })
 
 export const instantiateTimeoutAtom = atom(60)
+
+
+//
+// Guest Pairs & Guest Cert, we use `//Alice` here.
+//
+
+export const alicePairAtom = atom(() => {
+  const keyring = new Keyring({ type: 'sr25519' })
+  return keyring.addFromUri('//Alice')
+})
+
+export const aliceCertAtom = atom(async (get) => {
+  const pair = get(alicePairAtom)
+  return await signCertificate({ pair })
+})

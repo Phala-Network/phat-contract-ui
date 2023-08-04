@@ -12,7 +12,8 @@ import {
   contractParserErrorAtom,
   // candidateAllowIndeterminismAtom,
   contractWASMInvalid,
-} from "../atoms";
+} from '../atoms'
+import useReset from '../hooks/useReset'
 
 const HelpPanel = () => {
   const [error, setError] = useAtom(contractParserErrorAtom)
@@ -117,7 +118,8 @@ const Dropzone = ({ isCheckWASM = true }: DropzoneProps) => {
 }
 
 const CandidatePreview = () => {
-  const [finfo, setFinfo] = useAtom(candidateFileInfoAtom)
+  const reset = useReset()
+  const finfo = useAtomValue(candidateFileInfoAtom)
   return (
     <div tw="px-4 flex justify-between items-center">
       <div>
@@ -130,7 +132,7 @@ const CandidatePreview = () => {
         h="1.75rem"
         mr="0.3rem"
         size="sm"
-        onClick={() => setFinfo({ name: '', size: 0 })}
+        onClick={reset}
       >
         Change
       </Button>

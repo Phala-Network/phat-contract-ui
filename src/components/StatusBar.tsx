@@ -35,19 +35,19 @@ import {
 } from '@chakra-ui/react'
 import * as R from 'ramda'
 import { ErrorBoundary } from 'react-error-boundary'
-
-import { eventsAtom } from '@/features/parachain/atoms'
-import { resultsAtom, pinkLoggerResultAtom } from '@/features/phat-contract/atoms'
-import { formatNumber } from '@polkadot/util'
+import { formatNumber, hexToNumber } from '@polkadot/util'
 import Identicon from '@polkadot/react-identicon'
+import { type SerMessage } from '@phala/sdk'
 import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
 import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
 import keyring from '@polkadot/ui-keyring'
-import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
 import { Text as TextType } from '@polkadot/types'
+
+import { eventsAtom } from '@/features/parachain/atoms'
+import { resultsAtom, pinkLoggerResultAtom, pinkLoggerAtom, currentContractIdAtom  } from '@/features/phat-contract/atoms'
+import { keyedEventsAtom, recentBlocksAtom } from '@/features/chain-info/atoms'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import ScrollContainer from './ScrollContainer'
-import { pinkLoggerAtom, currentContractIdAtom } from '@/features/phat-contract/atoms'
 
 
 export enum TabIndex {
@@ -82,7 +82,7 @@ function useRefreshCurrentContractLog() {
     }
     return async function() {
       const { records } = await pinkLogger.getLog(currentContractId)
-      setLogs(R.reverse(records))
+      setLogs(R.reverse<SerMessage>(records))
     }
   }, [pinkLogger, currentContractId, setLogs])
 }
@@ -315,7 +315,12 @@ const Logs = () => {
               <span>[#{log.blockNumber}]</span>
               <span>MessageOutput</span>
             </div>
-            {log.decoded ? log.decoded : log.output}
+            {JSON.stringify(
+              R.map(
+                i => hexToNumber(`0x${i}`),
+                R.slice(1, Infinity, R.splitEvery(2, log.output))
+              )
+            )}
           </div>
         )
       })}

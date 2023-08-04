@@ -20,7 +20,7 @@ import {
   FormLabel,
   Input,
 } from '@chakra-ui/react'
-import { atom, useAtom, useSetAtom } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -28,7 +28,7 @@ import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
-import useContractExecutor, { estimateGasAtom, inputsAtom, ExecResult } from '../hooks/useContractExecutor'
+import useContractExecutor, { estimateGasAtom, ExecResult } from '../hooks/useContractExecutor'
 import { currentMessageArgumentAtomListAtom } from '../argumentsFormAtom'
 import { currentMethodAtom, messagesAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
@@ -56,7 +56,6 @@ const ExecuteButton: FC<{
           return
         }
         onFinish && onFinish()
-        // console.log('inputs: ', inputs)
       }}
     >
       Run

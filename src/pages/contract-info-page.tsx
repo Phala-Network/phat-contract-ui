@@ -4,26 +4,38 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
-  FormControl,
-  FormLabel,
-  Input,
-  InputGroup,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  Skeleton,
 } from "@chakra-ui/react"
-import { useAtom } from "jotai"
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
 import { useAtomValue, useUpdateAtom } from 'jotai/utils'
+import { ErrorBoundary } from 'react-error-boundary'
 
-import { currentContractIdAtom, currentContractAtom, pruntimeURLAtom } from '@/features/phat-contract/atoms'
+import Code from '@/components/code'
+import { ErrorAlert } from '@/components/ErrorAlert'
+import { currentContractIdAtom, currentContractAtom } from '@/features/phat-contract/atoms'
 import ContractInfo from '@/features/phat-contract/components/contract-info'
 import ContractMethodGrid from '@/features/phat-contract/components/contract-method-grid'
 
 
 const CurrentContractName = () => {
+  const contractId = useAtomValue(currentContractIdAtom)
   const contract = useAtomValue(currentContractAtom)
   if (!contract) {
-    return null
+    return (
+      <BreadcrumbItem>
+        <BreadcrumbLink>
+          <Code>
+            {contractId.substring(0, 8)}...{contractId.substring(contractId.length-8, contractId.length)}
+          </Code>
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+    )
   }
   return (
     <BreadcrumbItem>
@@ -32,7 +44,28 @@ const CurrentContractName = () => {
   )
 }
 
-const ContractInfoPage = () => {
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetErrorBoundary: () => void }) {
+  if (error.message.indexOf('createType') !== -1) {
+    return (
+      <Alert status="info" borderRadius={4} flexDir="column" alignItems="start" gap={2}>
+        <div tw="flex flex-row items-center">
+          <AlertIcon />
+          <AlertTitle>Invalid Contract ID</AlertTitle>
+        </div>
+        <div tw="flex flex-col w-full pr-4">
+          <AlertDescription>
+            <p>
+              The contract ID you provided is invalid. Please check the contract ID and try again.
+            </p>
+          </AlertDescription>
+        </div>
+      </Alert>
+    )
+  }
+  return ErrorAlert({ error, resetErrorBoundary })
+}
+
+export default function ContractInfoPage () {
   const { params: { contractId } } = useMatch()
   const setCurrentContractId = useUpdateAtom(currentContractIdAtom)
   useEffect(() => {
@@ -46,14 +79,14 @@ const ContractInfoPage = () => {
         </BreadcrumbItem>
         <CurrentContractName />
       </Breadcrumb>
-      <Suspense fallback={<div />}>
-        <ContractInfo />
-      </Suspense>
-      <Suspense fallback={<div />}>
-        <ContractMethodGrid />
-      </Suspense>
+      <ErrorBoundary fallbackRender={ErrorFallback}>
+        <Suspense fallback={<Skeleton noOfLines={4} minW="100%" minH="5rem" />}>
+          <ContractInfo />
+        </Suspense>
+        <Suspense fallback={<div />}>
+          <ContractMethodGrid />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }
-
-export default ContractInfoPage

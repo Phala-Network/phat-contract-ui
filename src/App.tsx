@@ -1,5 +1,3 @@
-// import type { FoundationProviderProps } from '@/foundation/Provider'
-
 import { Outlet } from "@tanstack/react-location"
 
 import FoundationProvider from '@/foundation/Provider'
@@ -14,9 +12,9 @@ import ContractInfoPage from '@/pages/contract-info-page'
 export default function PhalaContractsUI() {
   return (
     <FoundationProvider
-      // initialValues={initialValues}
       routes={[
         { path: "/", element: <ContractListPage /> },
+        { path: "/contracts/add/:codeHash", element: <ContractAddPage /> },
         { path: "/contracts/add", element: <ContractAddPage /> },
         { path: "/contracts/attach", element: <ContractAttachPage /> },
         { path: "/contracts/view/:contractId", element: <ContractInfoPage /> },

@@ -93,7 +93,7 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
               }
             })
           } catch (err) {
-            console.log('wtf', err)
+            console.error('websocket connection error: ', err)
           }
         },
 

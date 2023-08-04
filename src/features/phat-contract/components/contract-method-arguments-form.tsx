@@ -40,11 +40,12 @@ import * as R from 'ramda'
 import {
   isNumberLikeType,
   isBoolType,
+  isAddressType,
   subToArray,
   PlainType,
   validateNotUndefined,
-  convertToBN,
-  cantToNumberMessage
+  validateAddress,
+  validateNumberLikeType,
 } from '@/functions/argumentsValidator'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import {
@@ -126,8 +127,6 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
   const isInvalid = errors.length > 0
   const [innerValue, setInnerValue] = useState(value?.toString() || '')
 
-  console.log('NumberLikeTypeFieldData render: fieldData', fieldData)
-
   useEffect(() => {
     setInnerValue(value?.toString() || '')
   }, [value])
@@ -139,15 +138,13 @@ const NumberLikeTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) =>
       const errors = validateNotUndefined(undefined)
       dispatchErrors(dispatch, uid, errors)
     } else {
-      const nextValue = convertToBN(innerValue)
-      if (nextValue) {
-        dispatchValue(dispatch, uid, nextValue)
-        dispatchErrors(dispatch, uid, [])
-      } else {
+      const { errors } = validateNumberLikeType(fieldData.typeDef, innerValue as string | number)
+      dispatchErrors(dispatch, uid, errors)
+      if (errors.length > 0) {
         dispatchValue(dispatch, uid, undefined)
-        const errors = cantToNumberMessage(innerValue).errors
-        dispatchErrors(dispatch, uid, errors)
+        return
       }
+      dispatchValue(dispatch, uid, innerValue)
     }
   }
 
@@ -175,8 +172,6 @@ const BoolTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
   const isInvalid = errors.length > 0
 
   const [innerValue, setInnerValue] = useState('')
-
-  console.log('BoolTypeFieldData render: fieldData', fieldData)
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextInnerValue = event.target.value
@@ -245,7 +240,6 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
     }
   }, [variant, variantIndex, selectedVariantName, subFieldData])
 
-  console.log('subFieldData', subFieldData, variantIndex)
   const theAtom = useMemo(() => {
     if (subFieldData && variantIndex !== undefined) {
       return allAtoms[subFieldData[variantIndex]]
@@ -511,7 +505,11 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
 
   console.log('OtherTypeFieldData render: fieldData', fieldData)
 
-  useEffect(() => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setInnerValue(event.target.value)
+  }
+
+  const handleBlur = () => {
     if (!innerValue) {
       dispatchValue(dispatch, uid, undefined)
     } else {
@@ -525,18 +523,16 @@ const OtherTypeFieldData = ({ fieldData, dispatch }: EachFieldDataProps) => {
         } catch (error) {
           // noop
         }
+      } else if (isAddressType(type as PlainType)) {
+        const { errors } = validateAddress(fieldData.typeDef, nextValue as string)
+        dispatchErrors(dispatch, uid, errors)
+        if (errors.length > 0) {
+          dispatchValue(dispatch, uid, undefined)
+          return
+        }
       }
       dispatchValue(dispatch, uid, nextValue)
     }
-  }, [innerValue])
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setInnerValue(event.target.value)
-  }
-
-  const handleBlur = () => {
-    const errors = validateNotUndefined(value)
-    dispatchErrors(dispatch, uid, errors)
   }
 
   return (
@@ -617,8 +613,6 @@ const ArgumentFieldData = ({ uid, theAtom, allAtoms = {} }: { uid: string, theAt
 
   const { typeDef: { info } } = fieldData
   const uiSchema = fieldData.uiSchema || {}
-
-  console.log('[Top] ArgumentFieldData render', uid, uiSchema)
 
   if (uiSchema['ui:widget'] === 'textarea') {
     return <TextAreaWidget fieldData={fieldData} dispatch={dispatch} rows={Number(uiSchema['ui:rows']) || 6} />

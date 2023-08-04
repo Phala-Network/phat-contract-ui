@@ -1,7 +1,6 @@
 import type {ContractOptions} from '@polkadot/api-contract/types'
-import type { u64 } from '@polkadot/types'
+import { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
-import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
@@ -18,15 +17,14 @@ import signAndSend from '@/functions/signAndSend'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
-import { querySignCertificate } from '@/features/identity/queries'
 import {
   currentMethodAtom,
-  currentContractAtom,
   dispatchResultsAtom,
   pinkLoggerResultAtom,
   phatRegistryAtom,
   pinkLoggerAtom,
   useRequestSign,
+  currentContractV2Atom,
 } from '../atoms'
 import { currentArgsFormAtomInAtom, FormActionType, getCheckedForm, getFormIsInvalid, getFormValue } from '../argumentsFormAtom'
 
@@ -48,12 +46,13 @@ async function estimateGas(contract: PinkContractPromise, method: string, cert: 
   return options
 }
 
-type SignOptions = Parameters<typeof signCertificate>[0]
-
 const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const registry = get(phatRegistryAtom)
-  const { metadata, contractId } = get(currentContractAtom)
+  const { metadata, contractId } = get(currentContractV2Atom)
+  if (!metadata) {
+    return null
+  }
   const contractKey = await registry.getContractKeyOrFail(contractId)
   const contractInstance = new PinkContractPromise(api, registry, metadata, contractId, contractKey)
   return contractInstance
@@ -64,10 +63,17 @@ export const inputsAtom = atom<Record<string, string>>({})
 export const estimateGasAtom = atom(async get => {
   const api = get(apiPromiseAtom)
   const contractInstance = get(currentContractPromiseAtom)
+  if (!contractInstance) {
+    const options: EstimateGasResult = {
+      gasLimit: new u64(api.registry as unknown as ConstructorParameters<typeof u64>[0]),
+      storageDepositLimit: null,
+    }
+    return options
+  }
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
-  const cert = await signCertificate({ api: api as unknown as SignOptions['api'], pair })
+  const cert = await signCertificate({ pair })
   const txMethods = R.fromPairs(R.map(
     i => [i.meta.identifier, i.meta.method],
     R.values(contractInstance.tx || {})
@@ -87,7 +93,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
   const [api, selectedMethodSpec, contract, account, queryClient, signer, registry, pinkLogger] = useAtomValue(waitForAll([
     apiPromiseAtom,
     currentMethodAtom,
-    currentContractAtom,
+    currentContractV2Atom,
     currentAccountAtom,
     queryClientAtom,
     signerAtom,
@@ -105,7 +111,7 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
     setIsLoading(true)
     const methodSpec = overrideMethodSpec || selectedMethodSpec
     try {
-      if (!api || !account || !methodSpec || !signer || !registry) {
+      if (!api || !account || !methodSpec || !signer || !registry || !contract || !contract.metadata) {
         debug('contractInstance or account is null')
         return
       }
@@ -171,10 +177,8 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
-      // const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
       const cert = await getCert()
       if (!cert) {
-        console.log('User cancelled signing')
         return
       }
 
@@ -237,8 +241,12 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       })
     } finally {
       if (pinkLogger) {
-        const { records } = await pinkLogger.getLog(contract.contractId)
-        setLogs(R.reverse(records))
+        try {
+          const { records } = await pinkLogger.getLog(contract.contractId)
+          setLogs(R.reverse(records))
+        } catch (err) {
+          console.log('get log error', err)
+        }
       }
       setIsLoading(false)
     }
