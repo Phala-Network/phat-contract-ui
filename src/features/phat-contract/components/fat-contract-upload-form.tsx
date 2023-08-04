@@ -50,7 +50,7 @@ import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
-import { type BN } from '@polkadot/util'
+import { type BN, u8aToHex } from '@polkadot/util'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
@@ -184,10 +184,14 @@ const wasmAtom = atomWithReset<Uint8Array | null>(null)
 
 const wasmFetchStateAtom = atomWithReset<{
   isFetching: boolean,
+  fetched: boolean,
+  minDepositFee: number,
   error: string | null,
   attempts: number,
 }>({
   isFetching: false,
+  fetched: false,
+  minDepositFee: 0,
   error: null,
   attempts: 0,
 })
@@ -196,6 +200,8 @@ const wasmFetchStateAtom = atomWithReset<{
 const wasmFetchAtom = atom(null, async (get, set) => {
   const { codeHash, phalaBuildAbi, patronBuildAbi } = get(instantiateContextAtom)
   const state = get(wasmFetchStateAtom)
+  const registry = get(phatRegistryAtom)
+  const currentBalance = get(currentBalanceAtom)
 
   if (!codeHash) {
     console.warn('Unexpected path: codeHash is not available form wasmFetchOnlyAtom')
@@ -204,7 +210,7 @@ const wasmFetchAtom = atom(null, async (get, set) => {
 
   set(wasmFetchStateAtom, { ...state, isFetching: true })
 
-  let error = null, result = null, attempts = state.attempts
+  let error = null, result = null, attempts = state.attempts, minDepositFee = 0
   try {
     if (phalaBuildAbi) {
       result = await unsafeGetWasmFromGithubRepoByCodeHash(codeHash)
@@ -214,8 +220,15 @@ const wasmFetchAtom = atom(null, async (get, set) => {
   } catch (err) {
     error = `Fetch wasm failed: ${(err as Error).message}`
   }
-  set(wasmFetchStateAtom, { isFetching: false, error, attempts: attempts + 1 })
+  set(wasmFetchStateAtom, { isFetching: false, error, attempts: attempts + 1, fetched: false, minDepositFee })
   if (result) {
+    // result is Uint8Array here, so we need to multiply it by 2 as hex string size.
+    minDepositFee = estimateDepositeFee(result.length * 2, registry.clusterInfo?.depositPerByte)
+    if (currentBalance < minDepositFee) {
+      set(wasmFetchStateAtom, { isFetching: false, error: `Insufficient balance: ${minDepositFee.toFixed(10)} PHA required`, attempts: attempts + 1, fetched: true, minDepositFee })
+    } else {
+      set(wasmFetchStateAtom, { isFetching: false, error, attempts: attempts + 1, fetched: true, minDepositFee })
+    }
     set(wasmAtom, result)
   }
 })
@@ -412,7 +425,6 @@ const uploadCodeCheckAtom = atom(async get => {
   }
   const storageDepositeFee = estimateDepositeFee(wasm.length, registry.clusterInfo.depositPerByte)
   if (currentBalance < storageDepositeFee) {
-
     return { canUpload: false, showTransferToCluster: true, storageDepositeFee, exists: false }
   }
   return { canUpload: true, showTransferToCluster: false, exists: false }
@@ -802,6 +814,7 @@ function InstantiateInfoCandidateHint() {
           </div>
         </Td>
       </Tr>
+      {instantiateContext.codeExists ? (
       <Tr>
         <Th>Verification</Th>
         <Td>
@@ -830,6 +843,7 @@ function InstantiateInfoCandidateHint() {
           </div>
         </Td>
       </Tr>
+      ) : null}
     </>
   )
 }
@@ -862,7 +876,7 @@ function GetPhaButton() {
   }
   return (
     <Button
-      w="full"
+      size="sm"
       isLoading={loading}
       onClick={getTestCoin}
     >
@@ -967,6 +981,22 @@ function CodeUploadForm() {
   const candidate = useAtomValue(candidateAtom)
   const presetCodeHash = useAtomValue(presetCodeHashAtom)
 
+  const { currentBalance, transfer, isLoading } = useClusterBalance()
+  const currentAccountBalance = useAtomValue(currentAccountBalanceAtom)
+
+  if (!currentAccountBalance.gt(0) && currentBalance === 0) {
+    return (
+      <div tw="flex flex-col gap-2.5">
+        <Alert status="warning" title="Funds required">
+          <p>Your account balances are too low to continue.</p>
+          <div tw="flex flex-row mt-2.5">
+            <GetPhaButton />
+          </div>
+        </Alert>
+      </div>
+    )
+  }
+
   if (!uploadPlan.needFetch) {
     return (
       <div tw="flex flex-col gap-2.5">
@@ -997,6 +1027,7 @@ function CodeUploadForm() {
       </div>
     )
   }
+
   if (uploadPlan.canFetch) {
     return (
       <div tw="flex flex-col gap-2.5">
@@ -1004,11 +1035,18 @@ function CodeUploadForm() {
           <Alert status="error" title="Upload Failed">
             <p>{uploadState.error}</p>
           </Alert>
-        ) : (
+        ) : (fetchState.fetched && fetchState.minDepositFee > currentBalance && activeStep === 1) ? (
+          <Alert status="warning" title="Your cluster balance is too low ">
+            <p>You need deposit at least {fetchState.minDepositFee.toFixed(10)} PHA to your cluster account before continue.</p>
+            <div tw="mt-2.5">
+              <Button size="sm" isLoading={isLoading} onClick={() => transfer(new Decimal(fetchState.minDepositFee))}>Transfer minimal requirement</Button>
+            </div>
+          </Alert>
+        ) : activeStep === 1 ? (
           <Alert status="success" title="Found matched code from verified source.">
             <p>Click the button below to fetch the code from verified source.</p>
           </Alert>
-        )}
+        ) : null}
         <div tw="mt-2.5 flex flex-row gap-2">
           <Button
             isDisabled={fetchState.isFetching || canUpload}
@@ -1021,11 +1059,11 @@ function CodeUploadForm() {
             Fetch
           </Button>
           <Button
-            isDisabled={!canUpload}
+            isDisabled={!canUpload || fetchState.minDepositFee > currentBalance}
             isLoading={uploadState.isProcessing}
             onClick={upload}
             size="sm"
-            colorScheme={(activeStep === 1 && canUpload) ? "phalaDark" : undefined}
+            colorScheme={(activeStep === 1 && canUpload && !fetchState.error) ? "phalaDark" : undefined}
             minW="8rem"
           >
             Upload
