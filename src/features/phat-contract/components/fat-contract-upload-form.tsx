@@ -983,7 +983,7 @@ function CodeUploadForm() {
           <input type="file" name="custom-abi" onChange={(ev) => setCustomMetadata(ev.target.files)} />
         </FormControl>
         {
-          candidate && candidate.source.hash !== presetCodeHash ? (
+          candidate && candidate.source.hash !== `0x${presetCodeHash}` ? (
             <Alert status="warning" title="Codehash not match">
               <p>The codehash of the selected Metadata file does not match the current contract, please confirm before proceeding to the next step.</p>
             </Alert>
