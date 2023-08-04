@@ -456,7 +456,7 @@ export function useRequestSign() {
   }, [setIsReady, api, account, signer])
 
   const requestSign = useCallback(async () => {
-    if (!api || !account) {
+    if (!account) {
       throw new Error('You need connected to an endpoint & pick a account first.')
     }
     if (!signer) {
@@ -464,7 +464,7 @@ export function useRequestSign() {
     }
     try {
       setIsWaiting(true)
-      const cert = await signCertificate({ signer, account, api })
+      const cert = await signCertificate({ signer, account })
       setCachedCert([account.address, cert])
       return cert
     } catch (err) {
@@ -472,7 +472,7 @@ export function useRequestSign() {
     } finally {
       setIsWaiting(false)
     }
-  }, [api, account, signer, setIsWaiting, setCachedCert])
+  }, [account, signer, setIsWaiting, setCachedCert])
 
   const getCert = useCallback(async () => {
     if (account?.address === cachedCert[0] && cachedCert[1] !== null) {
@@ -669,7 +669,6 @@ export const alicePairAtom = atom(() => {
 })
 
 export const aliceCertAtom = atom(async (get) => {
-  const api = get(apiPromiseAtom)
   const pair = get(alicePairAtom)
-  return await signCertificate({ api, pair })
+  return await signCertificate({ pair })
 })

@@ -1,7 +1,6 @@
 import type {ContractOptions} from '@polkadot/api-contract/types'
 import { u64 } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
-import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DepositSettings } from '../atomsWithDepositSettings'
 
 import { useToast } from '@chakra-ui/react'
@@ -20,7 +19,6 @@ import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import {
   currentMethodAtom,
-  currentContractAtom,
   dispatchResultsAtom,
   pinkLoggerResultAtom,
   phatRegistryAtom,
@@ -47,8 +45,6 @@ async function estimateGas(contract: PinkContractPromise, method: string, cert: 
   }
   return options
 }
-
-type SignOptions = Parameters<typeof signCertificate>[0]
 
 const currentContractPromiseAtom = atom(async get => {
   const api = get(apiPromiseAtom)
@@ -77,7 +73,7 @@ export const estimateGasAtom = atom(async get => {
   const selectedMethodSpec = get(currentMethodAtom)
   const keyring = new Keyring({ type: 'sr25519' })
   const pair = keyring.addFromUri('//Alice')
-  const cert = await signCertificate({ api: api as unknown as SignOptions['api'], pair })
+  const cert = await signCertificate({ pair })
   const txMethods = R.fromPairs(R.map(
     i => [i.meta.identifier, i.meta.method],
     R.values(contractInstance.tx || {})
@@ -181,7 +177,6 @@ export default function useContractExecutor(): [boolean, (depositSettings: Depos
       debug('args built: ', args)
 
       // The certificate is used in query and for gas estimation in tx.
-      // const cert = await queryClient.fetchQuery(querySignCertificate(api, signer, account as unknown as KeyringPair))
       const cert = await getCert()
       if (!cert) {
         return
