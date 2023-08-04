@@ -70,6 +70,8 @@ import {
   useRequestSign,
   aliceCertAtom,
   pinkLoggerAtom,
+  blueprintPromiseAtom,
+  instantiatedContractIdAtom,
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAtom } from './init-selector-field'
@@ -78,6 +80,7 @@ import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { connectionDetailModalVisibleAtom } from '@/components/EndpointInfo'
+import useReset from '../hooks/useReset'
 
 
 //
@@ -363,10 +366,6 @@ const selectedContructorAtom = atom((get) => {
   throw new Error(`Can't find the method label as '${label}'.`)
 })
 
-const blueprintPromiseAtom = atom<PinkBlueprintPromise | null>(null)
-
-const instantiatedContractIdAtom = atom<string | null>(null)
-
 const currentAbiAtom = atom(get => {
   const candidate = get(candidateAtom)
   if (!candidate) {
@@ -593,21 +592,6 @@ function useUploadCode() {
 
   return { isLoading, upload, resetError, hasError, error, restoreBlueprint }
 }
-
-function useReset() {
-  const setCandidate = useSetAtom(candidateAtom)
-  const setCandidateFileInfo = useSetAtom(candidateFileInfoAtom)
-  const setBlueprintPromise = useSetAtom(blueprintPromiseAtom)
-  const setInstantiatedContractId = useSetAtom(instantiatedContractIdAtom)
-  const reset = useCallback(() => {
-    setCandidate(null)
-    setCandidateFileInfo(RESET)
-    setBlueprintPromise(null)
-    setInstantiatedContractId(null)
-  }, [setCandidate, setBlueprintPromise, setInstantiatedContractId, setCandidateFileInfo])
-  return reset
-}
-
 
 //
 // UI Components

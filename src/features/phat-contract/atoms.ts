@@ -20,6 +20,7 @@ import {
   unsafeGetAbiFromPatronByCodeHash,
   unsafeGetContractCodeHash,
   type SerMessage,
+  PinkBlueprintPromise,
 } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
@@ -165,6 +166,9 @@ export const contractCandidateAtom = atom('', (get, set, fileInfo: FileInfo) => 
 })
 
 export const contractAttachTargetAtom = atom('')
+
+export const blueprintPromiseAtom = atom<PinkBlueprintPromise | null>(null)
+export const instantiatedContractIdAtom = atom<string | null>(null)
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
