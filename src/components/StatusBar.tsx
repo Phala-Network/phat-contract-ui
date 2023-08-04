@@ -35,7 +35,7 @@ import {
 } from '@chakra-ui/react'
 import * as R from 'ramda'
 import { ErrorBoundary } from 'react-error-boundary'
-import { formatNumber } from '@polkadot/util'
+import { formatNumber, hexToNumber } from '@polkadot/util'
 import Identicon from '@polkadot/react-identicon'
 import { type SerMessage } from '@phala/sdk'
 import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
@@ -315,7 +315,12 @@ const Logs = () => {
               <span>[#{log.blockNumber}]</span>
               <span>MessageOutput</span>
             </div>
-            {log.output}
+            {JSON.stringify(
+              R.map(
+                i => hexToNumber(`0x${i}`),
+                R.slice(1, Infinity, R.splitEvery(2, log.output))
+              )
+            )}
           </div>
         )
       })}
