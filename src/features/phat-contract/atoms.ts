@@ -19,6 +19,7 @@ import {
   unsafeGetAbiFromGitHubRepoByCodeHash,
   unsafeGetAbiFromPatronByCodeHash,
   unsafeGetContractCodeHash,
+  type SerMessage,
 } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
@@ -539,7 +540,7 @@ export const currentSystemContractIdAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export const pinkLoggerResultAtom = atom<PinkLoggerRecord[]>([])
+export const pinkLoggerResultAtom = atom<SerMessage[]>([])
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
