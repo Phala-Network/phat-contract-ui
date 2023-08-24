@@ -79,7 +79,7 @@ const useContractMetaExport = () => {
     }
     const meta = fetched.metadata
     // @ts-ignore
-    meta.phat = { contractId: contract.contractId }
+    meta.phat = { contractId: fetched.contractId }
     var element = document.createElement('a');
     element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(meta)));
     element.setAttribute('download', `${fetched.metadata.contract.name}.json`);
