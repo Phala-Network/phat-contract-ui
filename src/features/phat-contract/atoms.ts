@@ -587,7 +587,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
         found: true,
         verified: true,
         cached,
-        metadata: patronAbi.right as ContractMetadata,
+        metadata: localMetadata?.metadata || patronAbi.right as ContractMetadata,
         source: 'Patron',
       }
     } else if (isRight(selfhostAbi)) {
@@ -598,7 +598,7 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
         found: true,
         verified: true,
         cached,
-        metadata: selfhostAbi.right as ContractMetadata,
+        metadata: localMetadata?.metadata || selfhostAbi.right as ContractMetadata,
         source: 'Phala',
       }
     }
