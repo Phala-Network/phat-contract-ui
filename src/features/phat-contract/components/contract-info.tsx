@@ -231,7 +231,7 @@ export default function ContractInfo() {
                   </div>
                   <CopyToClipboard
                     text={fetched.contractId}
-                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                    onCopy={() => toast({title: 'Copied!'})}
                   >
                     <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
                   </CopyToClipboard>
@@ -247,7 +247,7 @@ export default function ContractInfo() {
                   </div>
                   <CopyToClipboard
                     text={fetched.metadata.source.hash}
-                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                    onCopy={() => toast({title: 'Copied!'})}
                   >
                     <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
                   </CopyToClipboard>

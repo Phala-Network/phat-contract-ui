@@ -777,7 +777,7 @@ function InstantiateInfoCandidateHint() {
                 </div>
                 <CopyToClipboard
                   text={codeHash}
-                  onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                  onCopy={() => toast({title: 'Copied!'})}
                 >
                   <IconButton aria-label="copy" size="sm"><VscCopy /></IconButton>
                 </CopyToClipboard>
