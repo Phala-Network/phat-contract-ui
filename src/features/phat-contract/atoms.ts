@@ -504,7 +504,7 @@ export const phatRegistryAtom = atom(async (get) => {
   const clusterId = get(currentClusterIdAtom)
   const workerId = get(currentWorkerIdAtom)
   const pruntimeURL = get(pruntimeURLAtom)
-  const registry = await OnChainRegistry.create(api, { clusterId, workerId, pruntimeURL, skipCheck: true })
+  const registry = await OnChainRegistry.create(api, { clusterId, workerId, pruntimeURL })
   return registry
 })
 
