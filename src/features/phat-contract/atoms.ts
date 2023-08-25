@@ -1,12 +1,13 @@
 import type { ContractPromise } from '@polkadot/api-contract'
-import type { AnyJson, Codec } from '@polkadot/types/types'
-import type { Option } from '@polkadot/types'
+import type { AnyJson } from '@polkadot/types/types'
+import type { u64, Option } from '@polkadot/types'
+import type { BN } from '@polkadot/util'
 
 import { isClosedBetaEnv } from '@/vite-env'
 import { useMemo, useCallback, useEffect, useState } from 'react'
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { WritableAtom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useQuery } from '@tanstack/react-query'
-import { atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
+import { atomFamily, atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
 import * as R from 'ramda'
 import { Keyring } from '@polkadot/api'
@@ -21,12 +22,16 @@ import {
   unsafeGetContractCodeHash,
   type SerMessage,
   PinkBlueprintPromise,
+  PinkContractPromise,
 } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
+import Decimal from 'decimal.js'
 
-import { apiPromiseAtom } from '@/features/parachain/atoms'
+import signAndSend from '@/functions/signAndSend'
+import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
+import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
@@ -552,10 +557,34 @@ export const pinkLoggerResultAtom = atom<SerMessage[]>([])
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+interface ContractLookupFailed {
+  contractId: string
+  codeHash: string | null
+  deployer: string | null
+  found: false
+  verified: false
+  cached: boolean
+  metadata?: ContractMetadata
+}
+
+interface ContractLookupSucceed {
+  contractId: string
+  codeHash: string
+  deployer: string | null
+  found: true
+  verified: boolean
+  cached: boolean
+  source?: 'Patron' | 'Phala'
+  metadata?: ContractMetadata
+}
+
+export type ContractLookupResult = ContractLookupSucceed | ContractLookupFailed
+
 function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, localCachedContracts: Record<ContractKey, LocalContractInfo> }) {
+  console.log('call unsafeFetchMetadataProgressive')
   const { registry, localCachedContracts } = deps
 
-  return async function _unsafeFetchedMetadataProgressive(contractId: string) {
+  return async function _unsafeFetchedMetadataProgressive(contractId: string): Promise<ContractLookupResult> {
     const contractInfo = await registry.api.query.phalaPhatContracts.contracts(contractId)
     const deployer =contractInfo.isSome ? contractInfo.unwrap().deployer.toString() : null
     const localMetadata = localCachedContracts[contractId]
@@ -625,9 +654,10 @@ export const currentContractAtom = atom(get => {
 })
 
 export const currentContractV2Atom = atom(async (get) => {
+  console.warn('deprecated: use `contractInfoAtomFamily` instead')
+  const contractId = get(currentContractIdAtom)
   const registry = get(phatRegistryAtom)
   const localCachedContracts = get(localContractsAtom)
-  const contractId = get(currentContractIdAtom)
   const result = await unsafeFetchMetadataProgressive({ registry, localCachedContracts })(contractId)
   return result
 })
@@ -663,6 +693,256 @@ export const dispatchResultsAtom = atom(null, (get, set, result: ContractExecute
 
 export const instantiateTimeoutAtom = atom(60)
 
+//
+
+export interface EstimateGasResult {
+  gasLimit: u64
+  storageDepositLimit: BN | null
+}
+
+export type ContractInfo = ContractLookupResult & {
+  canExport: boolean
+  isFetching: boolean
+  stakes: number
+}
+
+export type ContractInfoActions = { type: 'fetch' } |
+  { type: 'export' } |
+  { type: 'stake', value: string } |
+  { type: 'exec', method: ContractMetaMessage, args?: Record<string, any>, cert: any } |
+  { type: 'estimate', method: ContractMetaMessage, args?: Record<string, any>, cert: any }
+
+
+async function estimateGas(contract: PinkContractPromise, method: string, cert: CertificateData, args: unknown[]) {
+  const { gasRequired, storageDeposit } = await contract.query[method](cert.address, { cert }, ...args)
+  const options: EstimateGasResult = {
+      gasLimit: (gasRequired as any).refTime,
+      storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
+  }
+  return options
+}
+
+export const contractInfoAtomFamily = atomFamily(
+  (contractId: string | null) => {
+    const localStoreAtom = atom<ContractLookupResult | null>(null)
+
+    const isFetchingAtom = atom(false)
+
+    const contractInstanceAtom = atom<PinkContractPromise | null>(null)
+
+    const availableMethodsAtom = atom<Record<string, any>>({})
+
+    const contractTotalStakesAtom = atomWithQuerySubscription<number>((_get, api, subject) => {
+      const multiplier = new Decimal(10).pow(api.registry.chainDecimals[0])
+      if (contractId) {
+        return api.query.phalaPhatTokenomic.contractTotalStakes(contractId, (stakes) => {
+          const value = new Decimal(stakes.toString()).div(multiplier)
+          subject.next(value.toNumber())
+        })
+      }
+    })
+
+    const theAtom: WritableAtom<ContractInfo | null, ContractInfoActions, Promise<void>> = atom(
+      get => {
+        const lookupResult = get(localStoreAtom)
+        return {
+          ...lookupResult || {},
+          canExport: !!(lookupResult?.found && lookupResult?.metadata),
+          isFetching: get(isFetchingAtom),
+          stakes: get(contractTotalStakesAtom),
+        }
+      },
+
+      async (get, set, action: ContractInfoActions) => {
+        if (!contractId) {
+          return
+        }
+        //
+        // Fetch Info
+        //
+        if (action.type === 'fetch') {
+          set(isFetchingAtom, true)
+          const registry = get(phatRegistryAtom)
+          const localCachedContracts = get(localContractsAtom)
+          const result = await unsafeFetchMetadataProgressive({ registry, localCachedContracts })(contractId)
+          set(localStoreAtom, result)
+          if (result.metadata) {
+            const contractKey = await registry.getContractKeyOrFail(contractId)
+            const contractInstance = new PinkContractPromise(registry.api, registry, result.metadata, contractId, contractKey)
+            set(contractInstanceAtom, contractInstance)
+
+            const methods = R.fromPairs(R.map(
+              i => [i.meta.identifier, i.meta.method],
+              R.values(contractInstance.query || {})
+            ))
+            set(availableMethodsAtom, methods)
+          }
+          set(isFetchingAtom, false)
+          return result
+        }
+
+        //
+        // Export
+        //
+        if (action.type === 'export') {
+          const fetched = get(localStoreAtom)
+          if (!fetched || !fetched.metadata) {
+            return
+          }
+          const meta = fetched.metadata
+          // @ts-ignore
+          meta.phat = { contractId: fetched.contractId }
+          var element = document.createElement('a');
+          element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(meta)));
+          element.setAttribute('download', `${fetched.metadata.contract.name}.json`);
+          element.style.display = 'none';
+          document.body.appendChild(element);
+          element.click();
+          document.body.removeChild(element);
+          return
+        }
+
+        //
+        // Staking
+        //
+        if (action.type === 'stake') {
+          // set(isSavingAtom, true)
+          const api = get(apiPromiseAtom)
+          const account = get(currentAccountAtom)
+          const signer = get(signerAtom)
+          const theNumber = new Decimal(action.value).mul(new Decimal(10).pow(api.registry.chainDecimals[0]))
+          if (account && signer) {
+            // @ts-ignore
+            await signAndSend(api.tx.phalaPhatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
+          }
+          return
+        }
+
+        //
+        // Preparation for estimate & exec action
+        //
+        const api = get(apiPromiseAtom)
+        const account = get(currentAccountAtom)
+        const signer = get(signerAtom)
+        const contractInstance = get(contractInstanceAtom)
+        const info = get(localStoreAtom)
+        const pinkLogger = get(pinkLoggerAtom)
+        if (!api || !account) {
+          throw new Error('Please connect to an endpoint & pick a account first.')
+        }
+        if (!contractInstance) {
+          throw new Error("Please can `{ type: 'fetch' }` first.")
+        }
+        const methodSpec = action.method
+        const methods = get(availableMethodsAtom)
+        if (!methods[methodSpec.label]) {
+          return
+        }
+        const name = methods[methodSpec.label]
+        const abiArgs = R.find(i => i.identifier === methodSpec.label, contractInstance.abi.messages)
+        // const inputs = actions.args || {}
+        const args = R.map(
+          ([arg, abiArg]) => {
+            const value = (action.args || {})[arg.label]
+            // Because the Text will try convert string prefix with `0x` to hex string, so we need to
+            // find a way to bypass that.
+            // @see: https://github.com/polkadot-js/api/blob/3d2307f12a7b82abcffb7dbcaac4a6ec6f9fee9d/packages/types-codec/src/native/Text.ts#L36
+            if (abiArg.type.type === 'Text') {
+              return api.createType('Text', { toString: () => (value as string) })
+            }
+            try {
+              return api.createType(abiArg.type.type, value)
+            } catch (err) {
+              return value
+            }
+          },
+          R.zip(methodSpec.args, abiArgs!.args)
+        ) as unknown[]
+        const inputValues: Record<string, unknown> = {}
+
+        if (action.type === 'estimate') {
+          return
+        }
+
+        if (action.type === 'exec') {
+          try {
+            if (methodSpec.mutates) {
+              let txConf
+              if (true) {
+              // if (depositSettings.autoDeposit) {
+                txConf = await estimateGas(contractInstance, name, action.cert, args as unknown[]);
+                // debug('auto deposit: ', txConf)
+              } else {
+                // txConf = R.pick(['gasLimit', 'storageDepositLimit'], depositSettings)
+                // debug('manual deposit: ', txConf)
+              }
+              const r1 = await signAndSend(
+                // @ts-ignore
+                contractInstance.tx[name](txConf as unknown as ContractOptions, ...args),
+                account.address,
+                signer
+              )
+              // @ts-ignore
+              set(dispatchEventAtom, r1.events)
+            } else {
+              const queryResult = await contractInstance.query[name](
+                account.address,
+                { cert: action.cert },
+                ...args
+              )
+              if (queryResult.result.isOk) {
+                set(dispatchResultsAtom, {
+                  contract: info as LocalContractInfo,
+                  methodSpec,
+                  succeed: true,
+                  args: inputValues,
+                  output: queryResult.output?.toHuman(),
+                  completedAt: Date.now(),
+                })
+              } else {
+                set(dispatchResultsAtom, {
+                  contract: info as LocalContractInfo,
+                  methodSpec,
+                  succeed: false,
+                  args: inputValues,
+                  output: queryResult.result.toHuman(),
+                  completedAt: Date.now(),
+                })
+              }
+            }
+          } catch (error) {
+            // debug('Execute error', error)
+            // toast({
+            //   title: `Something error`,
+            //   description: `${error}`,
+            //   status: 'error',
+            //   isClosable: true,
+            // })
+          } finally {
+            if (pinkLogger) {
+              try {
+                const { records } = await pinkLogger.getLog(contractId)
+                set(pinkLoggerResultAtom, R.reverse(records))
+              } catch (err) {
+                console.log('get log error', err)
+              }
+            }
+          }
+        }
+      }
+    )
+    theAtom.onMount = (set) => {
+      if (contractId) {
+        set({ type: 'fetch' })
+      }
+    }
+    return theAtom
+  }
+)
+
+export function useContractInfoAtom(contractId: string | null) {
+  return useMemo(() => contractInfoAtomFamily(contractId), [contractId])
+}
 
 //
 // Guest Pairs & Guest Cert, we use `//Alice` here.

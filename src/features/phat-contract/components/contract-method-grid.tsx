@@ -1,4 +1,4 @@
-import React, { type ReactNode, type FC, Suspense, useCallback, useMemo, useState } from 'react'
+import React, { type ReactNode, type FC, Suspense, useCallback, useMemo, useState, useEffect } from 'react'
 import * as R from 'ramda'
 import tw from 'twin.macro'
 import {
@@ -20,8 +20,9 @@ import {
   FormLabel,
   Input,
 } from '@chakra-ui/react'
-import { atom, useAtom } from 'jotai'
+import { atom, useAtom, useSetAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
+import { Abi } from '@polkadot/api-contract'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
@@ -29,33 +30,60 @@ import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
 import useContractExecutor, { estimateGasAtom, ExecResult } from '../hooks/useContractExecutor'
-import { currentMessageArgumentAtomListAtom } from '../argumentsFormAtom'
-import { currentMethodAtom, messagesAtom } from '../atoms'
+import { argumentFormAtomsWithAbiAndLabel, type NormalizedFormAtom } from '../argumentsFormAtom'
+import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
 import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
+import { apiPromiseAtom } from '@/features/parachain/atoms'
+import { signerAtom } from '@/features/identity/atoms'
 
 
 const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
 
 export const argsFormModalVisibleAtom = atom(false)
 
+const currentContractIdAtom = atom<string | null>(null)
+
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
   onFinish?: () => void
-}> = ({ onFinish }) => {
-  const depositSettings = useAtomValue(depositSettingsValueAtom)
-  const [isRunning, runner] = useContractExecutor()
+  formDataAtom: NormalizedFormAtom
+}> = ({ onFinish, formDataAtom }) => {
+  const formData = useAtomValue(formDataAtom)
+  const args = useMemo(() => R.fromPairs(R.map(
+    ([name, id]) => [name, formData.fieldDataSet[id].value],
+    R.toPairs(formData.formData)
+  )), [formData])
+
+  const contractId = useAtomValue(currentContractIdAtom)
+  const contractInfoAtom = useContractInfoAtom(contractId!)
+  const dispatch = useSetAtom(contractInfoAtom)
+  const currentMethod = useAtomValue(currentMethodAtom)
+  const [isRunning, setIsRunning] = useState(false)
+  const { getCert } = useRequestSign()
+  if (!currentMethod) {
+    return null
+  }
   return (
     <Button
       colorScheme="phalaDark"
       isLoading={isRunning}
       onClick={async () =>{
-        const result = await runner(depositSettings)
-        if (result === ExecResult.Stop) {
-          return
+        setIsRunning(true)
+        try {
+          const cert = await getCert()
+          if (cert) {
+            await dispatch({ type: 'exec', method: currentMethod, cert, args })
+            onFinish && onFinish()
+          }
+        } finally {
+          setIsRunning(false)
         }
-        onFinish && onFinish()
+        // const result = await runner(depositSettings)
+        // if (result === ExecResult.Stop) {
+        //   return
+        // }
       }}
     >
       Run
@@ -65,13 +93,26 @@ const ExecuteButton: FC<{
 
 const InstaExecuteButton: FC<{
   methodSpec: ContractMetaMessage,
-}> = ({ methodSpec }) => {
-  const [isRunning, runner] = useContractExecutor()
+  dispatch: (...args: any[]) => unknown
+}> = ({ methodSpec, dispatch }) => {
+  const { getCert } = useRequestSign()
+  const [isRunning, setIsRunning] = useState(false)
   return (
     <button
       tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"
       disabled={isRunning}
-      onClick={() => runner({autoDeposit: true}, methodSpec)}
+      onClick={async () => {
+        setIsRunning(true)
+        try {
+          const cert = await getCert()
+          if (cert) {
+            // runner({autoDeposit: true}, methodSpec)
+            await dispatch({ type: 'exec', method: methodSpec, cert })
+          }
+        } finally {
+          setIsRunning(false)
+        }
+      }}
     >
       {isRunning ? <CircularProgress isIndeterminate size="1.5rem" color="black" /> : <TiFlash tw="h-6 w-6 text-phala-200" />}
     </button>
@@ -158,15 +199,19 @@ const DepositSettingsField = () => {
   )
 }
 
-const SimpleArgsFormModal = () => {
+const SimpleArgsFormModal = ({ metadata }: { metadata?: ContractMetadata }) => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
+  const hideModal = useCallback(() => setVisible(false), [setVisible])
 
-  const hideModal = () => {
-    setVisible(false)
-  }
+  const [currentArgsFormAtomInAtom, currentMessageArgumentAtomListAtom] = useMemo(() => argumentFormAtomsWithAbiAndLabel(
+    atom(new Abi(metadata || {})),
+    atom(currentMethod?.label || ''),
+    'message'
+  ), [metadata, currentMethod])
+  const formDataAtom = useAtomValue(currentArgsFormAtomInAtom)
 
-  if (!currentMethod) {
+  if (!currentMethod || !metadata) {
     return null
   }
 
@@ -197,12 +242,12 @@ const SimpleArgsFormModal = () => {
             </details>
           ) : null}
           <ArgumentsForm theAtom={currentMessageArgumentAtomListAtom} />
-          {currentMethod.mutates ? <DepositSettingsField /> : null}
+          {/* {currentMethod.mutates ? <DepositSettingsField /> : null} */}
         </ModalBody>
         <ModalFooter>
           <ButtonGroup>
             <Suspense fallback={<Button colorScheme="phalaDark" isDisabled>Run</Button>}>
-              <ExecuteButton onFinish={hideModal}/>
+              <ExecuteButton onFinish={hideModal} formDataAtom={formDataAtom} />
             </Suspense>
             <Button onClick={hideModal}>
               Close
@@ -246,12 +291,6 @@ function getCategoryFromDocs(docs: string[], defaults: string) {
   return defaults
 }
 
-const groupedMessagesAtom = atom(get => {
-  const messages = get(messagesAtom)
-  const grouped = R.groupBy(msg => getCategoryFromDocs(msg.docs, 'Ungrouped'), messages)
-  return R.toPairs(grouped)
-})
-
 function Details({ label, children }: { label: string, children: ReactNode }) {
   const [openned, setOpenned] = useState(false)
   return (
@@ -275,8 +314,39 @@ function Details({ label, children }: { label: string, children: ReactNode }) {
   )
 }
 
-export default function ContractMethodGrid() {
-  const groupedMessages = useAtomValue(groupedMessagesAtom)
+export default function ContractMethodGrid({ contractId }: { contractId: string }) {
+  // hacks that before migrate to jotai v2
+  const _registry = useAtomValue(phatRegistryAtom)
+  const _api = useAtomValue(apiPromiseAtom)
+  const _signer = useAtomValue(signerAtom)
+
+  const contractInfoAtom = useContractInfoAtom(contractId)
+  const [contractInfo, dispatch] = useAtom(contractInfoAtom)
+
+  const setCurrentContractId = useSetAtom(currentContractIdAtom)
+  useEffect(() => {
+    setCurrentContractId(contractId)
+  }, [contractId, setCurrentContractId])
+
+  const groupedMessages = useMemo(
+    () => {
+      const messages = (function() {
+        if (contractInfo && contractInfo.metadata) {
+          if (contractInfo.metadata.V3) {
+            return contractInfo.metadata.V3.spec.messages || []
+          } else {
+            return contractInfo.metadata.spec.messages || []
+          }
+        }
+        return []
+      })();
+      const grouped = R.groupBy(msg => getCategoryFromDocs(msg.docs, 'Ungrouped'), messages)
+      return R.toPairs(grouped)
+    },
+    [contractInfo]
+  )
+
+  // const groupedMessages = useAtomValue(groupedMessagesAtom)
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
   const setDocs = useUpdateAtom(currentDocsAtom)
@@ -311,7 +381,7 @@ export default function ContractMethodGrid() {
                       <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
                     </button>
                   ) : (
-                    <InstaExecuteButton methodSpec={message} />
+                    <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
                   )}
                 </div>
               </div>
@@ -362,7 +432,7 @@ export default function ContractMethodGrid() {
                           <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
                         </button>
                       ) : (
-                        <InstaExecuteButton methodSpec={message} />
+                        <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
                       )}
                     </div>
                   </div>
@@ -388,7 +458,7 @@ export default function ContractMethodGrid() {
           </Details>
         ))
       )}
-      <SimpleArgsFormModal />
+      <SimpleArgsFormModal metadata={contractInfo?.metadata} />
       <FunctionDocModal />
     </>
   )

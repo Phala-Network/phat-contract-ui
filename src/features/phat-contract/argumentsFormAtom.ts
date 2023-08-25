@@ -41,6 +41,8 @@ export type FieldDataNormalized = FieldData<ValueTypeNormalized>
 type EachTypeFieldData = Omit<FieldData<ValueTypeNormalized>, 'typeDef' | 'uid'>
 export type FieldDataSet = Record<string, FieldData<ValueTypeNormalized>>
 
+export type NormalizedFormAtom = WritableAtom<FormNormalized, FormAction, void>
+
 interface FieldDataResult {
   uid: string
   fieldDataSet: FieldDataSet
