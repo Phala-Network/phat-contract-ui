@@ -583,7 +583,6 @@ interface ContractLookupSucceed {
 export type ContractLookupResult = ContractLookupSucceed | ContractLookupFailed
 
 function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, localCachedContracts: Record<ContractKey, LocalContractInfo> }) {
-  console.log('call unsafeFetchMetadataProgressive')
   const { registry, localCachedContracts } = deps
 
   return async function _unsafeFetchedMetadataProgressive(contractId: string): Promise<ContractLookupResult> {
@@ -907,7 +906,6 @@ export const contractInfoAtomFamily = atomFamily(
         const inputValues: Record<string, unknown> = {}
 
         if (action.type === 'estimate') {
-          console.log('args', args)
           const txConf = await estimateGas(contractInstance, name, aliceCert, args);
           return txConf
         }
