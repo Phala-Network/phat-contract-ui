@@ -29,16 +29,16 @@ import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
-import useContractExecutor, { estimateGasAtom, ExecResult } from '../hooks/useContractExecutor'
-import { argumentFormAtomsWithAbiAndLabel, type NormalizedFormAtom } from '../argumentsFormAtom'
-import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign } from '../atoms'
+// import { estimateGasAtom, } from '../hooks/useContractExecutor'
+import { argumentFormAtomsWithAbiAndLabel, getFormValue, type NormalizedFormAtom } from '../argumentsFormAtom'
+import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign, type ContractInfoDispatch } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
-import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
+import { depositSettingsAtomsWithEstimatePerformer, DepositSettingsDispatcherV2Atom, ReadOnlyDepositSettingsValueAtom } from '../atomsWithDepositSettings'
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { signerAtom } from '@/features/identity/atoms'
 
 
-const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
+// const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
 
 export const argsFormModalVisibleAtom = atom(false)
 
@@ -48,13 +48,12 @@ const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs p
 
 const ExecuteButton: FC<{
   onFinish?: () => void
+  depositSettingsValueAtom: ReadOnlyDepositSettingsValueAtom
   formDataAtom: NormalizedFormAtom
-}> = ({ onFinish, formDataAtom }) => {
+}> = ({ onFinish, depositSettingsValueAtom, formDataAtom }) => {
+  const depositSettings = useAtomValue(depositSettingsValueAtom)
   const formData = useAtomValue(formDataAtom)
-  const args = useMemo(() => R.fromPairs(R.map(
-    ([name, id]) => [name, formData.fieldDataSet[id].value],
-    R.toPairs(formData.formData)
-  )), [formData])
+  const args = useMemo(() => getFormValue(formData), [formData])
 
   const contractId = useAtomValue(currentContractIdAtom)
   const contractInfoAtom = useContractInfoAtom(contractId!)
@@ -74,7 +73,7 @@ const ExecuteButton: FC<{
         try {
           const cert = await getCert()
           if (cert) {
-            await dispatch({ type: 'exec', method: currentMethod, cert, args })
+            await dispatch({ type: 'exec', method: currentMethod, cert, args, depositSettings })
             onFinish && onFinish()
           }
         } finally {
@@ -119,7 +118,7 @@ const InstaExecuteButton: FC<{
   )
 }
 
-const AutoDepositInputGroup = () => {
+const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFieldAtom: DepositSettingsDispatcherV2Atom }) => {
   const [value, update] = useAtom(depositSettingsFieldAtom)
   if (value.autoDeposit) {
     return (
@@ -175,31 +174,7 @@ const AutoDepositInputGroup = () => {
   )
 }
 
-const DepositSettingsField = () => {
-  return (
-    <div>
-      <FormControl mt={4}>
-        <FormLabel>
-          Gas Limit
-        </FormLabel>
-        <div tw="px-4 pb-4">
-          <Suspense fallback={
-            <Checkbox isReadOnly isChecked>
-              <span tw='flex flex-row gap-2 items-center'>
-                <span tw='text-gray-400'>Auto-deposit</span>
-                <Spinner size="xs" />
-              </span>
-            </Checkbox>
-          }>
-            <AutoDepositInputGroup />
-          </Suspense>
-        </div>
-      </FormControl>
-    </div>
-  )
-}
-
-const SimpleArgsFormModal = ({ metadata }: { metadata?: ContractMetadata }) => {
+const SimpleArgsFormModal = ({ metadata, dispatch }: { metadata?: ContractMetadata, dispatch: ContractInfoDispatch }) => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
   const hideModal = useCallback(() => setVisible(false), [setVisible])
@@ -209,7 +184,16 @@ const SimpleArgsFormModal = ({ metadata }: { metadata?: ContractMetadata }) => {
     atom(currentMethod?.label || ''),
     'message'
   ), [metadata, currentMethod])
+
   const formDataAtom = useAtomValue(currentArgsFormAtomInAtom)
+
+  const [depositSettingsValueAtom, depositSettingsFieldAtom] = useMemo(
+    () => depositSettingsAtomsWithEstimatePerformer(
+      formDataAtom,
+      (data) => dispatch({ type: 'estimate', args: data, method: currentMethod! })
+    ),
+    [dispatch, currentMethod]
+  )
 
   if (!currentMethod || !metadata) {
     return null
@@ -242,12 +226,32 @@ const SimpleArgsFormModal = ({ metadata }: { metadata?: ContractMetadata }) => {
             </details>
           ) : null}
           <ArgumentsForm theAtom={currentMessageArgumentAtomListAtom} />
-          {/* {currentMethod.mutates ? <DepositSettingsField /> : null} */}
+          {currentMethod.mutates ? (
+            <div>
+              <FormControl mt={4}>
+                <FormLabel>
+                  Gas Limit
+                </FormLabel>
+                <div tw="px-4 pb-4">
+                  <Suspense fallback={
+                    <Checkbox isReadOnly isChecked>
+                      <span tw='flex flex-row gap-2 items-center'>
+                        <span tw='text-gray-400'>Auto-deposit</span>
+                        <Spinner size="xs" />
+                      </span>
+                    </Checkbox>
+                  }>
+                    <AutoDepositInputGroup depositSettingsFieldAtom={depositSettingsFieldAtom} />
+                  </Suspense>
+                </div>
+              </FormControl>
+            </div>
+          ) : null}
         </ModalBody>
         <ModalFooter>
           <ButtonGroup>
             <Suspense fallback={<Button colorScheme="phalaDark" isDisabled>Run</Button>}>
-              <ExecuteButton onFinish={hideModal} formDataAtom={formDataAtom} />
+              <ExecuteButton onFinish={hideModal} formDataAtom={formDataAtom} depositSettingsValueAtom={depositSettingsValueAtom} />
             </Suspense>
             <Button onClick={hideModal}>
               Close
@@ -346,7 +350,6 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
     [contractInfo]
   )
 
-  // const groupedMessages = useAtomValue(groupedMessagesAtom)
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
   const setDocs = useUpdateAtom(currentDocsAtom)
@@ -458,7 +461,7 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
           </Details>
         ))
       )}
-      <SimpleArgsFormModal metadata={contractInfo?.metadata} />
+      <SimpleArgsFormModal metadata={contractInfo?.metadata} dispatch={dispatch} />
       <FunctionDocModal />
     </>
   )

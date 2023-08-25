@@ -5,7 +5,8 @@ import type { BN } from '@polkadot/util'
 
 import { isClosedBetaEnv } from '@/vite-env'
 import { useMemo, useCallback, useEffect, useState } from 'react'
-import { WritableAtom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { type Atom, type WritableAtom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { type SetAtom } from 'jotai/core/atom'
 import { useQuery } from '@tanstack/react-query'
 import { atomFamily, atomWithReset, atomWithStorage, loadable } from 'jotai/utils'
 import { atomWithQuery } from 'jotai/query'
@@ -35,6 +36,7 @@ import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySub
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
+import { type DepositSettingsValue } from './atomsWithDepositSettings'
 
 
 export interface SelectorOption {
@@ -706,12 +708,55 @@ export type ContractInfo = ContractLookupResult & {
   stakes: number
 }
 
-export type ContractInfoActions = { type: 'fetch' } |
-  { type: 'export' } |
-  { type: 'stake', value: string } |
-  { type: 'exec', method: ContractMetaMessage, args?: Record<string, any>, cert: any } |
-  { type: 'estimate', method: ContractMetaMessage, args?: Record<string, any>, cert: any }
+type FetchAction = { type: 'fetch' }
+type EstimateAction = { type: 'estimate', method: ContractMetaMessage, args?: Record<string, any> }
+type ExecAction = { type: 'exec', method: ContractMetaMessage, args?: Record<string, any>, cert: any, depositSettings:  DepositSettingsValue }
+type ExportAction = { type: 'export' }
+type StakeAction = { type: 'stake', value: string }
 
+export type ContractInfoActions = FetchAction | EstimateAction | ExecAction | ExportAction | StakeAction
+
+export interface ContractInfoDispatch {
+  (action: FetchAction): Promise<ContractLookupResult>
+  (action: EstimateAction): Promise<EstimateGasResult>
+  (action: ContractInfoActions): Promise<void>
+}
+
+type Getter = {
+    <Value>(atom: Atom<Value | Promise<Value>>): Value;
+    <Value>(atom: Atom<Promise<Value>>): Value;
+    <Value>(atom: Atom<Value>): Awaited<Value>;
+};
+
+type WriteGetter = Getter & {
+    <Value>(atom: Atom<Value | Promise<Value>>, options: {
+        unstable_promise: true;
+    }): Promise<Value> | Value;
+    <Value>(atom: Atom<Promise<Value>>, options: {
+        unstable_promise: true;
+    }): Promise<Value> | Value;
+    <Value>(atom: Atom<Value>, options: {
+        unstable_promise: true;
+    }): Promise<Awaited<Value>> | Awaited<Value>;
+};
+
+type Setter = {
+    <Value, Result extends void | Promise<void>>(atom: WritableAtom<Value, undefined, Result>): Result;
+    <Value, Update, Result extends void | Promise<void>>(atom: WritableAtom<Value, Update, Result>, update: Update): Result;
+};
+
+type ContractInfoWrite = {
+  (get: WriteGetter, set: Setter, update: FetchAction): Promise<ContractLookupResult>
+  (get: WriteGetter, set: Setter, update: EstimateAction): Promise<EstimateGasResult>
+  (get: WriteGetter, set: Setter, update: ContractInfoActions): Promise<void>
+}
+
+interface ContractInfoAtom extends Atom<ContractInfo | null> {
+  write: ContractInfoWrite
+  onMount: (setAtom: SetAtom<ContractInfoActions, void>) => any
+}
+
+//
 
 async function estimateGas(contract: PinkContractPromise, method: string, cert: CertificateData, args: unknown[]) {
   const { gasRequired, storageDeposit } = await contract.query[method](cert.address, { cert }, ...args)
@@ -742,7 +787,7 @@ export const contractInfoAtomFamily = atomFamily(
       }
     })
 
-    const theAtom: WritableAtom<ContractInfo | null, ContractInfoActions, Promise<void>> = atom(
+    const theAtom: ContractInfoAtom = atom(
       get => {
         const lookupResult = get(localStoreAtom)
         return {
@@ -753,7 +798,7 @@ export const contractInfoAtomFamily = atomFamily(
         }
       },
 
-      async (get, set, action: ContractInfoActions) => {
+      async (get: WriteGetter, set, action: ContractInfoActions) => {
         if (!contractId) {
           return
         }
@@ -827,6 +872,7 @@ export const contractInfoAtomFamily = atomFamily(
         const contractInstance = get(contractInstanceAtom)
         const info = get(localStoreAtom)
         const pinkLogger = get(pinkLoggerAtom)
+        const aliceCert = get(aliceCertAtom)
         if (!api || !account) {
           throw new Error('Please connect to an endpoint & pick a account first.')
         }
@@ -861,19 +907,20 @@ export const contractInfoAtomFamily = atomFamily(
         const inputValues: Record<string, unknown> = {}
 
         if (action.type === 'estimate') {
-          return
+          console.log('args', args)
+          const txConf = await estimateGas(contractInstance, name, aliceCert, args);
+          return txConf
         }
 
         if (action.type === 'exec') {
           try {
             if (methodSpec.mutates) {
               let txConf
-              if (true) {
-              // if (depositSettings.autoDeposit) {
-                txConf = await estimateGas(contractInstance, name, action.cert, args as unknown[]);
+              if (action.depositSettings.autoDeposit) {
+                txConf = await estimateGas(contractInstance, name, aliceCert, args);
                 // debug('auto deposit: ', txConf)
               } else {
-                // txConf = R.pick(['gasLimit', 'storageDepositLimit'], depositSettings)
+                txConf = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
                 // debug('manual deposit: ', txConf)
               }
               const r1 = await signAndSend(
