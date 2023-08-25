@@ -13,7 +13,7 @@ import {
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { ErrorBoundary } from 'react-error-boundary'
 
 import Code from '@/components/code'
@@ -67,10 +67,10 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetError
 
 export default function ContractInfoPage () {
   const { params: { contractId } } = useMatch()
-  // const setCurrentContractId = useUpdateAtom(currentContractIdAtom)
-  // useEffect(() => {
-  //   setCurrentContractId(contractId)
-  // }, [ contractId, setCurrentContractId ])
+  const setCurrentContractId = useSetAtom(currentContractIdAtom)
+  useEffect(() => {
+    setCurrentContractId(contractId)
+  }, [ contractId, setCurrentContractId ])
   return (
     <div>
       <Breadcrumb separator={<BiChevronRight color="gray.500" />} tw="mb-4">
