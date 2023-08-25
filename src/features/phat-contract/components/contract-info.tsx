@@ -29,7 +29,7 @@ import { apiPromiseAtom, websocketConnectionMachineAtom } from '@/features/parac
 import Code from '@/components/code'
 import { Alert } from '@/components/ErrorAlert'
 
-import { useContractInfoAtom, phatRegistryAtom } from '../atoms'
+import { useContractInfoAtom, phatRegistryAtom, ContractInfoDispatch, type ContractInfo as IContractInfo } from '../atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms';
 import { endpointAtom } from '@/atoms/endpointsAtom';
 
@@ -127,7 +127,7 @@ export default function ContractInfo() {
   const { needSwitch, switchRpc } = useSwitchRpcConfirm(rpc)
 
   const currentAccount = useAtomValue(currentAccountAtom)
-  const [fetched, dispatch] = useAtom(contractInfoAtom)
+  const [fetched, dispatch]: [IContractInfo | null, ContractInfoDispatch] = useAtom(contractInfoAtom)
   const toast = useToast()
 
   if (!fetched || fetched.isFetching) {

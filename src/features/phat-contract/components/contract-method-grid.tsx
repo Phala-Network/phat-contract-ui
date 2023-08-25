@@ -29,7 +29,6 @@ import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
-// import { estimateGasAtom, } from '../hooks/useContractExecutor'
 import { argumentFormAtomsWithAbiAndLabel, getFormValue, type NormalizedFormAtom } from '../argumentsFormAtom'
 import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign, type ContractInfoDispatch } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
@@ -37,8 +36,6 @@ import { depositSettingsAtomsWithEstimatePerformer, DepositSettingsDispatcherV2A
 import { apiPromiseAtom } from '@/features/parachain/atoms'
 import { signerAtom } from '@/features/identity/atoms'
 
-
-// const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
 
 export const argsFormModalVisibleAtom = atom(false)
 
@@ -57,7 +54,7 @@ const ExecuteButton: FC<{
 
   const contractId = useAtomValue(currentContractIdAtom)
   const contractInfoAtom = useContractInfoAtom(contractId!)
-  const dispatch = useSetAtom(contractInfoAtom)
+  const dispatch = useSetAtom(contractInfoAtom) as unknown as ContractInfoDispatch
   const currentMethod = useAtomValue(currentMethodAtom)
   const [isRunning, setIsRunning] = useState(false)
   const { getCert } = useRequestSign()
@@ -466,4 +463,3 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
     </>
   )
 }
-

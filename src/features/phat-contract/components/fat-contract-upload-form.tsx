@@ -415,7 +415,7 @@ const uploadCodeCheckAtom = atom(async get => {
   const account = get(currentAccountAtom)
   const [, cert] = get(cachedCertAtom)
   const wasm = get(wasmAtom) || candidate?.source.wasm || ''
-  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account) {
+  if (!candidate || !candidate.source || (!wasm && !candidate.source.hash) || !registry.clusterInfo || !systemContract || !account || !cert) {
     return { canUpload: false, showTransferToCluster: false, exists: false }
   }
   const { output } = await systemContract.query['system::codeExists']<Bool>(account.address, { cert }, candidate.source.hash, 'Ink')

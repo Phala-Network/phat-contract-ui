@@ -719,7 +719,7 @@ export type ContractInfoActions = FetchAction | EstimateAction | ExecAction | Ex
 export interface ContractInfoDispatch {
   (action: FetchAction): Promise<ContractLookupResult>
   (action: EstimateAction): Promise<EstimateGasResult>
-  (action: ContractInfoActions): Promise<void>
+  (action: ContractInfoActions): Promise<any>
 }
 
 type Getter = {
@@ -746,14 +746,14 @@ type Setter = {
 };
 
 type ContractInfoWrite = {
+  (get: WriteGetter, set: Setter, update: ContractInfoActions): Promise<void>
   (get: WriteGetter, set: Setter, update: FetchAction): Promise<ContractLookupResult>
   (get: WriteGetter, set: Setter, update: EstimateAction): Promise<EstimateGasResult>
-  (get: WriteGetter, set: Setter, update: ContractInfoActions): Promise<void>
 }
 
-interface ContractInfoAtom extends Atom<ContractInfo | null> {
+interface ContractInfoAtom extends WritableAtom<ContractInfo | null, ContractInfoActions> {
   write: ContractInfoWrite
-  onMount: (setAtom: SetAtom<ContractInfoActions, void>) => any
+  onMount: (setAtom: SetAtom<ContractInfoActions, void>) => void
 }
 
 //
@@ -798,7 +798,7 @@ export const contractInfoAtomFamily = atomFamily(
         }
       },
 
-      async (get: WriteGetter, set, action: ContractInfoActions) => {
+      async (get: WriteGetter, set: Setter, action: ContractInfoActions) => {
         if (!contractId) {
           return
         }
