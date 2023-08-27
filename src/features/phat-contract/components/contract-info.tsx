@@ -1,6 +1,6 @@
-import React, { Suspense, useCallback, useMemo, useState, useEffect } from 'react'
+import React, { Suspense, useCallback, useState, useEffect } from 'react'
 import tw from 'twin.macro'
-import { atom, useAtom, useAtomValue } from 'jotai'
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   Box,
   Heading,
@@ -22,81 +22,19 @@ import {
 } from "@chakra-ui/react";
 import { BiEdit, BiCopy } from 'react-icons/bi';
 import { MdOpenInNew } from 'react-icons/md'
-import Decimal from 'decimal.js'
 import CopyToClipboard from 'react-copy-to-clipboard'
 import { Link, useMatch } from '@tanstack/react-location'
 
-import signAndSend from '@/functions/signAndSend'
-import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription';
 import { apiPromiseAtom, websocketConnectionMachineAtom } from '@/features/parachain/atoms';
 import Code from '@/components/code'
 import { Alert } from '@/components/ErrorAlert'
 
-import { currentContractV2Atom, currentContractIdAtom } from '../atoms'
+import { useContractInfoAtom, phatRegistryAtom, ContractInfoDispatch, type ContractInfo as IContractInfo } from '../atoms'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms';
 import { endpointAtom } from '@/atoms/endpointsAtom';
 
-const contractTotalStakesAtom = atomWithQuerySubscription<number>((get, api, subject) => {
-  const contractId = get(currentContractIdAtom)
-  if (contractId) {
-    const multiplier = new Decimal(10).pow(api.registry.chainDecimals[0])
-    return api.query.phalaPhatTokenomic.contractTotalStakes(contractId, (stakes) => {
-      const value = new Decimal(stakes.toString()).div(multiplier)
-      subject.next(value.toNumber())
-    })
-  }
-})
 
 const isSavingAtom = atom(false)
-
-const contractStakingAtom = atom(
-  get => get(contractTotalStakesAtom),
-  async (get, set, value: string) => {
-    set(isSavingAtom, true)
-    const api = get(apiPromiseAtom)
-    const contractId = get(currentContractIdAtom)
-    const account = get(currentAccountAtom)
-    const signer = get(signerAtom)
-    const theNumber = new Decimal(value).mul(new Decimal(10).pow(api.registry.chainDecimals[0]))
-    if (account && signer) {
-      // @ts-ignore
-      await signAndSend(api.tx.phalaPhatTokenomic.adjustStake(contractId, theNumber.toString()), account.address, signer)
-      set(isSavingAtom, false)
-    }
-  }
-)
-
-//
-//
-//
-
-const useContractMetaExport = () => {
-  const fetched = useAtomValue(currentContractV2Atom)
-
-  const download = useCallback(() => {
-    if (!fetched.metadata) {
-      return
-    }
-    const meta = fetched.metadata
-    // @ts-ignore
-    meta.phat = { contractId: contract.contractId }
-    var element = document.createElement('a');
-    element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(meta)));
-    element.setAttribute('download', `${fetched.metadata.contract.name}.json`);
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  }, [fetched])
-
-  const canExport = useMemo(() => !!fetched.metadata, [fetched])
-
-  return { canExport, download }
-}
-
-//
-//
-//
 
 const StyledTd = tw(Td)`py-4`
 
@@ -124,13 +62,22 @@ const StakeEditControls = () => {
   )
 }
 
-const StakingCell = () => {
-  const [stakes, setStakes] = useAtom(contractStakingAtom)
+interface StakingCellProps {
+  stakes: number
+  setStakes: (value: string) => Promise<void>
+}
+
+const StakingCell = ({ stakes, setStakes }: StakingCellProps) => {
+  const setIsSaving = useSetAtom(isSavingAtom)
   return (
     <StyledTd>
       <Editable
         defaultValue={`${stakes}`}
-        onSubmit={async (val) => { await setStakes(val) }}
+        onSubmit={async (val) => {
+          setIsSaving(true)
+          await setStakes(val)
+          setIsSaving(false)
+        }}
         isPreviewFocusable={false} tw='flex flex-row gap-2 items-center'
       >
         <EditablePreview />
@@ -148,7 +95,7 @@ const StakingCell = () => {
 
 function useSwitchRpcConfirm(target: Nullable<string>) {
   const [currentEndpoint, setCurrentEndpoint] = useAtom(endpointAtom)
-  const [machine, send] = useAtom(websocketConnectionMachineAtom)
+  const [_machine, send] = useAtom(websocketConnectionMachineAtom)
   const [needSwitch, setNeedSwitch] = useState(false)
 
   useEffect(() => {
@@ -169,16 +116,25 @@ function useSwitchRpcConfirm(target: Nullable<string>) {
 }
 
 export default function ContractInfo() {
+  // hacks that before migrate to jotai v2
+  const _registry = useAtomValue(phatRegistryAtom)
+  const _api = useAtomValue(apiPromiseAtom)
+  const _signer = useAtomValue(signerAtom)
+
   const match = useMatch()
+  const contractInfoAtom = useContractInfoAtom(match.params.contractId)
   const rpc = match.search?.rpc as Nullable<string>
   const { needSwitch, switchRpc } = useSwitchRpcConfirm(rpc)
 
   const currentAccount = useAtomValue(currentAccountAtom)
-  const fetched = useAtomValue(currentContractV2Atom)
+  const [fetched, dispatch]: [IContractInfo | null, ContractInfoDispatch] = useAtom(contractInfoAtom)
   const toast = useToast()
 
+  if (!fetched || fetched.isFetching) {
+    return null
+  }
+
   const isDeployer = !!(currentAccount?.address === fetched.deployer && fetched.deployer)
-  const { canExport, download } = useContractMetaExport()
 
   if (!fetched.found) {
     return (
@@ -217,7 +173,7 @@ export default function ContractInfo() {
           {fetched.metadata.contract.name}
           <Tag tw="ml-4 mt-1">{fetched.metadata.contract.version}</Tag>
         </Heading>
-        <Button isDisabled={!canExport} onClick={download}>Export</Button>
+        <Button isDisabled={!fetched.canExport} onClick={() => dispatch({ type: 'export' })}>Export</Button>
       </div>
       <TableContainer>
         <Table size="sm" colorScheme="phalaDark">
@@ -231,7 +187,7 @@ export default function ContractInfo() {
                   </div>
                   <CopyToClipboard
                     text={fetched.contractId}
-                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                    onCopy={() => toast({title: 'Copied!'})}
                   >
                     <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
                   </CopyToClipboard>
@@ -247,7 +203,7 @@ export default function ContractInfo() {
                   </div>
                   <CopyToClipboard
                     text={fetched.metadata.source.hash}
-                    onCopy={() => toast({title: 'Copied!', position: 'top', colorScheme: 'phat'})}
+                    onCopy={() => toast({title: 'Copied!'})}
                   >
                     <IconButton aria-label="copy" size="sm"><BiCopy /></IconButton>
                   </CopyToClipboard>
@@ -290,7 +246,7 @@ export default function ContractInfo() {
             <Tr>
               <Th>Stakes</Th>
               <Suspense>
-                <StakingCell />
+                <StakingCell stakes={fetched.stakes} setStakes={async (value) => dispatch({ type: 'stake', value })} />
               </Suspense>
             </Tr>
           </Tbody>

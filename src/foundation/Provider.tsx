@@ -69,7 +69,56 @@ const theme = extendTheme({
       '700': '#A5E100',
       '800': '#7CA900',
       '900': '#537100'
-    }
+    },
+    // New Design System
+    phatGreen: {
+      50: '#F5FFF0',
+      100: '#D5F6C6',
+      200: '#B2E69A',
+      300: '#8AD368',
+      400: '#6FB74E',
+      500: '#59A138',
+      600: '#438525',
+      700: '#3B6727',
+      800: '#325422',
+      900: '#29451C',
+    },
+    phalaGreen: {
+      50: '#FAFEED',
+      100: '#F5FEDC',
+      200: '#EBFDB9',
+      300: '#E1FC96',
+      400: '#D7FB73',
+      500: '#CDFA50',
+      600: '#A4C840',
+      700: '#7B9630',
+      800: '#526420',
+      900: '#293210',
+    },
+    phalaPurple: {
+      50: '#F2EDFE',
+      100: '#E5DCFE',
+      200: '#CCBAFD',
+      300: '#B297FC',
+      400: '#9975FB',
+      500: '#7F52FA',
+      600: '#6642C8',
+      700: '#4C3196',
+      800: '#332164',
+      900: '#191032',
+    },
+    phalaWorldTeal: {
+      50: '#D7FEF7',
+      100: '#AFFDEF',
+      200: '#86FCE7',
+      300: '#5EFBDF',
+      400: '#36FAD7',
+      500: '#2DD2B5',
+      600: '#25AA92',
+      700: '#1C8270',
+      800: '#135A4D',
+      900: '#0B322B',
+    },
   },
 })
 
@@ -94,7 +143,15 @@ const FoundationProvider: FC<FoundationProviderProps> = ({
         ]}
         scope={scope}
       >
-        <ChakraProvider theme={theme}>
+        <ChakraProvider
+          theme={theme}
+          toastOptions={{
+            defaultOptions: {
+              position: 'top',
+              colorScheme: 'phatGreen',
+            }
+          }}
+        >
           <Router
             routes={routes}
             location={location}

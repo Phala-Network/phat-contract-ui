@@ -13,7 +13,7 @@ import {
 import { Link } from '@tanstack/react-location'
 import { BiChevronRight } from 'react-icons/bi'
 import { useMatch } from '@tanstack/react-location'
-import { useAtomValue, useUpdateAtom } from 'jotai/utils'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { ErrorBoundary } from 'react-error-boundary'
 
 import Code from '@/components/code'
@@ -67,7 +67,7 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error, resetError
 
 export default function ContractInfoPage () {
   const { params: { contractId } } = useMatch()
-  const setCurrentContractId = useUpdateAtom(currentContractIdAtom)
+  const setCurrentContractId = useSetAtom(currentContractIdAtom)
   useEffect(() => {
     setCurrentContractId(contractId)
   }, [ contractId, setCurrentContractId ])
@@ -84,7 +84,7 @@ export default function ContractInfoPage () {
           <ContractInfo />
         </Suspense>
         <Suspense fallback={<div />}>
-          <ContractMethodGrid />
+          <ContractMethodGrid contractId={contractId} />
         </Suspense>
       </ErrorBoundary>
     </div>

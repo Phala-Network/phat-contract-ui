@@ -1,4 +1,4 @@
-import React, { type ReactNode, type FC, Suspense, useCallback, useMemo, useState } from 'react'
+import React, { type ReactNode, type FC, Suspense, useCallback, useMemo, useState, useEffect } from 'react'
 import * as R from 'ramda'
 import tw from 'twin.macro'
 import {
@@ -20,42 +20,66 @@ import {
   FormLabel,
   Input,
 } from '@chakra-ui/react'
-import { atom, useAtom } from 'jotai'
+import { atom, useAtom, useSetAtom } from 'jotai'
 import { useUpdateAtom, useAtomValue } from 'jotai/utils'
+import { Abi } from '@polkadot/api-contract'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TiMediaPlay, TiFlash, TiDocument } from 'react-icons/ti'
 import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
-import useContractExecutor, { estimateGasAtom, ExecResult } from '../hooks/useContractExecutor'
-import { currentMessageArgumentAtomListAtom } from '../argumentsFormAtom'
-import { currentMethodAtom, messagesAtom } from '../atoms'
+import { argumentFormAtomsWithAbiAndLabel, getFormValue, type NormalizedFormAtom } from '../argumentsFormAtom'
+import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign, type ContractInfoDispatch } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
-import { atomsWithDepositSettings } from '../atomsWithDepositSettings'
+import { depositSettingsAtomsWithEstimatePerformer, DepositSettingsDispatcherV2Atom, ReadOnlyDepositSettingsValueAtom } from '../atomsWithDepositSettings'
+import { apiPromiseAtom } from '@/features/parachain/atoms'
+import { signerAtom } from '@/features/identity/atoms'
 
-
-const [depositSettingsValueAtom, depositSettingsFieldAtom] = atomsWithDepositSettings(estimateGasAtom)
 
 export const argsFormModalVisibleAtom = atom(false)
+
+const currentContractIdAtom = atom<string | null>(null)
 
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
   onFinish?: () => void
-}> = ({ onFinish }) => {
+  depositSettingsValueAtom: ReadOnlyDepositSettingsValueAtom
+  formDataAtom: NormalizedFormAtom
+}> = ({ onFinish, depositSettingsValueAtom, formDataAtom }) => {
   const depositSettings = useAtomValue(depositSettingsValueAtom)
-  const [isRunning, runner] = useContractExecutor()
+  const formData = useAtomValue(formDataAtom)
+  const args = useMemo(() => getFormValue(formData), [formData])
+
+  const contractId = useAtomValue(currentContractIdAtom)
+  const contractInfoAtom = useContractInfoAtom(contractId!)
+  const dispatch = useSetAtom(contractInfoAtom) as unknown as ContractInfoDispatch
+  const currentMethod = useAtomValue(currentMethodAtom)
+  const [isRunning, setIsRunning] = useState(false)
+  const { getCert } = useRequestSign()
+  if (!currentMethod) {
+    return null
+  }
   return (
     <Button
       colorScheme="phalaDark"
       isLoading={isRunning}
       onClick={async () =>{
-        const result = await runner(depositSettings)
-        if (result === ExecResult.Stop) {
-          return
+        setIsRunning(true)
+        try {
+          const cert = await getCert()
+          if (cert) {
+            await dispatch({ type: 'exec', method: currentMethod, cert, args, depositSettings })
+            onFinish && onFinish()
+          }
+        } finally {
+          setIsRunning(false)
         }
-        onFinish && onFinish()
+        // const result = await runner(depositSettings)
+        // if (result === ExecResult.Stop) {
+        //   return
+        // }
       }}
     >
       Run
@@ -65,21 +89,36 @@ const ExecuteButton: FC<{
 
 const InstaExecuteButton: FC<{
   methodSpec: ContractMetaMessage,
-}> = ({ methodSpec }) => {
-  const [isRunning, runner] = useContractExecutor()
+  dispatch: (...args: any[]) => unknown
+}> = ({ methodSpec, dispatch }) => {
+  const { getCert } = useRequestSign()
+  const [isRunning, setIsRunning] = useState(false)
   return (
     <button
-      tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"
+      tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-900 border border-gray-600"
       disabled={isRunning}
-      onClick={() => runner({autoDeposit: true}, methodSpec)}
+      onClick={async () => {
+        setIsRunning(true)
+        try {
+          const cert = await getCert()
+          if (cert) {
+            // runner({autoDeposit: true}, methodSpec)
+            await dispatch({ type: 'exec', method: methodSpec, cert })
+          }
+        } finally {
+          setIsRunning(false)
+        }
+      }}
     >
       {isRunning ? <CircularProgress isIndeterminate size="1.5rem" color="black" /> : <TiFlash tw="h-6 w-6 text-phala-200" />}
     </button>
   )
 }
 
-const AutoDepositInputGroup = () => {
+const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFieldAtom: DepositSettingsDispatcherV2Atom }) => {
   const [value, update] = useAtom(depositSettingsFieldAtom)
+  const [gasLimit, setGasLimit] = useState<string | null>((value.gasLimit === null || value.gasLimit === undefined) ? '' : `${value.gasLimit}`)
+  const [storageDepositLimit, setStorageDepositLimit] = useState<string | null>((value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`)
   if (value.autoDeposit) {
     return (
       <>
@@ -111,10 +150,11 @@ const AutoDepositInputGroup = () => {
           </FormLabel>
           <Input
             size="sm"
-            value={(value.gasLimit === null || value.gasLimit === undefined) ? '' : `${value.gasLimit}`}
+            value={gasLimit || ''}
             onChange={({ target: { value } }) => {
-              update({ gasLimit: value === '' ? null : Number(value) })
+              setGasLimit(value === '' ? null : value)
             }}
+            onBlur={() => update({ gasLimit: gasLimit === null ? null : Number(gasLimit) })}
           />
         </FormControl>
         <FormControl>
@@ -123,10 +163,11 @@ const AutoDepositInputGroup = () => {
           </FormLabel>
           <Input
             size="sm"
-            value={(value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`}
+            value={storageDepositLimit || ''}
             onChange={({ target: { value } }) => {
-              update({ storageDepositLimit: value === '' ? null : Number(value) })
+              setStorageDepositLimit(value === '' ? null : value)
             }}
+            onBlur={() => update({ storageDepositLimit: storageDepositLimit === null ? null : Number(storageDepositLimit) })}
           />
         </FormControl>
       </div>
@@ -134,39 +175,28 @@ const AutoDepositInputGroup = () => {
   )
 }
 
-const DepositSettingsField = () => {
-  return (
-    <div>
-      <FormControl mt={4}>
-        <FormLabel>
-          Gas Limit
-        </FormLabel>
-        <div tw="px-4 pb-4">
-          <Suspense fallback={
-            <Checkbox isReadOnly isChecked>
-              <span tw='flex flex-row gap-2 items-center'>
-                <span tw='text-gray-400'>Auto-deposit</span>
-                <Spinner size="xs" />
-              </span>
-            </Checkbox>
-          }>
-            <AutoDepositInputGroup />
-          </Suspense>
-        </div>
-      </FormControl>
-    </div>
-  )
-}
-
-const SimpleArgsFormModal = () => {
+const SimpleArgsFormModal = ({ metadata, dispatch }: { metadata?: ContractMetadata, dispatch: ContractInfoDispatch }) => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
+  const hideModal = useCallback(() => setVisible(false), [setVisible])
 
-  const hideModal = () => {
-    setVisible(false)
-  }
+  const [currentArgsFormAtomInAtom, currentMessageArgumentAtomListAtom] = useMemo(() => argumentFormAtomsWithAbiAndLabel(
+    atom(new Abi(metadata || {})),
+    atom(currentMethod?.label || ''),
+    'message'
+  ), [metadata, currentMethod])
 
-  if (!currentMethod) {
+  const formDataAtom = useAtomValue(currentArgsFormAtomInAtom)
+
+  const [depositSettingsValueAtom, depositSettingsFieldAtom] = useMemo(
+    () => depositSettingsAtomsWithEstimatePerformer(
+      formDataAtom,
+      (data) => dispatch({ type: 'estimate', args: data, method: currentMethod! })
+    ),
+    [dispatch, currentMethod]
+  )
+
+  if (!currentMethod || !metadata) {
     return null
   }
 
@@ -197,12 +227,32 @@ const SimpleArgsFormModal = () => {
             </details>
           ) : null}
           <ArgumentsForm theAtom={currentMessageArgumentAtomListAtom} />
-          {currentMethod.mutates ? <DepositSettingsField /> : null}
+          {currentMethod.mutates ? (
+            <div>
+              <FormControl mt={4}>
+                <FormLabel>
+                  Gas Limit
+                </FormLabel>
+                <div tw="px-4 pb-4">
+                  <Suspense fallback={
+                    <Checkbox isReadOnly isChecked>
+                      <span tw='flex flex-row gap-2 items-center'>
+                        <span tw='text-gray-400'>Auto-deposit</span>
+                        <Spinner size="xs" />
+                      </span>
+                    </Checkbox>
+                  }>
+                    <AutoDepositInputGroup depositSettingsFieldAtom={depositSettingsFieldAtom} />
+                  </Suspense>
+                </div>
+              </FormControl>
+            </div>
+          ) : null}
         </ModalBody>
         <ModalFooter>
           <ButtonGroup>
             <Suspense fallback={<Button colorScheme="phalaDark" isDisabled>Run</Button>}>
-              <ExecuteButton onFinish={hideModal}/>
+              <ExecuteButton onFinish={hideModal} formDataAtom={formDataAtom} depositSettingsValueAtom={depositSettingsValueAtom} />
             </Suspense>
             <Button onClick={hideModal}>
               Close
@@ -246,12 +296,6 @@ function getCategoryFromDocs(docs: string[], defaults: string) {
   return defaults
 }
 
-const groupedMessagesAtom = atom(get => {
-  const messages = get(messagesAtom)
-  const grouped = R.groupBy(msg => getCategoryFromDocs(msg.docs, 'Ungrouped'), messages)
-  return R.toPairs(grouped)
-})
-
 function Details({ label, children }: { label: string, children: ReactNode }) {
   const [openned, setOpenned] = useState(false)
   return (
@@ -275,8 +319,38 @@ function Details({ label, children }: { label: string, children: ReactNode }) {
   )
 }
 
-export default function ContractMethodGrid() {
-  const groupedMessages = useAtomValue(groupedMessagesAtom)
+export default function ContractMethodGrid({ contractId }: { contractId: string }) {
+  // hacks that before migrate to jotai v2
+  const _registry = useAtomValue(phatRegistryAtom)
+  const _api = useAtomValue(apiPromiseAtom)
+  const _signer = useAtomValue(signerAtom)
+
+  const contractInfoAtom = useContractInfoAtom(contractId)
+  const [contractInfo, dispatch] = useAtom(contractInfoAtom)
+
+  const setCurrentContractId = useSetAtom(currentContractIdAtom)
+  useEffect(() => {
+    setCurrentContractId(contractId)
+  }, [contractId, setCurrentContractId])
+
+  const groupedMessages = useMemo(
+    () => {
+      const messages = (function() {
+        if (contractInfo && contractInfo.metadata) {
+          if (contractInfo.metadata.V3) {
+            return contractInfo.metadata.V3.spec.messages || []
+          } else {
+            return contractInfo.metadata.spec.messages || []
+          }
+        }
+        return []
+      })();
+      const grouped = R.groupBy(msg => getCategoryFromDocs(msg.docs, 'Ungrouped'), messages)
+      return R.toPairs(grouped)
+    },
+    [contractInfo]
+  )
+
   const setCurrentMethod = useUpdateAtom(currentMethodAtom)
   const setArgsFormModalVisible = useUpdateAtom(argsFormModalVisibleAtom)
   const setDocs = useUpdateAtom(currentDocsAtom)
@@ -300,19 +374,20 @@ export default function ContractMethodGrid() {
                   <Code>{message.selector}</Code>
                 </div>
                 <div>
-                  {message.args.length > 0 ? (
-                    <button
-                      tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
-                      onClick={() => {
-                        setCurrentMethod(message)
-                        setArgsFormModalVisible(true)
-                      }}
-                    >
-                      <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
-                    </button>
-                  ) : (
-                    <InstaExecuteButton methodSpec={message} />
-                  )}
+                  {message.args.length === 0 ? (
+                    <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
+                  ) : null}
+                  {(message.mutates || message.args.length > 0) ? (
+                  <button
+                    tw="rounded-full h-8 w-8 flex justify-center items-center bg-black border border-gray-600"
+                    onClick={() => {
+                      setCurrentMethod(message)
+                      setArgsFormModalVisible(true)
+                    }}
+                  >
+                    <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
+                  </button>
+                  ) : null}
                 </div>
               </div>
               {message.docs.length > 0 ? (
@@ -350,10 +425,13 @@ export default function ContractMethodGrid() {
                       )}
                       <Code>{message.selector}</Code>
                     </div>
-                    <div>
-                      {message.args.length > 0 ? (
+                    <div tw="flex flex-row gap-1">
+                      {message.args.length === 0 ? (
+                        <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
+                      ) : null}
+                      {(message.mutates || message.args.length > 0) ? (
                         <button
-                          tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                          tw="rounded-full h-8 w-8 flex justify-center items-center bg-black border border-gray-600"
                           onClick={() => {
                             setCurrentMethod(message)
                             setArgsFormModalVisible(true)
@@ -361,9 +439,7 @@ export default function ContractMethodGrid() {
                         >
                           <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
                         </button>
-                      ) : (
-                        <InstaExecuteButton methodSpec={message} />
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   {message.docs.length > 0 ? (
@@ -388,9 +464,8 @@ export default function ContractMethodGrid() {
           </Details>
         ))
       )}
-      <SimpleArgsFormModal />
+      <SimpleArgsFormModal metadata={contractInfo?.metadata} dispatch={dispatch} />
       <FunctionDocModal />
     </>
   )
 }
-
