@@ -117,6 +117,8 @@ const InstaExecuteButton: FC<{
 
 const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFieldAtom: DepositSettingsDispatcherV2Atom }) => {
   const [value, update] = useAtom(depositSettingsFieldAtom)
+  const [gasLimit, setGasLimit] = useState<string | null>((value.gasLimit === null || value.gasLimit === undefined) ? '' : `${value.gasLimit}`)
+  const [storageDepositLimit, setStorageDepositLimit] = useState<string | null>((value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`)
   if (value.autoDeposit) {
     return (
       <>
@@ -148,10 +150,11 @@ const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFi
           </FormLabel>
           <Input
             size="sm"
-            value={(value.gasLimit === null || value.gasLimit === undefined) ? '' : `${value.gasLimit}`}
+            value={gasLimit || ''}
             onChange={({ target: { value } }) => {
-              update({ gasLimit: value === '' ? null : Number(value) })
+              setGasLimit(value === '' ? null : value)
             }}
+            onBlur={() => update({ gasLimit: gasLimit === null ? null : Number(gasLimit) })}
           />
         </FormControl>
         <FormControl>
@@ -160,10 +163,11 @@ const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFi
           </FormLabel>
           <Input
             size="sm"
-            value={(value.storageDepositLimit === null || value.storageDepositLimit === undefined) ? '' : `${value.storageDepositLimit}`}
+            value={storageDepositLimit || ''}
             onChange={({ target: { value } }) => {
-              update({ storageDepositLimit: value === '' ? null : Number(value) })
+              setStorageDepositLimit(value === '' ? null : value)
             }}
+            onBlur={() => update({ storageDepositLimit: storageDepositLimit === null ? null : Number(storageDepositLimit) })}
           />
         </FormControl>
       </div>
