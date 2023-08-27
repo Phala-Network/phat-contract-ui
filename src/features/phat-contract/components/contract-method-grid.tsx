@@ -95,7 +95,7 @@ const InstaExecuteButton: FC<{
   const [isRunning, setIsRunning] = useState(false)
   return (
     <button
-      tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-800"
+      tw="rounded-full h-8 w-8 flex justify-center items-center bg-phalaDark-900 border border-gray-600"
       disabled={isRunning}
       onClick={async () => {
         setIsRunning(true)
@@ -374,19 +374,20 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
                   <Code>{message.selector}</Code>
                 </div>
                 <div>
-                  {message.args.length > 0 ? (
-                    <button
-                      tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
-                      onClick={() => {
-                        setCurrentMethod(message)
-                        setArgsFormModalVisible(true)
-                      }}
-                    >
-                      <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
-                    </button>
-                  ) : (
+                  {message.args.length === 0 ? (
                     <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
-                  )}
+                  ) : null}
+                  {(message.mutates || message.args.length > 0) ? (
+                  <button
+                    tw="rounded-full h-8 w-8 flex justify-center items-center bg-black border border-gray-600"
+                    onClick={() => {
+                      setCurrentMethod(message)
+                      setArgsFormModalVisible(true)
+                    }}
+                  >
+                    <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
+                  </button>
+                  ) : null}
                 </div>
               </div>
               {message.docs.length > 0 ? (
@@ -424,10 +425,13 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
                       )}
                       <Code>{message.selector}</Code>
                     </div>
-                    <div>
-                      {message.args.length > 0 ? (
+                    <div tw="flex flex-row gap-1">
+                      {message.args.length === 0 ? (
+                        <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
+                      ) : null}
+                      {(message.mutates || message.args.length > 0) ? (
                         <button
-                          tw="rounded-full h-8 w-8 flex justify-center items-center bg-black"
+                          tw="rounded-full h-8 w-8 flex justify-center items-center bg-black border border-gray-600"
                           onClick={() => {
                             setCurrentMethod(message)
                             setArgsFormModalVisible(true)
@@ -435,9 +439,7 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
                         >
                           <TiMediaPlay tw="h-6 w-6 ml-0.5 -mt-0.5 text-phala-500" />
                         </button>
-                      ) : (
-                        <InstaExecuteButton methodSpec={message} dispatch={dispatch} />
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   {message.docs.length > 0 ? (
