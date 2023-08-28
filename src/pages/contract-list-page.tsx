@@ -3,9 +3,9 @@ import type { LocalContractInfo } from '@/features/phat-contract/atoms'
 
 import React, { Suspense, useState } from 'react'
 import tw from 'twin.macro'
-import { useAtomValue, } from 'jotai/utils'
+import { useAtomValue, useAtom, useSetAtom } from 'jotai'
 import {
-  Box, Button, Stack, Skeleton, VStack, Text, Tooltip, Checkbox,
+  Box, Button, Stack, Skeleton, VStack, Tooltip, Checkbox,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
   useDisclosure,
 } from '@chakra-ui/react'
@@ -19,9 +19,11 @@ import { useShowAccountSelectModal } from '@/components/app-ui'
 import { currentAccountAtom } from '@/features/identity/atoms'
 import { useContractList, useRemoveLocalContract } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
-import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
+import { apiPromiseAtom, isDevChainAtom, websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 import ChainSummary from '@/features/chain-info/components/ChainSummary'
 import { isClosedBetaEnv } from '@/vite-env'
+import { metricsAtom } from '@/atoms/metricsAtom'
+import { endpointAtom } from '@/atoms/endpointsAtom'
 
 const Summary = () => {
   return (
@@ -254,6 +256,71 @@ const GetTestPhaButtonClosedBeta = () => {
   )
 }
 
+const MainnetMetrics = () => {
+  const metrics = useAtomValue(metricsAtom)
+  const [endpoint, setEndpoint] = useAtom(endpointAtom)
+  const dispatch = useSetAtom(websocketConnectionMachineAtom)
+  if (endpoint !== 'wss://api.phala.network/ws') {
+    return (
+      <dl tw="flex flex-col gap-2 p-4 mb-4 rounded-lg bg-black list-none text-sm">
+        <li tw="flex flex-row justify-between">
+          <dt>
+            Total Cluster Workers
+          </dt>
+          <dd tw="font-bold text-brand-400">
+            1
+          </dd>
+        </li>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEndpoint('wss://api.phala.network/ws')
+            dispatch({ type: 'RECONNECT', data: { endpoint: 'wss://api.phala.network/ws' } })
+          }}
+        >
+          Switch to Mainnet
+        </Button>
+      </dl>
+    )
+  }
+  return (
+    <dl tw="flex flex-col gap-2 p-4 mb-4 rounded-lg bg-black list-none text-sm">
+      <li tw="flex flex-row justify-between">
+        <dt>
+          Total Cluster Workers
+        </dt>
+        <dd tw="font-bold text-brand-400">
+          {metrics?.data.idleWorker}
+        </dd>
+      </li>
+      <li tw="flex flex-row justify-between">
+        <dt>
+          Total Staking for PC
+        </dt>
+        <dd tw="font-bold text-brand-400">
+          {metrics?.data.stake}
+        </dd>
+      </li>
+      <li tw="flex flex-row justify-between">
+        <dt>
+          Total PC Amount
+        </dt>
+        <dd tw="font-bold text-brand-400">
+          {metrics?.data.contract}
+        </dd>
+      </li>
+      <li tw="flex flex-row justify-between">
+        <dt>
+          Total PC Users
+        </dt>
+        <dd tw="font-bold text-brand-400">
+          {metrics?.data.staker}
+        </dd>
+      </li>
+    </dl>
+  )
+}
+
 const GetTestPhaButton = isClosedBetaEnv ? GetTestPhaButtonClosedBeta : GetTestPhaButtonNormal
 
 const ContractListPage = () => {
@@ -267,6 +334,9 @@ const ContractListPage = () => {
     <div tw="pl-5 pr-5">
       <div tw="grid grid-cols-12 w-full gap-2">
         <div tw="col-span-3 order-2 pl-6">
+          <Suspense fallback={null}>
+            <MainnetMetrics />
+          </Suspense>
           <Suspense fallback={null}>
             <Summary />
           </Suspense>

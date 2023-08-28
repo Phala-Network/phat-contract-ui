@@ -30,7 +30,7 @@ import { BiChevronRight, BiChevronDown } from 'react-icons/bi'
 
 import Code from '@/components/code'
 import { argumentFormAtomsWithAbiAndLabel, getFormValue, type NormalizedFormAtom } from '../argumentsFormAtom'
-import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign, type ContractInfoDispatch } from '../atoms'
+import { currentMethodAtom, phatRegistryAtom, useContractInfoAtom, useRequestSign, type ContractInfoDispatch, pinkLoggerAtom, aliceCertAtom } from '../atoms'
 import ArgumentsForm from './contract-method-arguments-form'
 import { depositSettingsAtomsWithEstimatePerformer, DepositSettingsDispatcherV2Atom, ReadOnlyDepositSettingsValueAtom } from '../atomsWithDepositSettings'
 import { apiPromiseAtom } from '@/features/parachain/atoms'
@@ -324,6 +324,8 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
   const _registry = useAtomValue(phatRegistryAtom)
   const _api = useAtomValue(apiPromiseAtom)
   const _signer = useAtomValue(signerAtom)
+  const _logger = useAtomValue(pinkLoggerAtom)
+  const _aliceCert = useAtomValue(aliceCertAtom)
 
   const contractInfoAtom = useContractInfoAtom(contractId)
   const [contractInfo, dispatch] = useAtom(contractInfoAtom)
