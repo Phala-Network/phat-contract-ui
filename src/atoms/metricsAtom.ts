@@ -27,13 +27,32 @@ const metricsProgressAtom = atom<{
 
 export type MetricActions = { type: 'update' }
 
+const formatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 2,
+})
+
+function formatMetricValue(value: number | string | undefined | null) {
+  if (value === null || value === undefined) {
+    return null
+  }
+  return formatter.format(typeof value === 'string' ? BigInt(value.replace(/\..+/, '')) : value
+  )
+}
+
 export const metricsAtom = atom(
   get => {
     const data = get(metricsStoreAtom)
     const state = get(metricsProgressAtom)
     return {
       ...state,
-      data
+      data: {
+        contract: formatMetricValue(data.contract),
+        stake: formatMetricValue(data.stake),
+        staker: formatMetricValue(data.staker),
+        idleWorker: formatMetricValue(data.idleWorker),
+        worker: formatMetricValue(data.worker),
+      }
     }
   },
   async (_get, set, action: MetricActions) => {
