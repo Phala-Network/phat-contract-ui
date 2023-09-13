@@ -506,11 +506,47 @@ export function useRequestSign() {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+const endpoints = [
+  {
+    pruntimeURL: 'https://phat-cluster-de.phala.network/pruntime-01',
+    workerId:
+      '0xe028af412138fe0a31ab0b3671243bdbe19d1a164837b04e7d8d355091fcd844',
+  },
+  {
+    pruntimeURL: 'https://phat-cluster-de.phala.network/pruntime-03',
+    workerId:
+      'b063d754602f22a3ac2af01ebdb2140357e3ca3d102e55a4d44a751fcb03b040',
+  },
+  {
+    pruntimeURL: 'https://phat-cluster-de.phala.network/pruntime-04',
+    workerId:
+      '6628b623e2a9b795b57f8dc91c5718b7b63722e1ee617030845a967ff0c8c72e',
+  },
+  {
+    pruntimeURL: 'https://phat-cluster-de.phala.network/pruntime-05',
+    workerId:
+      '9099308d294e320e001d567b21cee3177d149da08a2f3e7534e7f369d93f4e5e',
+  },
+]
+
 export const phatRegistryAtom = atom(async (get) => {
   const api = get(apiPromiseAtom)
+  const endpoint = get(endpointAtom)
   const clusterId = get(currentClusterIdAtom)
   const workerId = get(currentWorkerIdAtom)
   const pruntimeURL = get(pruntimeURLAtom)
+  // Hotfix for production
+  if (endpoint === 'wss://api.phala.network') {
+    const picked = endpoints[Math.floor(Math.random() * endpoints.length)]
+    const cluster_id = '0x0000000000000000000000000000000000000000000000000000000000000001'
+    const system_contract_id = '0x9dc2f09872e69f622cedbb3743aea482c740d9973f30f45c26cb8ed9782e6ab2'
+    return await OnChainRegistry.create(api, {
+      ...picked,
+      clusterId: cluster_id,
+      systemContractId: system_contract_id,
+      skipCheck: true,
+    })
+  }
   const registry = await OnChainRegistry.create(api, { clusterId, workerId, pruntimeURL })
   return registry
 })
