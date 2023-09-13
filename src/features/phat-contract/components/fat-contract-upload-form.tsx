@@ -292,8 +292,7 @@ const wasmUploadAtom = atom(null, async (get, set) => {
       // @FIXME for now we don't have real 'tail' functional that get latest log records, so we need iter all.
       const contractId = registry.systemContract?.address?.toHex()
       if (contractId) {
-        // @ts-ignore
-        const { records } = await logger.getLog(contractId, 0, 2000)
+        const { records } = await logger.tail(1000, { contract: contractId, block_number: blockNumber! })
         // @ts-ignore
         const found: Nullable<Record<string, string>> = R.find(rec => rec.blockNumber === blockNumber, records)
         if (found) {
