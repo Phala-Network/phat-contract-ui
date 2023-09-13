@@ -81,8 +81,8 @@ function useRefreshCurrentContractLog() {
       return null
     }
     return async function() {
-      const { records } = await pinkLogger.getLog(currentContractId)
-      setLogs(R.reverse<SerMessage>(records))
+      const { records } = await pinkLogger.tail(1000, { contract: currentContractId })
+      setLogs(records)
     }
   }, [pinkLogger, currentContractId, setLogs])
 }

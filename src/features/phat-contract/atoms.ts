@@ -966,8 +966,8 @@ export const contractInfoAtomFamily = atomFamily(
           } finally {
             if (pinkLogger) {
               try {
-                const { records } = await pinkLogger.getLog(contractId)
-                set(pinkLoggerResultAtom, R.reverse(records))
+                const { records } = await pinkLogger.tail(1000, { contract: contractId })
+                set(pinkLoggerResultAtom, records)
               } catch (err) {
                 console.log('get log error', err)
               }
