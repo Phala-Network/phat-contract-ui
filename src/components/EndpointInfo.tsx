@@ -1,6 +1,6 @@
 import type { FC, ReactNode } from 'react'
 
-import React, { Suspense, useMemo } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import tw, { styled } from 'twin.macro'
 import {
   Modal,
@@ -23,9 +23,12 @@ import {
   ButtonGroup,
   FormErrorMessage,
   Tooltip,
+  NumberInput,
+  NumberInputField,
+  Spinner,
 } from '@chakra-ui/react'
 import { atom, useAtomValue, useAtom } from 'jotai'
-import * as R from 'ramda'
+import Decimal from 'decimal.js'
 
 import { Select } from '@/components/inputs/select'
 import EndpointAddressInput from '@/features/parachain/components/EndpointAddressInput'
@@ -37,8 +40,9 @@ import {
   availableWorkerListAtom,
   availablePruntimeListAtom,
   currentClusterAtom,
-  phatRegistryAtom,
+  useRequestSign,
 } from '@/features/phat-contract/atoms'
+import { useClusterBalance } from '@/features/phat-contract/hooks/useClusterBalance'
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 import Code from './code'
 
@@ -143,6 +147,41 @@ const PruntimeEndpointSelect = () => {
   )
 }
 
+function ClusterBalanceField() {
+  const { hasCert, requestSign, isWaiting } = useRequestSign()
+  const { currentBalance, isLoading, transfer } = useClusterBalance()
+  const [value, setValue] = useState(new Decimal(0))
+  if (!hasCert) {
+    return (
+      <div tw="flex flex-row gap-2 items-center min-h-[2rem]">
+        <Button size="xs" isLoading={isWaiting} onClick={requestSign}>Check my cluster balance</Button> 
+      </div>
+    )
+  }
+  return (
+    <div tw="flex flex-row gap-8 px-0.5">
+      <span tw="text-white whitespace-nowrap" title={currentBalance.toString()}>{currentBalance.toFixed(12)} <small tw="text-gray-400">PHA</small></span>
+      <div tw="flex flex-row gap-2 items-center">
+        <NumberInput
+          size="xs"
+          onChange={(num) => setValue(new Decimal(num))}
+        >
+          <NumberInputField />
+        </NumberInput>
+        <Button
+          isDisabled={isLoading}
+          colorScheme="phalaDark"
+          size="xs"
+          onClick={() => transfer(value)}
+        >
+          Transfer
+        </Button> 
+        {isLoading ? (<Spinner colorScheme="pbalaDark" size="sm" />) : null } 
+      </div>
+    </div>
+  )
+}
+
 //
 //
 //
@@ -170,6 +209,9 @@ export default function ConnectionDetailModal() {
                    <SuspenseFormField label="Cluster">
                      <ClusterIdSelect />
                    </SuspenseFormField>
+                  <SuspenseFormField label="Cluster Balance">
+                    <ClusterBalanceField />
+                  </SuspenseFormField>
                    <SuspenseFormField label="Worker">
                      <WorkerSelect />
                    </SuspenseFormField>
