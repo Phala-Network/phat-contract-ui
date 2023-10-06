@@ -315,12 +315,7 @@ const Logs = () => {
               <span>[#{log.blockNumber}]</span>
               <span>MessageOutput</span>
             </div>
-            {JSON.stringify(
-              R.map(
-                i => hexToNumber(`0x${i}`),
-                R.slice(1, Infinity, R.splitEvery(2, log.output))
-              )
-            )}
+            {JSON.stringify(log.output.result)}
           </div>
         )
       })}
