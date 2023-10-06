@@ -81,6 +81,7 @@ import { getFormIsInvalid } from '../argumentsFormAtom'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { connectionDetailModalVisibleAtom } from '@/components/EndpointInfo'
 import useReset from '../hooks/useReset'
+import { useClusterBalance, currentClusterBalanceAtom } from '../hooks/useClusterBalance'
 
 
 //
@@ -204,7 +205,7 @@ const wasmFetchAtom = atom(null, async (get, set) => {
   const { codeHash, phalaBuildAbi, patronBuildAbi } = get(instantiateContextAtom)
   const state = get(wasmFetchStateAtom)
   const registry = get(phatRegistryAtom)
-  const currentBalance = get(currentBalanceAtom)
+  const currentBalance = get(currentClusterBalanceAtom)
 
   if (!codeHash) {
     console.warn('Unexpected path: codeHash is not available form wasmFetchOnlyAtom')
@@ -402,14 +403,10 @@ const currentStepAtom = atom(get => {
   return 3
 })
 
-const currentBalanceAtom = atom(0)
-
-const isUpdatingClusterBalanceAtom = atom(false) 
-
 const uploadCodeCheckAtom = atom(async get => {
   const registry = get(phatRegistryAtom)
   const candidate = get(candidateAtom)
-  const currentBalance = get(currentBalanceAtom)
+  const currentBalance = get(currentClusterBalanceAtom)
   const systemContract = registry.systemContract
   const account = get(currentAccountAtom)
   const [, cert] = get(cachedCertAtom)
@@ -461,71 +458,6 @@ function useSetRouterContext() {
   }, [setPresetCodeHash, codeHash, reset])
 
   useSetContractMetadataFromPresetCodeHash()
-}
-
-function useClusterBalance() {
-  const [currentBalance, setCurrentBalance] = useAtom(currentBalanceAtom)
-  const [isLoading, setIsLoading] = useAtom(isUpdatingClusterBalanceAtom)
-
-  const [,cert] = useAtomValue(cachedCertAtom)
-  const registry = useAtomValue(phatRegistryAtom)
-  const currentAccount = useAtomValue(currentAccountAtom)
-  const signer = useAtomValue(signerAtom)
-
-  const getBalance = useCallback(async () => {
-    if (!registry || !currentAccount || !cert) {
-      return { total: 0, free: 0 }
-    }
-    const { address } = currentAccount
-    const system = registry.systemContract
-    if (!system) {
-      return { total: 0, free: 0 }
-    }
-    try {
-      const { output: totalBalanceOf } = await system.query['system::totalBalanceOf'](address, { cert }, address)
-      const { output: freeBalanceOf } = await system.query['system::freeBalanceOf'](address, { cert }, address)
-      const total = (totalBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
-      const free = (freeBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
-      return { total, free }
-    } catch (err) {
-      return { total: 0, free: 0 }
-    }
-  }, [registry, currentAccount, cert])
-
-  const refreshBalance = useCallback(async () => {
-    setIsLoading(true)
-    const result = await getBalance()
-    setCurrentBalance(result.free)
-    setIsLoading(false)
-  }, [getBalance, setCurrentBalance, setIsLoading])
-
-  useEffect(() => {
-    (async function() {
-      setIsLoading(true)
-      const result = await getBalance()
-      setCurrentBalance(result.free)
-      setIsLoading(false)
-    })();
-  }, [getBalance])
-
-  const transfer = useCallback(async (value: Decimal) => {
-    if (!currentAccount || !signer) {
-      return
-    }
-    const rounded = Number(value.mul(1e12).toFixed(0)) + 1
-    setIsLoading(true)
-    try {
-      const { address } = currentAccount
-      await signAndSend(registry.transferToCluster(address, rounded), address, signer)
-      // @FIXME wait for next block
-      await new Promise(resolve => setTimeout(resolve, 5000))
-      await refreshBalance()
-    } finally {
-      setIsLoading(false)
-    }
-  }, [registry, currentAccount, signer, setCurrentBalance, setIsLoading, refreshBalance])
-
-  return { currentBalance, isLoading, transfer, getBalance, refreshBalance }
 }
 
 function useUploadCode() {
