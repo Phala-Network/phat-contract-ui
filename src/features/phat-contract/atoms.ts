@@ -908,7 +908,7 @@ export const contractInfoAtomFamily = atomFamily(
         const info = get(localStoreAtom)
         const pinkLogger = get(pinkLoggerAtom)
         const aliceCert = get(aliceCertAtom)
-        if (!api || !account) {
+        if (!api || !account || !signer) {
           throw new Error('Please connect to an endpoint & pick a account first.')
         }
         if (!contractInstance) {
@@ -949,22 +949,26 @@ export const contractInfoAtomFamily = atomFamily(
         if (action.type === 'exec') {
           try {
             if (methodSpec.mutates) {
-              let txConf
+              let r1
               if (action.depositSettings.autoDeposit) {
-                txConf = await estimateGas(contractInstance, name, aliceCert, args);
+                r1 = await contractInstance.send[name]({ cert: action.cert, signer, address: account.address }, ...args)
+                // txConf = await estimateGas(contractInstance, name, aliceCert, args);
                 // debug('auto deposit: ', txConf)
               } else {
-                txConf = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
+                const { gasLimit, storageDepositLimit } = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
+                if (!gasLimit) {
+                  throw new Error('Please input gas limit')
+                }
+                r1 = await signAndSend(
+                  contractInstance.tx[name]({ gasLimit, storageDepositLimit }, ...args),
+                  account.address,
+                  signer
+                )
                 // debug('manual deposit: ', txConf)
               }
-              const r1 = await signAndSend(
-                // @ts-ignore
-                contractInstance.tx[name](txConf as unknown as ContractOptions, ...args),
-                account.address,
-                signer
-              )
+              console.log(r1)
               // @ts-ignore
-              set(dispatchEventAtom, r1.events)
+              // set(dispatchEventAtom, r1.events)
             } else {
               const queryResult = await contractInstance.query[name](
                 account.address,
