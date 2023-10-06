@@ -24,13 +24,13 @@ import {
   type SerMessage,
   PinkBlueprintPromise,
   PinkContractPromise,
+  signAndSend,
 } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 import Decimal from 'decimal.js'
 
-import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
@@ -949,26 +949,22 @@ export const contractInfoAtomFamily = atomFamily(
         if (action.type === 'exec') {
           try {
             if (methodSpec.mutates) {
-              let r1
               if (action.depositSettings.autoDeposit) {
-                r1 = await contractInstance.send[name]({ cert: action.cert, signer, address: account.address }, ...args)
-                // txConf = await estimateGas(contractInstance, name, aliceCert, args);
-                // debug('auto deposit: ', txConf)
+                const result = await contractInstance.send[name]({ cert: action.cert, signer, address: account.address }, ...args)
+                set(dispatchEventAtom, result.events as unknown)
               } else {
                 const { gasLimit, storageDepositLimit } = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
                 if (!gasLimit) {
                   throw new Error('Please input gas limit')
                 }
-                r1 = await signAndSend(
+                const result = await signAndSend(
                   contractInstance.tx[name]({ gasLimit, storageDepositLimit }, ...args),
                   account.address,
                   signer
                 )
+                set(dispatchEventAtom, result.events as unknown)
                 // debug('manual deposit: ', txConf)
               }
-              console.log(r1)
-              // @ts-ignore
-              // set(dispatchEventAtom, r1.events)
             } else {
               const queryResult = await contractInstance.query[name](
                 account.address,
