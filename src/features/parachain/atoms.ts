@@ -151,7 +151,7 @@ export const useAutoConnect = () => {
 
 export const eventsAtom = atomWithReset<PolkadotEvent[]>([])
 
-export const dispatchEventAtom = atom(null, (get, set, events: EventRecord[]) => {
+export const dispatchEventAtom = atom(null, (get, set, events: EventRecord[] | unknown) => {
   const prev = get(eventsAtom)
-  set(eventsAtom, [ ...R.reverse(events.map(i => i.event)), ...prev ])
+  set(eventsAtom, [ ...R.reverse((events as EventRecord[]).map(i => i.event.toJSON() as unknown as PolkadotEvent)), ...prev ])
 })

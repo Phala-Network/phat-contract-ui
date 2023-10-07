@@ -291,40 +291,50 @@ function ResultPanel() {
 const Logs = () => {
   const logs = useAtomValue(pinkLoggerResultAtom)
   return (
-    <div tw="flex flex-col gap-2 my-4">
-      {logs.map((log, i) => {
-        if (log.type === 'Log') {
-          return (
-            <div key={i} tw="font-mono text-sm flex flex-row gap-1">
-              <div tw="text-gray-500 flex flex-row gap-0.5">
-                <span>[#{log.blockNumber}]</span>
-                <span>[{(new Date(log.timestamp)).toISOString()}]</span>
-              </div>
-              <pre>
-                {log.message}
-              </pre>
-            </div>
-          )
-        }
-        if (log.type !== 'MessageOutput') {
-          return <div key={i} tw="font-mono text-sm">{JSON.stringify(log)}</div>
-        }
-        return (
-          <div key={i} tw="font-mono text-sm flex flex-row gap-1">
-            <div tw="text-gray-500 flex flex-row gap-0.5">
-              <span>[#{log.blockNumber}]</span>
-              <span>MessageOutput</span>
-            </div>
-            {JSON.stringify(
-              R.map(
-                i => hexToNumber(`0x${i}`),
-                R.slice(1, Infinity, R.splitEvery(2, log.output))
+      <table tw="table-auto border-separate font-mono text-sm w-full">
+        <tbody>
+          {logs.map((log, i) => {
+            if (log.type === 'Log') {
+              return (
+                <tr key={i}>
+                  <th tw="text-gray-500 whitespace-nowrap py-1.5 pr-2.5 font-light w-48">
+                    <div tw="flex flex-row gap-0.5">
+                      <span>[#{log.blockNumber}]</span>
+                      <span>[{new Date(log.timestamp).toISOString()}]</span>
+                    </div>
+                  </th>
+                  <td tw="py-1.5">
+                    <div tw="whitespace-normal">{log.message}</div>
+                  </td>
+                </tr>
               )
-            )}
-          </div>
-        )
-      })}
-    </div>
+            }
+            if (log.type !== 'MessageOutput') {
+              return (
+                <tr key={i}>
+                  <th></th>
+                  <td tw="py-1.5">
+                    <div>{JSON.stringify(log)}</div>
+                  </td>
+                </tr>
+              )
+            }
+            return (
+              <tr key={i}>
+                <th tw="text-gray-500 whitespace-nowrap py-1.5 pr-2.5 font-light w-48">
+                  <div tw="flex flex-row gap-0.5">
+                    <span>[#{log.blockNumber}]</span>
+                    <span tw="text-gray-200">MessageOutput</span>
+                  </div>
+                </th>
+                <td tw="py-1.5">
+                  <div>{JSON.stringify(log.output.result)}</div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
   )
 }
 

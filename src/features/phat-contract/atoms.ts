@@ -24,13 +24,13 @@ import {
   type SerMessage,
   PinkBlueprintPromise,
   PinkContractPromise,
+  signAndSend,
 } from '@phala/sdk'
 import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 import Decimal from 'decimal.js'
 
-import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
@@ -908,7 +908,7 @@ export const contractInfoAtomFamily = atomFamily(
         const info = get(localStoreAtom)
         const pinkLogger = get(pinkLoggerAtom)
         const aliceCert = get(aliceCertAtom)
-        if (!api || !account) {
+        if (!api || !account || !signer) {
           throw new Error('Please connect to an endpoint & pick a account first.')
         }
         if (!contractInstance) {
@@ -949,22 +949,22 @@ export const contractInfoAtomFamily = atomFamily(
         if (action.type === 'exec') {
           try {
             if (methodSpec.mutates) {
-              let txConf
               if (action.depositSettings.autoDeposit) {
-                txConf = await estimateGas(contractInstance, name, aliceCert, args);
-                // debug('auto deposit: ', txConf)
+                const result = await contractInstance.send[name]({ cert: action.cert, signer, address: account.address }, ...args)
+                set(dispatchEventAtom, result.events as unknown)
               } else {
-                txConf = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
+                const { gasLimit, storageDepositLimit } = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
+                if (!gasLimit) {
+                  throw new Error('Please input gas limit')
+                }
+                const result = await signAndSend(
+                  contractInstance.tx[name]({ gasLimit, storageDepositLimit }, ...args),
+                  account.address,
+                  signer
+                )
+                set(dispatchEventAtom, result.events as unknown)
                 // debug('manual deposit: ', txConf)
               }
-              const r1 = await signAndSend(
-                // @ts-ignore
-                contractInstance.tx[name](txConf as unknown as ContractOptions, ...args),
-                account.address,
-                signer
-              )
-              // @ts-ignore
-              set(dispatchEventAtom, r1.events)
             } else {
               const queryResult = await contractInstance.query[name](
                 account.address,
