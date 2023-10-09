@@ -3,6 +3,7 @@ import tw from 'twin.macro'
 import { useAtomValue, useSetAtom } from 'jotai';
 import { Box, Text, Tooltip, Button, TableContainer, Table, Tbody, Tr, Td } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query';
+import { formatNumber } from '@polkadot/util'
 import { useLastBlock } from '../hooks/useLastBlock'
 import { useTarget } from '../hooks/useTarget';
 import { bestNumberAtom, lastEventsAtom } from '../atoms';
@@ -31,7 +32,7 @@ function PruntimeSyncStatus() {
   const phatRegistry = useAtomValue(phatRegistryAtom)
   const { data } = useQuery(['pruntime-getInfo'], async () => {
     const { blocknum, headernum }= await phatRegistry.phactory.getInfo({})
-    return { blocknum, headernum }
+    return { blocknum: formatNumber(blocknum), headernum: formatNumber(headernum) }
   }, {
     refetchInterval: 10_000, // 10 secs
   })
