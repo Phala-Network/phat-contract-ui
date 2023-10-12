@@ -27,7 +27,7 @@
     "@fontsource/poppins": "^5.0.1",
     "@fontsource/roboto-mono": "^5.0.1",
     "@phala/ink-validator": "^0.1.0",
-    "@phala/sdk": "^0.5.3-nightly-20231012",
+    "@phala/sdk": "^0.5.3-nightly-20231013",
     "@polkadot/extension-dapp": "^0.46.3",
     "@polkadot/react-identicon": "^3.4.1",
     "@polkadot/ui-keyring": "^3.4.1",
