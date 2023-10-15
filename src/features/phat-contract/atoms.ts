@@ -400,7 +400,7 @@ export const availableWorkerListAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-const DEFAULT_ENDPOINT = 'https://poc5.phala.network/tee-api-1'
+const DEFAULT_ENDPOINT = 'https://phat-cluster-us.phala.network/poc6/pruntime/0xac5087e0'
 
 export const userSelectedPruntimeAtom = atomWithStorage<Record<string, string>>('user-selected-pruntime', {})
 
