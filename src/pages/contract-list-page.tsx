@@ -224,7 +224,7 @@ const GetTestPhaButtonNormal = () => {
     setLoading(true)
     const keyring = new Keyring({ type: 'sr25519' })
     const pair = keyring.addFromUri('//Alice')
-    await api.tx.balances.transferKeepAlive(account?.address, '100000000000000')
+    await api.tx.balances.transferKeepAlive(account?.address, '1000000000000000')
       .signAndSend(pair, { nonce: -1 })
     setLoading(false)
   }
