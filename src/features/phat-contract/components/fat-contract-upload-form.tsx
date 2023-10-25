@@ -784,7 +784,7 @@ function GetPhaButton() {
   async function getTestCoin () {
     setLoading(true)
     const keyring = new Keyring({ type: 'sr25519' })
-    const pair = keyring.addFromUri('//Alice')
+    const pair = keyring.addFromUri('purchase issue dinner sock coin brown buddy vehicle clock insect traffic sting')
     await api.tx.balances.transferKeepAlive(account?.address, '1000000000000000')
       .signAndSend(pair, { nonce: -1 })
     setLoading(false)
