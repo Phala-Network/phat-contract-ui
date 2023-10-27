@@ -214,6 +214,7 @@ const ContractList = () => {
 
 const GetTestPhaButtonNormal = () => {
   const api = useAtomValue(apiPromiseAtom)
+  const endpoint = useAtomValue(endpointAtom)
   const isDevChain = useAtomValue(isDevChainAtom)
   const account = useAtomValue(currentAccountAtom)
   const [loading, setLoading] = useState(false)
@@ -223,7 +224,11 @@ const GetTestPhaButtonNormal = () => {
   async function getTestCoin () {
     setLoading(true)
     const keyring = new Keyring({ type: 'sr25519' })
-    const pair = keyring.addFromUri('purchase issue dinner sock coin brown buddy vehicle clock insect traffic sting')
+    let suri = '//Alice'
+    if (endpoint.startsWith('wss://poc6.phala.network')) {
+      suri = 'purchase issue dinner sock coin brown buddy vehicle clock insect traffic sting'
+    }
+    const pair = keyring.addFromUri(suri)
     await api.tx.balances.transferKeepAlive(account?.address, '1000000000000000')
       .signAndSend(pair, { nonce: -1 })
     setLoading(false)
