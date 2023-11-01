@@ -30,11 +30,11 @@ import { validateHex } from '@phala/ink-validator'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 import Decimal from 'decimal.js'
+import ms from 'ms'
 
 import { apiPromiseAtom, dispatchEventAtom } from '@/features/parachain/atoms'
 import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySubscription'
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
-import { queryClusterList, queryEndpointList } from './queries'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { type DepositSettingsValue } from './atomsWithDepositSettings'
 
@@ -242,7 +242,19 @@ export const currentClusterIdAtom = atomWithStorage('user-selected-cluster', '0x
 
 export const registeredClusterListAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
-  return queryClusterList(api)
+  return {
+    queryKey: ['phalaPhatContracts.clusters'],
+    queryFn: async () => {
+      const result = await api.query.phalaPhatContracts.clusters.entries()
+      const transformed: Pairs<string, ClusterInfo>[] = result.map(([storageKey, value]) => {
+        const keys = storageKey.args.map(i => i.toPrimitive()) as string[]
+        const info = value.unwrap().toJSON()
+        info.id = keys[0]
+        return [keys[0], info]
+      })
+      return transformed
+    },
+  }
 })
 
 export const availableClusterOptionsAtom = atom(get => {
@@ -294,7 +306,7 @@ export const currentWorkerIdAtom = atom(
         console.info('user selected worker is not available', rec[endpoint], workers)
         return shuffle(workers)
       }
-      return rec[endpoint]
+      return rec[endpoint]!
     }
 
     if (isClosedBetaEnv) {
@@ -311,6 +323,7 @@ export const currentWorkerIdAtom = atom(
 )
 
 const ExcludedWorkers = [
+  // Mainnet
   "0xb2f8a814ff817f0dd88755f083e25fc6357bd6fe589cb1d56864ffb9802e207a",
   "0xbe0ee6b6a5a34be356bdec3610c0e1c2048536b64d1bc2452171b01e390da50a",
   "0x1ce645681fdd31cf96edd14f5cc12e777648b9d716c8f685de6171dcf8dbf459",
@@ -383,14 +396,52 @@ const ExcludedWorkers = [
   "0x6acdf347f63e10c89152795f1afdae966b5efd42b3273f9b174ba27dac873f1c",
   "0x44bf158f52b4876c27ed6cca6edcfbca9632e033985286199c3530cf7fc1df12",
   "0x3c18c38660d93a14566e9fbee73daf7aabb68c4c2f1f995128820dc339f2fb10",
+
+  // PoC6
+  '0xac5087e0e21de2b2637511e6710db74e5ec2dbc3f02db76ffa02662878ecf333',
 ]
 
-export const availableWorkerListAtom = atom(get => {
-  const clusterInfo = get(currentClusterAtom)
-  if (clusterInfo) {
-    return R.difference(clusterInfo.workers, ExcludedWorkers)
+interface WorkerInfo {
+  id: string
+  endpoint: {
+    default: string
+    v1: string[]
   }
-  return []
+}
+
+export const availableWorkerQueryAtom = atomWithQuery(get => {
+  const api = get(apiPromiseAtom)
+  const clusterId = get(currentClusterIdAtom)
+  return {
+    queryKey: ['workers', clusterId],
+    queryFn: async () => {
+      const lstQuery = await api.query.phalaPhatContracts.clusterWorkers(clusterId)
+      const workerKeys = lstQuery.toJSON() as string[]
+      // @ts-ignore
+      const endpoints: {v1: string[]}[] = (await api.query.phalaRegistry.endpoints.multi(workerKeys)).map(i => i.toJSON())
+      const workers = R.map(
+        ([workerId, endpointInfo]) => {
+          return [
+            (workerId as string),
+            {
+              id: workerId,
+              endpoint: {
+                default: R.head(endpointInfo?.v1 || []),
+                v1: endpointInfo?.v1 || [],
+              }
+            }
+          ]
+        },
+        R.zip(workerKeys, endpoints)
+      ) as [string, WorkerInfo][]
+      return [workerKeys, R.fromPairs(workers)] as const
+    },
+  }
+})
+
+export const availableWorkerListAtom = atom(get => {
+  const [workers, ] = get(availableWorkerQueryAtom)
+  return R.difference(workers, ExcludedWorkers)
 })
 
 
@@ -400,7 +451,7 @@ export const availableWorkerListAtom = atom(get => {
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-const DEFAULT_ENDPOINT = 'https://phat-cluster-us.phala.network/poc6/pruntime/0xac5087e0'
+const DEFAULT_ENDPOINT = 'https://poc6.phala.network/pruntime/0x923462b4'
 
 export const userSelectedPruntimeAtom = atomWithStorage<Record<string, string>>('user-selected-pruntime', {})
 
@@ -411,8 +462,13 @@ export const pruntimeURLAtom = atom(
     if (rec[endpoint]) {
       return rec[endpoint]
     }
-    const pruntimes = get(availablePruntimeListAtom)
-    return R.head(pruntimes) || DEFAULT_ENDPOINT
+    const currentWorkerId = get(currentWorkerIdAtom)
+    if (!currentWorkerId) {
+      return DEFAULT_ENDPOINT
+    }
+    const [, workers] = get(availableWorkerQueryAtom)
+    const worker = workers[currentWorkerId]
+    return worker.endpoint.default || DEFAULT_ENDPOINT
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)
@@ -424,7 +480,22 @@ export const pruntimeURLAtom = atom(
 export const pruntimeListQueryAtom = atomWithQuery(get => {
   const api = get(apiPromiseAtom)
   const workerId = get(currentWorkerIdAtom)
-  return queryEndpointList(api, workerId)
+  return {
+    queryKey: ['phalaPhatContracts.endpoints', workerId],
+    queryFn: async (ctx) => {
+      const { queryKey: [, workerId ]} = ctx
+      const result = await api.query.phalaRegistry.endpoints.entries()
+      const transformed: Pairs<string, EndpointInfo>[] = result.map(([storageKey, value]) => {
+        const keys = storageKey.toHuman() as string[]
+        return [keys[0], value.unwrap().toHuman()]
+      })
+      if (workerId) {
+        return R.filter(i =>i[0] === workerId, transformed)
+      }
+      return transformed
+    },
+    staleTime: ms('5m'),
+  }
 })
 
 export const availablePruntimeListAtom = atom(get => {
