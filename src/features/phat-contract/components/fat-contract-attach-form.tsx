@@ -1,4 +1,4 @@
-import { FC, ReactNode, useEffect } from 'react'
+import { FC, ReactNode, useEffect, useMemo } from 'react'
 
 import React, { Suspense, useState } from 'react'
 import tw from 'twin.macro'
@@ -22,7 +22,7 @@ import { useNavigate, useLocation } from '@tanstack/react-location'
 import { find } from 'ramda'
 
 import { Select } from '@/components/inputs/select'
-import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, pruntimeURLAtom, instantiateTimeoutAtom, contractAttachTargetAtom, candidateAllowIndeterminismAtom } from '../atoms'
+import { candidateAtom, currentClusterIdAtom, availableClusterOptionsAtom, candidateFileInfoAtom, contractAttachTargetAtom, candidateAllowIndeterminismAtom } from '../atoms'
 import useAttachToContract from '../hooks/useAttachToContract'
 import ContractFileUpload from './contract-upload'
 
@@ -65,19 +65,13 @@ const AttachContractField = () => {
   }
   const [target, setTarget] = useAtom(contractAttachTargetAtom)
   useState(false)
-  function checkAndSetTarget(contractId: string) {
-    contractId = contractId.trim()
-    if (contractId.startsWith('0x') && contractId.length == (2 + 32 * 2)) {
-      setTarget(contractId)
-    }
-  }
   return (
     <FormControl>
       <FormLabel>Contract Id</FormLabel>
       <InputGroup>
         <Input
             value={target || defaultContractId}
-            onChange={ev => checkAndSetTarget(ev.target.value)}
+            onChange={ev => setTarget(ev.target.value)}
           />
         </InputGroup>
     </FormControl>
@@ -110,8 +104,12 @@ const SubmitButton = () => {
   const attachToContract = useAttachToContract()
   const navigate = useNavigate()
   const location = useLocation()
+
+  const isValidContractId = useMemo(() => {
+    return contractId && contractId.startsWith('0x') && contractId.length === (2 + 32 * 2)
+  }, [contractId])
   
-  const isDisabled = !(clusterId)
+  const isDisabled = !(clusterId) || !isValidContractId
   
   const handleSubmit = async () => {
     setIsLoading(true)
