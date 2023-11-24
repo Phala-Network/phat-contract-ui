@@ -45,6 +45,7 @@ import {
   unsafeGetWasmFromPatronByCodeHash,
   unsafeCheckCodeHashExists,
   unsafeGetWasmFromGithubRepoByCodeHash,
+  signAndSend,
 } from '@phala/sdk'
 import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
@@ -75,7 +76,6 @@ import {
 } from '../atoms'
 import ContractFileUpload from './contract-upload'
 import InitSelectorField, { constructorArgumentFormAtom, constructorArgumentsAtom } from './init-selector-field'
-import signAndSend from '@/functions/signAndSend'
 import { apiPromiseAtom, isDevChainAtom } from '@/features/parachain/atoms'
 import { getFormIsInvalid } from '../argumentsFormAtom'
 import { endpointAtom } from '@/atoms/endpointsAtom'
@@ -1125,7 +1125,7 @@ function InstantiateGasElimiation() {
   const setInstantiatedContractId = useSetAtom(instantiatedContractIdAtom)
 
   const instantiate = async () => {
-    if (!blueprint || !currentAccount || !constructor || !txOptions) {
+    if (!blueprint || !currentAccount || !constructor || !txOptions || !signer) {
       return
     }
     setIsLoading(true)
