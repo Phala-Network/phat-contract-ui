@@ -51,7 +51,7 @@ import { Abi } from '@polkadot/api-contract'
 import { Keyring } from '@polkadot/keyring'
 import Decimal from 'decimal.js'
 import * as R from 'ramda'
-import { type BN, u8aToHex } from '@polkadot/util'
+import { type BN } from '@polkadot/util'
 import { isRight } from 'fp-ts/Either'
 import * as TE from 'fp-ts/TaskEither'
 
@@ -62,9 +62,9 @@ import { currentAccountAtom, currentAccountBalanceAtom, signerAtom } from '@/fea
 import {
   candidateAtom,
   currentClusterIdAtom,
-  candidateFileInfoAtom,
   contractSelectedInitSelectorAtom,
   phatRegistryAtom,
+  type LocalContractInfo,
   localContractsAtom,
   cachedCertAtom,
   hasCertAtom,
@@ -270,7 +270,7 @@ const wasmUploadAtom = atom(null, async (get, set) => {
   const wasm = get(wasmAtom)
   const logger = get(pinkLoggerAtom)
 
-  if (!candidate || !cert || !(candidate?.source.wasm || wasm)) {
+  if (!candidate || !cert || !(candidate?.source.wasm || wasm) || !currentAccount || !signer) {
     throw new Error('Unexpected path: wasmUploadAtom is called but candidate or cert is not available.')
   }
 
@@ -280,10 +280,8 @@ const wasmUploadAtom = atom(null, async (get, set) => {
   try {
     const code = wasm || candidate.source.wasm
     const codePromise = new PinkCodePromise(registry.api, registry, candidate, code)
-    // @ts-ignore
-    const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
-    blockNumber = uploadResult.blockNumber.toNumber()
-    await uploadResult.waitFinalized(currentAccount, cert, 12_000) // 1 mins
+    const uploadResult = await signAndSend(codePromise.upload(), currentAccount.address, signer)
+    await uploadResult.waitFinalized(registry.alice, await registry.getAnonymousCert(), 12_000) // 1 mins
     set(blueprintPromiseAtom, uploadResult.blueprint)
     set(wasmUploadStateAtom, prev => ({ isProcessing: false, processed: true, error: null, attempts: prev.attempts + 1 }))
   } catch (err) {
@@ -476,7 +474,7 @@ function useUploadCode() {
 
   const upload = useCallback(async () => {
     setError(null)
-    if (!contract) {
+    if (!contract || !currentAccount || !signer) {
       setError({ message: 'Plase choose the contract file to continue.', level: 'info' })
       return
     }
@@ -492,10 +490,9 @@ function useUploadCode() {
         return
       }
       const codePromise = new PinkCodePromise(registry.api, registry, contract, contract.source.wasm)
-      // @ts-ignore
-      const { result: uploadResult } = await signAndSend(codePromise.upload(), currentAccount.address, signer)
-      await uploadResult.waitFinalized(currentAccount, _cert, 120_000)
-      setBlueprintPromise(uploadResult.blueprint)
+      const result = await signAndSend(codePromise.upload(), currentAccount.address, signer)
+      await result.waitFinalized(registry.alice, await registry.getAnonymousCert(), 120_000)
+      setBlueprintPromise(result.blueprint)
     } catch (err) {
       // TODO: better error handling?
       if ((err as Error).message.indexOf('You need connected to an endpoint & pick a account first.') > -1) {
@@ -1130,8 +1127,7 @@ function InstantiateGasElimiation() {
     }
     setIsLoading(true)
     try {
-      // @ts-ignore
-      const { result: instantiateResult }= await signAndSend(
+      const instantiateResult = await signAndSend(
         blueprint.tx[constructor](txOptions, ...args),
         currentAccount.address,
         signer
@@ -1140,7 +1136,7 @@ function InstantiateGasElimiation() {
 
       const { contractId } = instantiateResult
       const metadata = R.dissocPath(['source', 'wasm'], contract)
-      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} }))
+      saveContract(exists => ({ ...exists, [contractId]: {metadata, contractId, savedAt: Date.now()} as LocalContractInfo }))
       setInstantiatedContractId(contractId)
     } finally {
       setIsLoading(false)
