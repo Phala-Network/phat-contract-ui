@@ -34,8 +34,8 @@ export function useClusterBalance() {
     try {
       const { output: totalBalanceOf } = await system.query['system::totalBalanceOf'](address, { cert }, address)
       const { output: freeBalanceOf } = await system.query['system::freeBalanceOf'](address, { cert }, address)
-      const total = (totalBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
-      const free = (freeBalanceOf as unknown as Result<U64, any>).asOk.toNumber() / 1e12
+      const total = Number((totalBalanceOf as unknown as Result<U64, any>).asOk.toBigInt() / BigInt(1e12))
+      const free = Number((freeBalanceOf as unknown as Result<U64, any>).asOk.toBigInt() / BigInt(1e12))
       return { total, free }
     } catch (err) {
       return { total: 0, free: 0 }
