@@ -13,17 +13,15 @@ import { Link, useNavigate } from '@tanstack/react-location'
 import { AiOutlinePlus, AiOutlineImport, AiOutlineCloudUpload } from 'react-icons/ai'
 import { VscLoading } from 'react-icons/vsc'
 import { MdCloudDone, MdCloudOff, MdRemoveCircleOutline } from 'react-icons/md'
-import { Keyring } from '@polkadot/keyring'
 
 import { useShowAccountSelectModal } from '@/components/app-ui'
 import { currentAccountAtom } from '@/features/identity/atoms'
 import { useContractList, useRemoveLocalContract } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
-import { apiPromiseAtom, isDevChainAtom, websocketConnectionMachineAtom } from '@/features/parachain/atoms'
+import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 import ChainSummary from '@/features/chain-info/components/ChainSummary'
-import { isClosedBetaEnv } from '@/vite-env'
 import { metricsAtom } from '@/atoms/metricsAtom'
-import { endpointAtom } from '@/atoms/endpointsAtom'
+import { endpointAtom, preferedEndpointAtom } from '@/atoms/endpointsAtom'
 
 const Summary = () => {
   return (
@@ -212,55 +210,6 @@ const ContractList = () => {
   )
 }
 
-const GetTestPhaButtonNormal = () => {
-  const api = useAtomValue(apiPromiseAtom)
-  const endpoint = useAtomValue(endpointAtom)
-  const isDevChain = useAtomValue(isDevChainAtom)
-  const account = useAtomValue(currentAccountAtom)
-  const [loading, setLoading] = useState(false)
-  if (!account || !isDevChain) {
-    return null
-  }
-  async function getTestCoin () {
-    setLoading(true)
-    const keyring = new Keyring({ type: 'sr25519' })
-    let suri = '//Alice'
-    if (endpoint.startsWith('wss://poc6.phala.network')) {
-      suri = 'purchase issue dinner sock coin brown buddy vehicle clock insect traffic sting'
-    }
-    const pair = keyring.addFromUri(suri)
-    await api.tx.balances.transferKeepAlive(account?.address, '1000000000000000')
-      .signAndSend(pair, { nonce: -1 })
-    setLoading(false)
-  }
-  return (
-    <Button
-      w="full"
-      isLoading={loading}
-      onClick={getTestCoin}
-    >
-      Get Test-PHA
-    </Button>
-  )
-}
-
-const GetTestPhaButtonClosedBeta = () => {
-  const account = useAtomValue(currentAccountAtom)
-  if (!account) {
-    return null
-  }
-  return (
-    <Button
-      w="full"
-      as="a"
-      target="_blank"
-      href="https://discord.com/channels/697726436211163147/1052518183766073354"
-    >
-      Get Test-PHA
-    </Button>
-  )
-}
-
 const MainnetMetrics = () => {
   const metrics = useAtomValue(metricsAtom)
   const [endpoint, setEndpoint] = useAtom(endpointAtom)
@@ -326,15 +275,32 @@ const MainnetMetrics = () => {
   )
 }
 
-const GetTestPhaButton = isClosedBetaEnv ? GetTestPhaButtonClosedBeta : GetTestPhaButtonNormal
+function PoC5TakeDownNotice() {
+  const endpoint = useAtomValue(endpointAtom)
+  const send = useSetAtom(websocketConnectionMachineAtom)
+  const setPreferedEndpoint = useSetAtom(preferedEndpointAtom);
+  if (endpoint !== 'wss://poc5.phala.network/ws') {
+    return null
+  }
+  return (
+    <div tw="p-4 mb-4 rounded-lg text-sm bg-red-500/60">
+      <div tw="text-white text-base mb-2.5">
+        <p>PoC5 Testnet is going to be taken down on 2023-12-12.</p>
+        <p>Please migrate your contracts to the PoC6 Testnet before that.</p>
+      </div>
+      <Button
+        onClick={() => {
+          send({ type: 'RECONNECT', data: { endpoint: 'wss://poc6.phala.network/ws' } })
+          setPreferedEndpoint('wss://poc6.phala.network/ws')
+        }}
+      >
+        Start use PoC6 now.
+      </Button>
+    </div>
+  )
+}
 
 const ContractListPage = () => {
-  const awesomeHref = isClosedBetaEnv
-    ? 'https://github.com/Phala-Network/awesome-phat-contracts'
-    : 'https://github.com/Phala-Network/awesome-fat-contracts'
-  const oracleHref = isClosedBetaEnv
-    ? 'https://github.com/Phala-Network/phat-offchain-rollup/tree/sub0-workshop/phat'
-    : 'https://github.com/Phala-Network/phat-offchain-rollup/blob/main/phat/Sub0-Workshop.md'
   return (
     <div tw="pl-5 pr-5">
       <div tw="grid grid-cols-12 w-full gap-2">
@@ -346,33 +312,20 @@ const ContractListPage = () => {
             <Summary />
           </Suspense>
           <div tw="flex flex-col gap-4">
-            {
-              isClosedBetaEnv
-                ? <Button w="full" as="a" href="https://wiki.phala.network/en-us/build/general/closed-beta/" target="_blank">Getting Started</Button>
-                : <Button w="full" as="a" href="https://wiki.phala.network/" target="_blank">Wiki</Button>
-            }
+            <Button w="full" as="a" href="https://bricks.phala.network/" target="_blank">Bricks</Button>
+            <Button w="full" as="a" href="https://phala.network/faucet" target="_blank">Faucet</Button>
+            <Button w="full" as="a" href="https://docs.phala.network/" target="_blank">Docs</Button>
             <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
-            <Button w="full" as="a" href={awesomeHref} target="_blank">
+            <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-starter-kit" target="_blank">Phat Contract Starter Kit</Button>
+            <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-phat-contracts" target="_blank">
               Awesome Phat Contract
             </Button>
-            {
-              isClosedBetaEnv
-                ? (
-                  <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-examples" target="_blank">
-                    Phat Contract Examples
-                  </Button>
-                )
-                : null
-            }
-            <Button w="full" as="a" href={oracleHref} target="_blank">
-              Oracle Workshop
-            </Button>
-            <Suspense>
-              <GetTestPhaButton />
-            </Suspense>
           </div>
         </div>
         <div tw="col-span-9 order-1">
+          <Suspense>
+            <PoC5TakeDownNotice />
+          </Suspense>
           <Suspense fallback={<ContractListSkeleton />}>
             <ContractList />
           </Suspense>
