@@ -95,22 +95,6 @@ export default function EndpointAddressInput({ label }: { label?: string }) {
               {endpoint === 'wss://poc6.phala.network/ws' ? 'connected' : 'connect'}
             </Button>
           </div>
-          <div tw="flex flex-row justify-between items-center">
-            <div tw="flex flex-row items-center gap-1">
-              <span tw="min-w-[7ch] inline-flex gap-1 items-center">
-                <Tag size="sm" colorScheme="orange" variant="solid">testnet</Tag>
-                <Tag size="sm" colorScheme="yellow" variant="solid">deprecated</Tag>
-              </span>
-              <Code>poc5.phala.network</Code>
-            </div>
-            <Button
-              size="xs"
-              isDisabled={endpoint === 'wss://poc5.phala.network/ws'}
-              onClick={() => connect('wss://poc5.phala.network/ws')}
-            >
-              {endpoint === 'wss://poc5.phala.network/ws' ? 'connected' : 'connect'}
-            </Button>
-          </div>
         </div>
       </FormControl>
     </>
