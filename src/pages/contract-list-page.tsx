@@ -21,7 +21,7 @@ import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalCont
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
 import ChainSummary from '@/features/chain-info/components/ChainSummary'
 import { metricsAtom } from '@/atoms/metricsAtom'
-import { endpointAtom } from '@/atoms/endpointsAtom'
+import { endpointAtom, preferedEndpointAtom } from '@/atoms/endpointsAtom'
 
 const Summary = () => {
   return (
@@ -275,6 +275,31 @@ const MainnetMetrics = () => {
   )
 }
 
+function PoC5TakeDownNotice() {
+  const endpoint = useAtomValue(endpointAtom)
+  const send = useSetAtom(websocketConnectionMachineAtom)
+  const setPreferedEndpoint = useSetAtom(preferedEndpointAtom);
+  if (endpoint !== 'wss://poc5.phala.network/ws') {
+    return null
+  }
+  return (
+    <div tw="p-4 mb-4 rounded-lg text-sm bg-red-500/60">
+      <div tw="text-white text-base mb-2.5">
+        <p>PoC5 Testnet is going to be taken down on 2023-12-12.</p>
+        <p>Please migrate your contracts to the PoC6 Testnet before that.</p>
+      </div>
+      <Button
+        onClick={() => {
+          send({ type: 'RECONNECT', data: { endpoint: 'wss://poc6.phala.network/ws' } })
+          setPreferedEndpoint('wss://poc6.phala.network/ws')
+        }}
+      >
+        Start use PoC6 now.
+      </Button>
+    </div>
+  )
+}
+
 const ContractListPage = () => {
   return (
     <div tw="pl-5 pr-5">
@@ -298,6 +323,9 @@ const ContractListPage = () => {
           </div>
         </div>
         <div tw="col-span-9 order-1">
+          <Suspense>
+            <PoC5TakeDownNotice />
+          </Suspense>
           <Suspense fallback={<ContractListSkeleton />}>
             <ContractList />
           </Suspense>
