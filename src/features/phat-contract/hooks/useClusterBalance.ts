@@ -3,11 +3,10 @@ import { atom, useAtom, useAtomValue } from 'jotai'
 import { signAndSend } from '@phala/sdk'
 import { type Decimal } from 'decimal.js'
 import type { Result, U64 } from '@polkadot/types'
+import { BN } from 'bn.js'
 
 import { currentAccountAtom, signerAtom, } from '@/features/identity/atoms'
 import { phatRegistryAtom, cachedCertAtom } from '../atoms'
-
-
 export const currentClusterBalanceAtom = atom(0)
 
 export const isUpdatingClusterBalanceAtom = atom(false) 
@@ -62,7 +61,7 @@ export function useClusterBalance() {
     if (!currentAccount || !signer) {
       return
     }
-    const rounded = Number(value.mul(1e12).toFixed(0)) + 1
+    const rounded = new BN(value.mul(1e12).toFixed(0))
     setIsLoading(true)
     try {
       const { address } = currentAccount
