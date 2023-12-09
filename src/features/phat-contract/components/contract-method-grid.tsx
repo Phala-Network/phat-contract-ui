@@ -41,6 +41,8 @@ export const argsFormModalVisibleAtom = atom(false)
 
 const currentContractIdAtom = atom<string | null>(null)
 
+const payableValueAtom = atom<bigint | null>(null)
+
 const MethodTypeLabel = tw.span`font-mono font-semibold text-phalaDark text-xs py-0.5 px-2 rounded bg-black uppercase`
 
 const ExecuteButton: FC<{
@@ -49,6 +51,7 @@ const ExecuteButton: FC<{
   formDataAtom: NormalizedFormAtom
 }> = ({ onFinish, depositSettingsValueAtom, formDataAtom }) => {
   const depositSettings = useAtomValue(depositSettingsValueAtom)
+  const value = useAtomValue(payableValueAtom)
   const formData = useAtomValue(formDataAtom)
   const args = useMemo(() => getFormValue(formData), [formData])
 
@@ -70,16 +73,12 @@ const ExecuteButton: FC<{
         try {
           const cert = await getCert()
           if (cert) {
-            await dispatch({ type: 'exec', method: currentMethod, cert, args, depositSettings })
+            await dispatch({ type: 'exec', method: currentMethod, cert, args, depositSettings, value })
             onFinish && onFinish()
           }
         } finally {
           setIsRunning(false)
         }
-        // const result = await runner(depositSettings)
-        // if (result === ExecResult.Stop) {
-        //   return
-        // }
       }}
     >
       Run
@@ -175,6 +174,18 @@ const AutoDepositInputGroup = ({ depositSettingsFieldAtom }: { depositSettingsFi
   )
 }
 
+function PayableValueInput() {
+  const [value, setValue] = useAtom(payableValueAtom)
+  return (
+    <FormControl>
+      <FormLabel>
+        Payable Value
+      </FormLabel>
+      <Input size="sm" tw="max-w-[20rem]" value={value?.toString() || ''} onChange={(evt) => setValue(BigInt(evt.target.value))} />
+    </FormControl>
+  )
+}
+
 const SimpleArgsFormModal = ({ metadata, dispatch }: { metadata?: ContractMetadata, dispatch: ContractInfoDispatch }) => {
   const [visible, setVisible] = useAtom(argsFormModalVisibleAtom)
   const currentMethod = useAtomValue(currentMethodAtom)
@@ -246,6 +257,11 @@ const SimpleArgsFormModal = ({ metadata, dispatch }: { metadata?: ContractMetada
                   </Suspense>
                 </div>
               </FormControl>
+            </div>
+          ) : null}
+          {currentMethod.payable ? (
+            <div tw="mt-2">
+              <PayableValueInput />
             </div>
           ) : null}
         </ModalBody>
