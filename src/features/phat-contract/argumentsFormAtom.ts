@@ -33,7 +33,7 @@ export interface FieldData<T = ValueType> {
   errors?: string[]
   displayName?: string
   displayType?: string
-  enumFields?: (FieldData<T> | string)[]
+  enumFields?: Record<number, string>
   optionField?: FieldData<T> | string
   uiSchema?: UISchemaRecord
 }
@@ -232,24 +232,22 @@ const createEnumTypeFieldData = (registry: Registry, typeDef: TypeDef): EachType
   const { sub } = typeDef
 
   const variants = subToArray(sub)
-  const enums = variants
-      .filter(subItem => subItem.type !== 'Null')
+  let allFieldDataSet = {}
+  const enumFields: Record<number, string> = {}
 
-  const initResult = initEachTypeFieldDataResult()
-
-  return R.reduce((result, subItem) => {
-    const { uid, fieldDataSet } = createFieldData(registry, subItem)
-    return {
-      fieldData: {
-        ...result.fieldData,
-        enumFields: [...(result.fieldData.enumFields || []), uid]
-      },
-      fieldDataSet: {
-        ...result.fieldDataSet,
-        ...fieldDataSet,
-      }
+  variants.forEach((subItem, index) => {
+    if (subItem.type === 'Null') {
+      return
     }
-  }, initResult, enums)
+    const { uid, fieldDataSet } = createFieldData(registry, subItem)
+    enumFields[index] = uid
+    allFieldDataSet = { ...allFieldDataSet, ...fieldDataSet }
+  })
+
+  return {
+    fieldData: { enumFields },
+    fieldDataSet: allFieldDataSet,
+  }
 }
 
 // Option type

@@ -212,7 +212,7 @@ const PlainTypeFieldData = (props: EachFieldDataProps) => {
 
 const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, typeDef, enumFields, errors = [] } = fieldData
-  const subFieldData = enumFields as string[]
+  const subFieldData = enumFields as Record<number, string>
 
   const [selectedVariantName, setSelectedVariantName] = useState<string>()
 
