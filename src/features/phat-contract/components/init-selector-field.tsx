@@ -66,10 +66,9 @@ export const constructorArgumentsAtom = atom(get => {
 })
 
 const InitSelectorField = () => { 
-  const finfo = useAtomValue(candidateFileInfoAtom)
   const selectors = useAtomValue(contractSelectorOptionListAtom)
   const setInitSelector = useSetAtom(contractSelectedInitSelectorAtom)
-  if (!finfo.size || !selectors.length) {
+  if (!selectors || !selectors.length) {
     return <></>
   }
   const chooseSelectors = R.head(selectors.filter(i => i.selected))
