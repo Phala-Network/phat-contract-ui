@@ -1,6 +1,5 @@
 import type { AbiParam } from '@polkadot/api-contract/types'
-import { ChangeEvent, memo, useEffect, useState } from 'react'
-import React, { useMemo } from 'react'
+import React, { type ChangeEvent, memo, useEffect, useState, useMemo } from 'react'
 import tw from 'twin.macro'
 import { TypeDefInfo } from '@polkadot/types'
 import {
@@ -33,7 +32,8 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { useAtomValue, useAtom, WritableAtom } from 'jotai'
+import { useAtomValue, useSetAtom, useAtom } from 'jotai'
+import { selectAtom, atomWithReducer } from 'jotai/utils'
 import { ErrorBoundary } from 'react-error-boundary'
 import * as R from 'ramda'
 
@@ -210,13 +210,22 @@ const PlainTypeFieldData = (props: EachFieldDataProps) => {
   return <OtherTypeFieldData {...props} />
 }
 
+//
+// Enum Input
+//
+
+const enumFieldsLastValueAtom = atomWithReducer(
+  {} as Record<string, string>,
+  (prev, { uid, value }) => ({ ...prev, [uid]: value } as Record<string, string>)
+)
+
 const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
-  const { uid, typeDef, enumFields, errors = [] } = fieldData
+  const { uid, typeDef: { sub }, enumFields, errors = [] } = fieldData
   const subFieldData = enumFields as Record<number, string>
 
-  const [selectedVariantName, setSelectedVariantName] = useState<string>()
-
-  const { sub } = typeDef
+  const valueAtom = useMemo(() => selectAtom(enumFieldsLastValueAtom, rec => rec[uid] || ''), [uid])
+  const selectedVariantName = useAtomValue(valueAtom)
+  const setSelectedVariantName = useSetAtom(enumFieldsLastValueAtom)
 
   const variants = subToArray(sub)
 
@@ -251,7 +260,7 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value
-    setSelectedVariantName(value)
+    setSelectedVariantName({ uid, value })
     const errors = validateNotUndefined(value)
     dispatchErrors(dispatch, uid, errors)
   }
