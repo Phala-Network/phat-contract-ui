@@ -60,7 +60,23 @@ export const websocketConnectionMachineAtom = atomWithMachine<WebsocketConnectio
               })
             })
 
-            const api = await ApiPromise.create(options({ provider: ws, noInitWarn: true }))
+            let metadata = undefined
+            // @FIXME Temporary solution.
+            if (endpoint.indexOf('phala.network') !== -1) {
+              const url = `https://phala.network/api/rpc-metadata?rpc=${endpoint}`
+              metadata = (await fetch(url).then((res) =>
+                res.json()
+              )) as Record<string, `0x${string}`>
+              console.log('try fetching metadata via http')
+            }
+
+            const api = await ApiPromise.create(
+              options({
+                provider: ws,
+                noInitWarn: true,
+                metadata,
+              })
+            )
 
             debug('connected')
 

@@ -1,6 +1,5 @@
 import type { AbiParam } from '@polkadot/api-contract/types'
-import { ChangeEvent, memo, useEffect, useState } from 'react'
-import React, { useMemo } from 'react'
+import React, { type ChangeEvent, memo, useEffect, useState, useMemo } from 'react'
 import tw from 'twin.macro'
 import { TypeDefInfo } from '@polkadot/types'
 import {
@@ -33,7 +32,8 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
 import { IoRemove, IoAdd } from "react-icons/io5"
-import { useAtomValue, useAtom, WritableAtom } from 'jotai'
+import { useAtomValue, useSetAtom, useAtom } from 'jotai'
+import { selectAtom, atomWithReducer } from 'jotai/utils'
 import { ErrorBoundary } from 'react-error-boundary'
 import * as R from 'ramda'
 
@@ -210,60 +210,66 @@ const PlainTypeFieldData = (props: EachFieldDataProps) => {
   return <OtherTypeFieldData {...props} />
 }
 
-const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
-  const { uid, typeDef, enumFields, errors = [] } = fieldData
-  const subFieldData = enumFields as string[]
+//
+// Enum Input
+//
 
-  const [selectedVariantName, setSelectedVariantName] = useState<string>()
+const enumFieldsLastValueAtom = atomWithReducer(
+  {} as Record<string, string>,
+  (prev, { uid, value }) => ({ ...prev, [uid]: value } as Record<string, string>)
+)
 
-  const { sub } = typeDef
+type EnumInputProps = EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }
 
-  const variants = subToArray(sub)
+function EnumInput({
+  fieldData: { uid, typeDef: { sub }, enumFields, errors = [] },
+  dispatch,
+  allAtoms
+}: EnumInputProps) {
+  const valueAtom = useMemo(() => selectAtom(enumFieldsLastValueAtom, rec => rec[uid] || ''), [uid])
+  const selectedVariantName = useAtomValue(valueAtom)
+  const setSelectedVariantName = useSetAtom(enumFieldsLastValueAtom)
 
-  const variantIndex = selectedVariantName !== undefined
-    ? variants.findIndex(variantItem => variantItem.name === selectedVariantName)
-    : undefined
-
-  const variant = variantIndex !== undefined && variantIndex >= 0
-    ? variants[variantIndex]
-    : undefined
+  const variants = useMemo(() => subToArray(sub), [sub])
+  const [optionalValueUid, setOptionalValueUid] = useState('')
+  const [optionalValueAtom, setOptionalValueAtom] = useState<ArgumentFieldAtom | undefined>(undefined)
 
   useEffect(() => {
-    if (variantIndex !== undefined && variant && selectedVariantName) {
-      let nextValue: Record<string, string | null> = { [selectedVariantName]: null }
-      if (variant.type !== 'Null') {
-        nextValue = { [selectedVariantName]: subFieldData[variantIndex] }
+    const idx = R.findIndex(i => i.name === selectedVariantName, variants)
+    const selected = variants[idx]
+    if (selected) {
+      if (selected.type === 'Null') {
+        dispatchValue(dispatch, uid, { [selectedVariantName]: null })
+        setOptionalValueAtom(undefined)
+        setOptionalValueUid('')
+      } else {
+        let subUid = enumFields?.[idx] ?? null
+        dispatchValue(dispatch, uid, { [selectedVariantName]: subUid })
+        if (subUid) {
+          setOptionalValueAtom(allAtoms[subUid])
+          setOptionalValueUid(subUid)
+        } else {
+          setOptionalValueAtom(undefined)
+          setOptionalValueUid('')
+        }
       }
-      dispatchValue(dispatch, uid, nextValue)
     } else {
       dispatchValue(dispatch, uid, undefined)
+      setOptionalValueAtom(undefined)
+      setOptionalValueUid('')
     }
-  }, [variant, variantIndex, selectedVariantName, subFieldData])
-
-  const theAtom = useMemo(() => {
-    if (subFieldData && variantIndex !== undefined) {
-      return allAtoms[subFieldData[variantIndex]]
-    }
-    return undefined
-  }, [allAtoms, subFieldData, variantIndex])
-
-  const isInvalid = errors.length > 0
-
-  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value
-    setSelectedVariantName(value)
-    const errors = validateNotUndefined(value)
-    dispatchErrors(dispatch, uid, errors)
-  }
-
-  debug('EnumTypeFieldData render: variant, fieldData', variant, fieldData)
+  }, [selectedVariantName, enumFields, allAtoms, variants])
 
   return (
     <>
-      <FormControl isInvalid={isInvalid}>
+      <FormControl isInvalid={errors.length > 0}>
         <Select
           value={selectedVariantName}
-          onChange={handleSelectChange}
+          onChange={(event) => {
+            const value = event.target.value
+            setSelectedVariantName({ uid, value })
+            dispatchErrors(dispatch, uid, validateNotUndefined(value))
+          }}
           placeholder="Select a variant"
         >
           {
@@ -278,11 +284,11 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
         <ArgumentErrors errors={errors} />
       </FormControl>
       {
-        variant && variant.type !== 'Null' && variantIndex !== undefined && theAtom
+        optionalValueAtom
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={subFieldData[variantIndex]} theAtom={theAtom} allAtoms={allAtoms} />
+              <ArgumentFieldData uid={optionalValueUid} theAtom={optionalValueAtom} allAtoms={allAtoms} />
             </>
           )
           : null
@@ -290,6 +296,10 @@ const EnumTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps
     </>
   )
 }
+
+//
+// END: EnumInput
+//
 
 const OptionTypeFieldData = ({ fieldData, dispatch, allAtoms }: EachFieldDataProps & { allAtoms: Record<string, ArgumentFieldAtom> }) => {
   const { uid, value, optionField } = fieldData
@@ -626,7 +636,7 @@ const ArgumentFieldData = ({ uid, theAtom, allAtoms = {} }: { uid: string, theAt
       return <PlainTypeFieldData fieldData={fieldData} dispatch={dispatch} />
       
     case TypeDefInfo.Enum:
-      return <EnumTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
+      return <EnumInput fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />
 
     case TypeDefInfo.Option:
       return <OptionTypeFieldData fieldData={fieldData} dispatch={dispatch} allAtoms={allAtoms} />

@@ -37,6 +37,7 @@ import { atomWithQuerySubscription } from '@/features/parachain/atomWithQuerySub
 import { currentAccountAtom, signerAtom } from '@/features/identity/atoms'
 import { endpointAtom } from '@/atoms/endpointsAtom'
 import { type DepositSettingsValue } from './atomsWithDepositSettings'
+import { type PinkContractSendOptions } from '@phala/sdk'
 
 
 export interface SelectorOption {
@@ -827,7 +828,14 @@ export type ContractInfo = ContractLookupResult & {
 
 type FetchAction = { type: 'fetch' }
 type EstimateAction = { type: 'estimate', method: ContractMetaMessage, args?: Record<string, any> }
-type ExecAction = { type: 'exec', method: ContractMetaMessage, args?: Record<string, any>, cert: any, depositSettings:  DepositSettingsValue }
+type ExecAction = {
+  type: 'exec',
+  method: ContractMetaMessage,
+  args?: Record<string, any>,
+  cert: any,
+  depositSettings:  DepositSettingsValue,
+  value?: number | bigint | BN | null
+}
 type ExportAction = { type: 'export' }
 type StakeAction = { type: 'stake', value: string }
 
@@ -1032,7 +1040,18 @@ export const contractInfoAtomFamily = atomFamily(
           try {
             if (methodSpec.mutates) {
               if (action.depositSettings.autoDeposit) {
-                const result = await contractInstance.send[name]({ cert: action.cert, signer, address: account.address }, ...args)
+                const options: PinkContractSendOptions = {
+                    cert: action.cert,
+                    signer,
+                    address: account.address,
+                }
+                if (action.value) {
+                  options.value = action.value
+                }
+                const result = await contractInstance.send[name](
+                  options,
+                  ...args
+                )
                 set(dispatchEventAtom, result.events as unknown)
               } else {
                 const { gasLimit, storageDepositLimit } = R.pick(['gasLimit', 'storageDepositLimit'], action.depositSettings)
