@@ -19,7 +19,7 @@ import { currentAccountAtom } from '@/features/identity/atoms'
 import { useContractList, useRemoveLocalContract } from '@/features/phat-contract/atoms'
 import useLocalContractsImport from '@/features/phat-contract/hooks/useLocalContractsImport'
 import { websocketConnectionMachineAtom } from '@/features/parachain/atoms'
-import ChainSummary from '@/features/chain-info/components/ChainSummary'
+import ChainSummary from '@/components/ChainSummary'
 import { metricsAtom } from '@/atoms/metricsAtom'
 import { endpointAtom, preferedEndpointAtom } from '@/atoms/endpointsAtom'
 
