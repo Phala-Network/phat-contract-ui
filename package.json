@@ -30,7 +30,7 @@
     "@fontsource/poppins": "^5.0.1",
     "@fontsource/roboto-mono": "^5.0.1",
     "@phala/ink-validator": "^0.1.0",
-    "@phala/sdk": "^0.6.0-nightly-20231208",
+    "@phala/sdk": "^0.6.0-beta.2",
     "@polkadot/react-identicon": "^3.4.1",
     "@tanstack/query-core": "^4.29.7",
     "@tanstack/react-location": "^3.7.4",
