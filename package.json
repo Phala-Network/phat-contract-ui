@@ -16,6 +16,9 @@
       "disableShortCss": false
     }
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@chakra-ui/react": "^2.6.1",
     "@codemirror/lang-javascript": "^6.1.9",
