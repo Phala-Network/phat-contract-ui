@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import type { ContractExecuteResult } from '@/features/phat-contract/atoms'
+import type { Codec } from '@polkadot/types/types'
 
 import React, { Suspense, useMemo, useState } from 'react'
 import { Link } from "@tanstack/react-location"
@@ -35,9 +36,8 @@ import {
 } from '@chakra-ui/react'
 import * as R from 'ramda'
 import { ErrorBoundary } from 'react-error-boundary'
-import { formatNumber, hexToNumber } from '@polkadot/util'
+import { formatNumber } from '@polkadot/util'
 import Identicon from '@polkadot/react-identicon'
-import { type SerMessage } from '@phala/sdk'
 import { AccountId, EventMetadataLatest } from '@polkadot/types/interfaces'
 import { KeyringItemType, KeyringJson$Meta } from '@polkadot/ui-keyring/types'
 import keyring from '@polkadot/ui-keyring'
@@ -245,7 +245,7 @@ const EventPanel = () => {
         </div>
       )}
       {events.map((event, index) => {
-        const pairs = R.toPairs(event.data)
+        const pairs = R.toPairs(event.data) as [string, Codec][]
         return (
           <article key={index} tw="flex-grow bg-gray-900 border border-solid border-gray-700 rounded-sm px-4 pt-2 pb-3">
             <div>

@@ -2,7 +2,7 @@ import React, { Suspense } from 'react'
 import tw, { styled } from 'twin.macro'
 import { useAtomValue } from 'jotai'
 import { AnimatePresence, motion } from 'framer-motion'
-import { GoPrimitiveDot } from 'react-icons/go'
+import { GoDotFill } from 'react-icons/go'
 import {HiOutlineDotsVertical as MenuIcon} from 'react-icons/hi'
 import { ButtonGroup, Button, ButtonProps } from '@chakra-ui/react'
 
@@ -10,7 +10,7 @@ import { isDevChainAtom } from '@/features/parachain/atoms'
 import { currentAccountAtom, currentProfileAtom, formatetedAccountBalanceAtom } from '../atoms'
 import { isClosedBetaEnv } from '@/vite-env'
 
-const ConnectStatusDot = styled(GoPrimitiveDot)<{
+const ConnectStatusDot = styled(GoDotFill)<{
   connected?: string
 }>`
   ${tw`w-4 h-4`}

@@ -208,7 +208,7 @@ export function useContractList() {
         ([contractKey, info]) => info.isSome ? [contractKey, true] : [contractKey, false],
         R.zip(contractKeys, results)
       ) as [string, boolean][]
-      return R.fromPairs<boolean>(pairs)
+      return R.fromPairs(pairs)
     }
   )
   return useMemo(() => {
@@ -262,7 +262,7 @@ export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
   const options = clusters.map(([id, obj]) => {
     const { permission } = obj
-    const permissionKey = R.head(R.keys(permission))
+    const permissionKey = R.head(R.keys(permission as any)) as string
     return { label: `[${permissionKey}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
   })
   return options

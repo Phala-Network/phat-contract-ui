@@ -1,4 +1,4 @@
-import type { Result, U64, Bool } from '@polkadot/types'
+import type { Bool } from '@polkadot/types'
 import React, { type ReactNode, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import tw from 'twin.macro'
 import {
@@ -30,10 +30,9 @@ import {
 } from '@chakra-ui/react'
 import { VscClose, VscCopy } from 'react-icons/vsc'
 import { MdOpenInNew } from 'react-icons/md'
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithReducer, atomWithReset, loadable } from 'jotai/utils'
-import { RESET } from 'jotai/utils'
-import CopyToClipboard from 'react-copy-to-clipboard'
+import CopyToClipboard from '@/components/CopyToClipboard'
 import { Link, useMatch } from '@tanstack/react-location'
 import {
   type OnChainRegistry,
@@ -356,7 +355,7 @@ const selectedContructorAtom = atom((get) => {
   if (!initSelector) {
     throw new Error('No valid initSelector specified.')
   }
-  const label = R.prop('label', R.find(i => i.selector === initSelector, spec.constructors))
+  const label = R.prop('label', R.find<ContractMetaConstructor>(i => i.selector === initSelector, spec.constructors)!)
   const method = abi?.constructors.find(i => i.identifier === label) || null
   if (method) {
     return method.method
@@ -848,6 +847,7 @@ function UploadCodeButton() {
       {hasError ? (
         <div tw="mb-2">
           <Alert status={error?.level || 'info'} title={error?.message || 'Unknown Error'}>
+            <div />
           </Alert>
         </div>
       ) : null}

@@ -10,7 +10,7 @@ import {
 } from '@chakra-ui/react'
 import { type FallbackProps } from 'react-error-boundary'
 import ErrorStackParser from 'error-stack-parser'
-import CopyToClipboard from 'react-copy-to-clipboard'
+import CopyToClipboard from '@/components/CopyToClipboard'
 
 
 export function ErrorAlert({ error, resetErrorBoundary }: FallbackProps) {
