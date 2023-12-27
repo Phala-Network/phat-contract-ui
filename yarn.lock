@@ -3251,10 +3251,10 @@
   resolved "https://registry.yarnpkg.com/@phala/ink-validator/-/ink-validator-0.1.0.tgz#c8e550bc366c60567e935c88eafedbe8c6af313a"
   integrity sha512-COEsHwHdPFnJQQFgoBFj/HPpATBz19cYb3QHd8YRfvJChCKGjyKeuepjX+O7+BHPe4wGIaaIPQoQovhvwIAltg==
 
-"@phala/sdk@^0.6.0-beta.2":
-  version "0.6.0-beta.2"
-  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.6.0-beta.2.tgz#fd8881f141ac35325d19a2af658f977038bba5f9"
-  integrity sha512-GpgP7RL+H8UbijUr0C4E3hjgXZ0ElqUaMeUMhnZhIDseHrJ/itvXQI8tEjYpnj1jaoB/64kiXlJwZ/j1Aa2fIQ==
+"@phala/sdk@^0.6.0-beta.3":
+  version "0.6.0-beta.3"
+  resolved "https://registry.yarnpkg.com/@phala/sdk/-/sdk-0.6.0-beta.3.tgz#5fac667d80c3ab5568446702ccc3ffcc1211d039"
+  integrity sha512-Snh2K/Soyv+WDcSxsQMH+U9zbesK/DXbaRWRm7Haoz9HWo8PLQFjVpIZf/pofBPK5sxhZXn0YqkSzuNnC2EF8w==
   dependencies:
     "@polkadot/api" "~10.11.1"
     "@polkadot/api-contract" "~10.11.1"
