@@ -98,6 +98,7 @@ export function WalletModal() {
                         try {
                           await dispatch({ type: 'signinWithEthereum' })
                           setVisible(false)
+                          setSelected('ethereum')
                         } catch (_err) {
                         }
                       }}
@@ -131,7 +132,7 @@ export function WalletModal() {
                 </ul>
               </div>
               <div tw="border-l border-solid border-gray-600 h-[20rem] w-full">
-                {selected || (lastSelectedWallet && lastSelectedWallet !== 'ethereum') ? (
+                {(selected && selected !== 'ethereum') || (lastSelectedWallet && lastSelectedWallet !== 'ethereum') ? (
                   <ul tw="h-[20rem] overflow-y-scroll px-4 w-full flex flex-col gap-0.5">
                     {accounts.map((account, idx) => (
                       <li key={idx}>

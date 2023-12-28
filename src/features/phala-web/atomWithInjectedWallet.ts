@@ -18,12 +18,14 @@ type Wallet = Awaited<ReturnType<typeof UIKeyringProvider.getSupportedWallets>>[
   version?: string
 }
 
-interface InjectedWallet {
+export interface InjectedWallet {
   wallets: Wallet[]
   accounts: InjectedAccount[]
   provider: AnyProvider | null
   lastSelectedWallet: string | null
   lastSelectedAccount: string | null
+  lastSelectedAddress: string | null
+  injectedAccountInfo?: InjectedAccount
   isReady: boolean
 }
 
@@ -49,10 +51,13 @@ export function atomWithInjectedWallet(appName: string, clientAtom: ClientAtom) 
 
   const currentProviderAtom = atom<AnyProvider | null>(null)
 
+  const injectedAccountInfoAtom = atom<InjectedAccount | null>(null)
+
   const lastSelectedAtom = atomWithStorage<{
     wallet: string | null
     account: string | null
-  }>(`${appName}::last-selected`, { wallet: null, account: null })
+    address: string | null
+  }>(`${appName}::last-selected`, { wallet: null, account: null, address: null })
 
   //
 
@@ -68,6 +73,8 @@ export function atomWithInjectedWallet(appName: string, clientAtom: ClientAtom) 
         provider,
         lastSelectedWallet: lastSelected.wallet,
         lastSelectedAccount: lastSelected.account,
+        lastSelectedAddress: lastSelected.address,
+        injectedAccountInfo: get(injectedAccountInfoAtom) ?? undefined,
         isReady: !!provider,
       } as InjectedWallet
     },
@@ -89,6 +96,7 @@ export function atomWithInjectedWallet(appName: string, clientAtom: ClientAtom) 
               const accounts = await UIKeyringProvider.getAllAccountsFromProvider(appName, wallet?.key ?? '')
               set(selectedWalletKeyAtom, wallet.key)
               set(injectedAccountsAtom, accounts)
+              set(injectedAccountInfoAtom, accounts.find(i => i.address === selected.account) ?? null)
             }
           }
         }, 500)
@@ -145,7 +153,8 @@ export function atomWithInjectedWallet(appName: string, clientAtom: ClientAtom) 
         const instance = await UIKeyringProvider.create(registry.instance!.api, appName, walletKey, action.account)
         await instance.signCertificate()
         set(currentProviderAtom, instance)
-        set(lastSelectedAtom, { wallet: walletKey, account: action.account.address })
+        set(lastSelectedAtom, { wallet: walletKey, account: action.account.address, address: action.account.address })
+        set(injectedAccountInfoAtom, action.account)
       }
       else if (action.type === 'signinWithEthereum') {
         const client = createWalletClient({ chain: mainnet, transport: custom((window as any).ethereum) })
@@ -154,7 +163,8 @@ export function atomWithInjectedWallet(appName: string, clientAtom: ClientAtom) 
         await new Promise(resolve => setTimeout(resolve, 400))
         await instance.signCertificate()
         set(currentProviderAtom, instance)
-        set(lastSelectedAtom, { wallet: 'ethereum', account: address })
+        set(lastSelectedAtom, { wallet: 'ethereum', account: address, address: instance.address })
+        set(injectedAccountInfoAtom, null)
       } else {
         throw new Error(`Unknown action: ${action}`)
       }

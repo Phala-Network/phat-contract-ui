@@ -9,7 +9,6 @@ import { lastSelectedWeb3ProviderAtom, useRestoreLastSelectedAccount } from '@/f
 import AccessPointCombo from '@/components/AccessPointCombo'
 import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
 import Logo from './Logo'
-import { isClosedBetaEnv } from '@/vite-env'
 import ScrollContainer from '@/components/ScrollContainer'
 import { WalletModal, walletModalVisibleAtom } from './ConnectWalletModal'
 
@@ -43,12 +42,8 @@ export const AppHeader: FC<{
   useAutoConnect()
   const setWalletModalVisible = useSetAtom(walletModalVisibleAtom)
   const setEndpointInfoVisible = useSetAtom(connectionDetailModalVisibleAtom)
-  const bgCss = isClosedBetaEnv ? tw`bg-brand-900 py-2` : tw`bg-black py-2`
-  const linkCss = isClosedBetaEnv
-    ? tw`text-phala-500 inline-flex relative`
-    : tw`text-phala-500`
   return (
-    <div css={bgCss}>
+    <div tw='bg-black py-2'>
       <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
         <div tw="flex flex-row gap-4 items-center">
           <Link to="/" tw="w-32 aspect-[128/72] flex flex-row items-center">
@@ -68,7 +63,10 @@ export const AppHeader: FC<{
           </Link>
         </div>
         <div tw="mt-4 flex flex-row items-center justify-center gap-1 md:mt-0 md:ml-4">
-          <AccessPointCombo onAccountClick={() => setWalletModalVisible(true)} onConnectionStatusClick={() => setEndpointInfoVisible(true)} />
+          <AccessPointCombo
+            onAccountClick={() => setWalletModalVisible(true)}
+            onConnectionStatusClick={() => setEndpointInfoVisible(true)}
+          />
         </div>
       </header>
       <WalletModal />
