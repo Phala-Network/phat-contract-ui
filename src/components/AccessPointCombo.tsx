@@ -7,7 +7,7 @@ import {HiOutlineDotsVertical as MenuIcon} from 'react-icons/hi'
 import { ButtonGroup, Button, ButtonProps } from '@chakra-ui/react'
 
 import { isDevChainAtom } from '@/features/parachain/atoms'
-import { currentAccountAtom, currentProfileAtom, formatetedAccountBalanceAtom } from '../atoms'
+import { currentAccountAtom, currentProfileAtom, formatetedAccountBalanceAtom } from '@/features/identity/atoms'
 import { isClosedBetaEnv } from '@/vite-env'
 
 const ConnectStatusDot = styled(GoDotFill)<{

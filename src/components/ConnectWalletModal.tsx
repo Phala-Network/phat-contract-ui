@@ -16,7 +16,7 @@ import {
 
 import { injectedWalletAtom, isEvmMappingPalletSupportedAtom } from '@/atoms/core'
 
-export const walletModalVisibleAtom = atom(true)
+export const walletModalVisibleAtom = atom(false)
 
 function WalletButton({ onClick, installed, version, active, children }: {
   onClick: () => void
