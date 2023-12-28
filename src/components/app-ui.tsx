@@ -7,11 +7,11 @@ import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { useAutoConnect } from '@/features/parachain/atoms'
 import { lastSelectedWeb3ProviderAtom, useRestoreLastSelectedAccount } from '@/features/identity/atoms'
 import AccessPointCombo from '@/features/identity/components/AccessPointCombo'
-import { WalletSelectModal, AccountSelectModal } from '@/features/identity/components/AccountSelectModal'
 import EndpointInfoModal, { connectionDetailModalVisibleAtom } from './EndpointInfo'
 import Logo from './Logo'
 import { isClosedBetaEnv } from '@/vite-env'
 import ScrollContainer from '@/components/ScrollContainer'
+import { WalletModal, walletModalVisibleAtom } from './ConnectWalletModal'
 
 export const walletSelectModalVisibleAtom = atom(false) 
 
@@ -41,7 +41,7 @@ export const AppHeader: FC<{
 }> = ({ title = 'PHALA', left }) => {
   useRestoreLastSelectedAccount()
   useAutoConnect()
-  const showAccountSelectModal = useShowAccountSelectModal()
+  const setWalletModalVisible = useSetAtom(walletModalVisibleAtom)
   const setEndpointInfoVisible = useSetAtom(connectionDetailModalVisibleAtom)
   const bgCss = isClosedBetaEnv ? tw`bg-brand-900 py-2` : tw`bg-black py-2`
   const linkCss = isClosedBetaEnv
@@ -68,11 +68,10 @@ export const AppHeader: FC<{
           </Link>
         </div>
         <div tw="mt-4 flex flex-row items-center justify-center gap-1 md:mt-0 md:ml-4">
-          <AccessPointCombo onAccountClick={showAccountSelectModal} onConnectionStatusClick={() => setEndpointInfoVisible(true)} />
+          <AccessPointCombo onAccountClick={() => setWalletModalVisible(true)} onConnectionStatusClick={() => setEndpointInfoVisible(true)} />
         </div>
       </header>
-      <WalletSelectModal visibleAtom={walletSelectModalVisibleAtom} accountSelectModalVisibleAtom={accountSelectModalVisibleAtom} />
-      <AccountSelectModal visibleAtom={accountSelectModalVisibleAtom} walletSelectModalVisibleAtom={walletSelectModalVisibleAtom} />
+      <WalletModal />
       <EndpointInfoModal />
     </div>
   )
