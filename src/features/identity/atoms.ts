@@ -78,7 +78,7 @@ const getAllAcountsForProvider = async (name: string, keyring: Keyring) => {
   const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
   if(provider && provider.enable) {
     try {
-      const gateway = await provider.enable('Phat Contracts UI')
+      const gateway = await provider.enable('Phat Contract DevTool')
       const accounts = await gateway.accounts.get(true)
       return accounts.map(acc => ({
         ...acc,

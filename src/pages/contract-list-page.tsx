@@ -312,7 +312,6 @@ const ContractListPage = () => {
             <Summary />
           </Suspense>
           <div tw="flex flex-col gap-4">
-            <Button w="full" as="a" href="https://bricks.phala.network/" target="_blank">Bricks</Button>
             <Button w="full" as="a" href="https://phala.network/faucet" target="_blank">Faucet</Button>
             <Button w="full" as="a" href="https://docs.phala.network/" target="_blank">Docs</Button>
             <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>

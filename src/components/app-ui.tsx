@@ -50,14 +50,22 @@ export const AppHeader: FC<{
   return (
     <div css={bgCss}>
       <header tw="mx-auto w-full max-w-7xl md:flex md:items-center md:justify-between py-2">
-        <div tw="flex-1 min-w-0">
-          {left ? left : (
-            <h2 tw="text-2xl font-bold leading-7 text-white font-heading">
-              <Link css={linkCss} to="/" title={title}>
-                <Logo />
-              </Link>
-            </h2>
-          )}
+        <div tw="flex flex-row gap-4 items-center">
+          <Link to="/" tw="w-32 aspect-[128/72] flex flex-row items-center">
+            <Logo />
+          </Link>
+          <a
+            href="https://dashboard.phala.network"
+            tw="rounded-sm px-8 py-2 bg-transparent text-white font-medium hover:bg-gray-700 transition-all"
+          >
+            Dashboard
+          </a>
+          <Link
+            to="/"
+            tw="rounded-sm px-8 py-2 bg-transparent text-white font-medium hover:bg-gray-700 transition-all"
+          >
+            DevTool
+          </Link>
         </div>
         <div tw="mt-4 flex flex-row items-center justify-center gap-1 md:mt-0 md:ml-4">
           <AccessPointCombo onAccountClick={showAccountSelectModal} onConnectionStatusClick={() => setEndpointInfoVisible(true)} />
