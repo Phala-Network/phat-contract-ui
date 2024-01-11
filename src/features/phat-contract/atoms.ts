@@ -3,7 +3,6 @@ import type { AnyJson } from '@polkadot/types/types'
 import type { u64, Option } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
 
-import { isClosedBetaEnv } from '@/vite-env'
 import { useMemo, useCallback, useEffect, useState } from 'react'
 import { type Atom, type WritableAtom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { type SetAtom } from 'jotai/core/atom'
@@ -309,12 +308,7 @@ export const currentWorkerIdAtom = atom(
       }
       return rec[endpoint]!
     }
-
-    if (isClosedBetaEnv) {
-      return shuffle(workers)
-    } else {
-      return R.head(workers)
-    }
+    return shuffle(workers)
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)
