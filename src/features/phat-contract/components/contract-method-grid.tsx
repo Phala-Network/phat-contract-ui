@@ -379,7 +379,7 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
     <>
       {groupedMessages.length === 1 ? (
         <SimpleGrid columns={3} spacing={8}>
-          {groupedMessages[0][1].map((message, i) => (
+          {groupedMessages?.[0]?.[1]?.map((message, i) => (
             <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
               <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
               <div tw="flex flex-row items-center justify-between">
@@ -431,7 +431,7 @@ export default function ContractMethodGrid({ contractId }: { contractId: string 
         groupedMessages.map(([label, messages]) => (
           <Details key={label} label={label}>
             <SimpleGrid columns={3} spacing={8}>
-              {messages.map((message, i) => (
+              {messages?.map((message, i) => (
                 <Box key={i} borderWidth="1px" overflow="hidden" my="2" p="4" bg="gray.800" display="flex" flexDir="column" gap="2">
                   <h4 tw="mr-2 font-mono text-base break-all">{message.label}</h4>
                   <div tw="flex flex-row items-center justify-between">

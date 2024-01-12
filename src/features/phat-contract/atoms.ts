@@ -3,7 +3,6 @@ import type { AnyJson } from '@polkadot/types/types'
 import type { u64, Option } from '@polkadot/types'
 import type { BN } from '@polkadot/util'
 
-import { isClosedBetaEnv } from '@/vite-env'
 import { useMemo, useCallback, useEffect, useState } from 'react'
 import { type Atom, type WritableAtom, atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { type SetAtom } from 'jotai/core/atom'
@@ -208,7 +207,7 @@ export function useContractList() {
         ([contractKey, info]) => info.isSome ? [contractKey, true] : [contractKey, false],
         R.zip(contractKeys, results)
       ) as [string, boolean][]
-      return R.fromPairs<boolean>(pairs)
+      return R.fromPairs(pairs)
     }
   )
   return useMemo(() => {
@@ -262,7 +261,7 @@ export const availableClusterOptionsAtom = atom(get => {
   const clusters = get(registeredClusterListAtom)
   const options = clusters.map(([id, obj]) => {
     const { permission } = obj
-    const permissionKey = R.head(R.keys(permission))
+    const permissionKey = R.head(R.keys(permission as any)) as string
     return { label: `[${permissionKey}] ${id.substring(0, 6)}...${id.substring(id.length - 6)}`, value: id }
   })
   return options
@@ -309,12 +308,7 @@ export const currentWorkerIdAtom = atom(
       }
       return rec[endpoint]!
     }
-
-    if (isClosedBetaEnv) {
-      return shuffle(workers)
-    } else {
-      return R.head(workers)
-    }
+    return shuffle(workers)
   },
   (get, set, value: string) => {
     const endpoint = get(endpointAtom)

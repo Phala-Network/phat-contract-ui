@@ -22,7 +22,7 @@ import {
 } from "@chakra-ui/react";
 import { BiEdit, BiCopy } from 'react-icons/bi';
 import { MdOpenInNew } from 'react-icons/md'
-import CopyToClipboard from 'react-copy-to-clipboard'
+import CopyToClipboard from '@/components/CopyToClipboard'
 import { Link, useMatch } from '@tanstack/react-location'
 
 import { apiPromiseAtom, websocketConnectionMachineAtom } from '@/features/parachain/atoms';

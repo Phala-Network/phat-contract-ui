@@ -4,9 +4,9 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { Box, Text, Tooltip, Button, TableContainer, Table, Tbody, Tr, Td } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@polkadot/util'
-import { useLastBlock } from '../hooks/useLastBlock'
-import { useTarget } from '../hooks/useTarget';
-import { bestNumberAtom, lastEventsAtom } from '../atoms';
+import { useLastBlock } from '@/features/chain-info/hooks/useLastBlock'
+import { useTarget } from '@/features/chain-info/hooks/useTarget';
+import { bestNumberAtom, lastEventsAtom } from '@/features/chain-info/atoms';
 import { endpointAtom } from '@/atoms/endpointsAtom';
 import { dispatchOpenTabAtom, TabIndex } from '@/components/StatusBar';
 import { phatRegistryAtom } from '@/features/phat-contract/atoms';

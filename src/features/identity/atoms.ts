@@ -75,7 +75,7 @@ const sortedAccounts = (acc: Readonly<InjectedAccountWithMetaAndName[]>) => {
 
 const getAllAcountsForProvider = async (name: string, keyring: Keyring) => {
   await new Promise(resolve => setTimeout(resolve, 2000))
-  const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
+  const provider: InjectedWindowProvider | undefined = (path(['injectedWeb3', name], window) as InjectedWindowProvider | undefined)
   if(provider && provider.enable) {
     try {
       const gateway = await provider.enable('Phat Contract DevTool')
@@ -158,7 +158,7 @@ export const useRestoreLastSelectedAccount = () => {
 
 export const signerAtom = atom(async (get) => {
   const name = get(lastSelectedWeb3ProviderAtom)
-  const provider: InjectedWindowProvider | undefined = path(['injectedWeb3', name], window)
+  const provider: InjectedWindowProvider | undefined = (path(['injectedWeb3', name], window) as InjectedWindowProvider | undefined)
   if(provider && provider.enable) {
     try {
       const gateway = await provider.enable('PhatContractUI')
