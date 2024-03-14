@@ -232,7 +232,6 @@ function EnumInput({
 
   const variants = useMemo(() => subToArray(sub), [sub])
   const [optionalValueUid, setOptionalValueUid] = useState('')
-  const [optionalValueAtom, setOptionalValueAtom] = useState<ArgumentFieldAtom | undefined>(undefined)
 
   useEffect(() => {
     const idx = R.findIndex(i => i.name === selectedVariantName, variants)
@@ -240,25 +239,21 @@ function EnumInput({
     if (selected) {
       if (selected.type === 'Null') {
         dispatchValue(dispatch, uid, { [selectedVariantName]: null })
-        setOptionalValueAtom(undefined)
         setOptionalValueUid('')
       } else {
         let subUid = enumFields?.[idx] ?? null
         dispatchValue(dispatch, uid, { [selectedVariantName]: subUid })
         if (subUid) {
-          setOptionalValueAtom(allAtoms[subUid])
           setOptionalValueUid(subUid)
         } else {
-          setOptionalValueAtom(undefined)
           setOptionalValueUid('')
         }
       }
     } else {
       dispatchValue(dispatch, uid, undefined)
-      setOptionalValueAtom(undefined)
       setOptionalValueUid('')
     }
-  }, [selectedVariantName, enumFields, allAtoms, variants])
+  }, [selectedVariantName, enumFields, variants])
 
   return (
     <>
@@ -284,11 +279,11 @@ function EnumInput({
         <ArgumentErrors errors={errors} />
       </FormControl>
       {
-        optionalValueAtom
+        optionalValueUid
           ? (
             <>
               <FormLabel mt={FIELD_GAP}>Enter a value for selected variant</FormLabel>
-              <ArgumentFieldData uid={optionalValueUid} theAtom={optionalValueAtom} allAtoms={allAtoms} />
+              <ArgumentFieldData uid={optionalValueUid} theAtom={allAtoms[optionalValueUid]} allAtoms={allAtoms} />
             </>
           )
           : null
