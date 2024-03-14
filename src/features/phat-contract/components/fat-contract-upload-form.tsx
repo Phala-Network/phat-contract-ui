@@ -41,7 +41,6 @@ import {
   PinkCodePromise,
   PinkBlueprintPromise,
   unsafeGetAbiFromGitHubRepoByCodeHash,
-  unsafeGetAbiFromPatronByCodeHash,
   unsafeGetWasmFromPatronByCodeHash,
   unsafeCheckCodeHashExists,
   unsafeGetWasmFromGithubRepoByCodeHash,
@@ -128,14 +127,13 @@ function getInstantiateContext({ phatRegistry, publicCert }: CheckInstantiateCon
       }
     }
     const _unsafeCheckCodeHashExists = unsafeCheckCodeHashExists({ systemContract, cert: publicCert })
-    const [codeExistsQuery, phalaBuildAbiQuery, patronBuildAbiQuery] = await Promise.all([
+    const [codeExistsQuery, phalaBuildAbiQuery] = await Promise.all([
       TE.tryCatch(() => _unsafeCheckCodeHashExists(codeHash), R.always(null))(),
       TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
-      TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
     ])
     const codeExists = isRight(codeExistsQuery) && codeExistsQuery.right
     const phalaBuildAbi = isRight(phalaBuildAbiQuery) ? phalaBuildAbiQuery.right : undefined
-    const patronBuildAbi = isRight(patronBuildAbiQuery) ? patronBuildAbiQuery.right : undefined
+    const patronBuildAbi = undefined
     return {
       mode: codeExists ? 'instantiate' : 'upload',
       codeExists,

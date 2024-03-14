@@ -19,7 +19,6 @@ import {
   type CertificateData,
   signCertificate,
   unsafeGetAbiFromGitHubRepoByCodeHash,
-  unsafeGetAbiFromPatronByCodeHash,
   unsafeGetContractCodeHash,
   type SerMessage,
   PinkBlueprintPromise,
@@ -724,22 +723,8 @@ function unsafeFetchMetadataProgressive(deps: { registry: OnChainRegistry, local
       }
     }
     // TODO use react-query here?
-    const [selfhostAbi, patronAbi] = await Promise.all([
-      TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))(),
-      TE.tryCatch(() => unsafeGetAbiFromPatronByCodeHash(codeHash), R.always(null))(),
-    ])
-    if (isRight(patronAbi)) {
-      return {
-        contractId: contractId,
-        codeHash,
-        deployer,
-        found: true,
-        verified: true,
-        cached,
-        metadata: localMetadata?.metadata || patronAbi.right as ContractMetadata,
-        source: 'Patron',
-      }
-    } else if (isRight(selfhostAbi)) {
+    const selfhostAbi = await TE.tryCatch(() => unsafeGetAbiFromGitHubRepoByCodeHash(codeHash), R.always(null))()
+    if (isRight(selfhostAbi)) {
       return {
         contractId: contractId,
         codeHash,
