@@ -314,7 +314,7 @@ const ContractListPage = () => {
           <div tw="flex flex-col gap-4">
             <Button w="full" as="a" href="https://phala.network/faucet" target="_blank">Faucet</Button>
             <Button w="full" as="a" href="https://docs.phala.network/" target="_blank">Docs</Button>
-            <Button w="full" as="a" href="https://discord.gg/phala" target="_blank">Discord</Button>
+            <Button w="full" as="a" href="https://discord.gg/phala-network" target="_blank">Discord</Button>
             <Button w="full" as="a" href="https://github.com/Phala-Network/phat-contract-starter-kit" target="_blank">Phat Contract Starter Kit</Button>
             <Button w="full" as="a" href="https://github.com/Phala-Network/awesome-phat-contracts" target="_blank">
               Awesome Phat Contract
