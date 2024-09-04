@@ -993,8 +993,11 @@ export const contractInfoAtomFamily = atomFamily(
 
       async (get: WriteGetter, set: Setter, action: ContractInfoActions) => {
         if (!contractId) {
+          console.error('contract info dispatch without contract id')
           return
         }
+
+        console.log(`[${contractId}] call contract info atom dispatch`, action)
         //
         // Fetch Info
         //
@@ -1013,6 +1016,7 @@ export const contractInfoAtomFamily = atomFamily(
               i => [i.meta.identifier, i.meta.method],
               R.values(contractInstance.query || {})
             ))
+            console.log(`[${contractId}] methods`, result.metadata, methods)
             set(availableMethodsAtom, methods)
           }
           set(isFetchingAtom, false)
@@ -1075,6 +1079,7 @@ export const contractInfoAtomFamily = atomFamily(
         const methodSpec = action.method
         const methods = get(availableMethodsAtom)
         if (!methods[methodSpec.label]) {
+          console.log('Method not found: ', methodSpec.label, methods)
           return
         }
         const name = methods[methodSpec.label]
@@ -1101,6 +1106,7 @@ export const contractInfoAtomFamily = atomFamily(
 
         if (action.type === 'estimate') {
           const txConf = await estimateGas(contractInstance, name, aliceCert, args);
+          console.log(`[${contractId}] estimated result`, txConf)
           return txConf
         }
 

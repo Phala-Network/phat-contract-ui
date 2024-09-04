@@ -62,7 +62,7 @@ export function atomsWithDepositSettings(estimateGasAtom: Atom<Promise<EstimateR
         if (gasLimit === undefined) {
           if (!prev.autoDeposit && prev.gasLimit !== undefined) {
             gasLimit = prev.gasLimit
-          } else if (estimate.gasLimit) {
+          } else if (estimate && estimate.gasLimit) {
             gasLimit = estimate.gasLimit.toNumber()
           }
         }
